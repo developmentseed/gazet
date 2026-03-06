@@ -104,7 +104,7 @@ class WriteGeoSQL(dspy.Signature):
 
 
 lm = dspy.LM(
-    f"ollama_chat/{MODEL}", api_base="http://localhost:11434", api_key="", temperature=0
+    f"ollama_chat/{MODEL}", api_base="http://localhost:11434", api_key="", temperature=0.1, cache=False,
 )
 dspy.configure(lm=lm)
 

@@ -127,7 +127,7 @@ with col1:
             label_visibility="collapsed",
         )
     with btn_col:
-        search_clicked = st.button("Search", type="primary")
+        search_clicked = st.button("Go!", type="primary")
     if search_clicked and q:
         st.session_state.run_q = q
     for ex in EXAMPLES:
