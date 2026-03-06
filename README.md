@@ -1,49 +1,22 @@
-# gazet
+# Gazet
 
-Lean natural-language geocoder with GIS operations over Overture and Natural Earth parquet datasets. In an industry trending toward ever-larger models and heavier infrastructure, gazet takes the opposite path: small language models, DuckDB, and local Parquet files — no PostGIS, no cloud geocoding APIs, no bloat.
+Lean natural-language geocoder with GIS operations over Overture and Natural Earth parquet datasets.
 
-Name inspired by [Gazetteer](https://en.wikipedia.org/wiki/Gazetteer). A gazetteer is a geographical dictionary or directory used in conjunction with a map or atlas.
+Gazet  is built to be easily packagable and minimal in setup, trying to push the boundaries on how small we can go in setup for LLM driven data applications. It is built for working with small language models and parquet files.
 
-## Modules
-
-| Module | Contents |
-| --- | --- |
-| `config.py` | data paths, model name, SQL schema description |
-| `types.py` | `SUBTYPES`, `COUNTRIES`, `Place`, `PlacesResult` |
-| `lm.py` | DSPy signatures + LM init (`extract`, `write_sql`) |
-| `search.py` | fuzzy search against `divisions_area` / `natural_earth` |
-| `sql.py` | code-act SQL generation loop |
-| `export.py` | GeoJSON FeatureCollection writer |
-| `api.py` | FastAPI app with `/search?q=...` returning GeoJSON FeatureCollection |
+The name inspired by [Gazetteer](https://en.wikipedia.org/wiki/Gazetteer). A gazetteer is a geographical dictionary or directory used in conjunction with a map or atlas.
 
 ## Local setup
 
-Install python dependencies
+### Python setup
+
+Install python dependencies using [uv](https://docs.astral.sh/uv/)
 
 ```bash
 uv sync --extra dev --extra demo
 ```
 
-### Based on ollama
-
-For now, gazet relies on ollama. For remote (cloud) models,
-ensure you are loged into Ollama.
-
-## Usage
-
-```bash
-python -m gazet
-# then GET http://localhost:8000/search?q=Border%20between%20Loja%20and%20Piura
-```
-
-### API + Streamlit demo
-
-```bash
-uv run uvicorn gazet.api:app --reload   # API on :8000
-uv run streamlit run demo_app.py   # demo UI
-```
-
-## Data preparation
+### Data preparation
 
 1. Download Overture divisions data
 2. Download the 10m physical layer from [Natural Earth](https://www.naturalearthdata.com/downloads/10m-physical-vectors/)
@@ -62,6 +35,38 @@ Example for running conversion script for natural earth
 ```bash
 python -m ingest.convert_natural_earth ~/Downloads/10m_physical
 ```
+
+### Based on ollama
+
+For now, gazet relies on [ollama](https://ollama.com/). For remote (cloud) models, ensure you are loged into Ollama.
+
+## Usage
+
+```bash
+python -m gazet
+# then GET http://localhost:8000/search?q=Border%20between%20Loja%20and%20Piura
+```
+
+### API + Streamlit demo
+
+```bash
+uv run uvicorn gazet.api:app --reload   # API on :8000
+uv run streamlit run gazet_demo.py   # demo UI
+```
+
+
+
+## Modules
+
+| Module | Contents |
+| --- | --- |
+| `config.py` | data paths, model name, SQL schema description |
+| `types.py` | `SUBTYPES`, `COUNTRIES`, `Place`, `PlacesResult` |
+| `lm.py` | DSPy signatures + LM init (`extract`, `write_sql`) |
+| `search.py` | fuzzy search against `divisions_area` / `natural_earth` |
+| `sql.py` | code-act SQL generation loop |
+| `export.py` | GeoJSON FeatureCollection writer |
+| `api.py` | FastAPI app with `/search?q=...` returning GeoJSON FeatureCollection |
 
 ## Design notes
 
