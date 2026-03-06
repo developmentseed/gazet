@@ -24,7 +24,10 @@ Install python dependencies
 uv sync --extra dev --extra demo
 ```
 
-Ensure you are loged into Ollama to use remote models.
+### Based on ollama
+
+For now, gazet relies on ollama. For remote (cloud) models,
+ensure you are loged into Ollama.
 
 ## Usage
 
