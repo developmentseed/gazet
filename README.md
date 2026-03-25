@@ -26,14 +26,14 @@ uv sync --extra dev --extra demo
 Example for downloading overture
 
 ```bash
-aws s3 sync 
-s3 sync s3://overturemaps-us-west-2/release/2026-02-18.0/theme=divisions/type=division_area/ data/overture/divisions_area
+aws s3 sync s3://overturemaps-us-west-2/release/2026-02-18.0/theme=divisions/type=division_area/ data/overture/divisions_area
 ```
 
 Example for running conversion script for natural earth
 
 ```bash
-python -m ingest.convert_natural_earth ~/Downloads/10m_physical
+unzip ~/Downloads/10m_physical.zip -d data/natural_earth
+python -m ingest.convert_natural_earth data/natural_earth
 ```
 
 ### Based on ollama
@@ -61,7 +61,7 @@ uv run streamlit run gazet_demo.py   # demo UI
 | Module | Contents |
 | --- | --- |
 | `config.py` | data paths, model name, SQL schema description |
-| `types.py` | `SUBTYPES`, `COUNTRIES`, `Place`, `PlacesResult` |
+| `schemas.py` | `SUBTYPES`, `COUNTRIES`, `Place`, `PlacesResult` |
 | `lm.py` | DSPy signatures + LM init (`extract`, `write_sql`) |
 | `search.py` | fuzzy search against `divisions_area` / `natural_earth` |
 | `sql.py` | code-act SQL generation loop |
