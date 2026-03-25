@@ -9,10 +9,16 @@ NATURAL_EARTH_PATH = str(_DATA_DIR / "natural_earth_geoparquet/ne_geography.parq
 # MODEL = "granite4:350m"
 # MODEL = "gemma3:12b-cloud"
 # MODEL = "qwen3.5:397b-cloud"
-MODEL = "gpt-oss:20b-cloud"
+# MODEL = "gpt-oss:20b-cloud"
 # MODEL = "qwen3:4b"
 # MODEL = "qwen3-coder-next:cloud"
 # MODEL = "deepseek-coder:1.3b"
+# MODEL = "qwen3.5:2b"
+# MODEL = "qwen3.5:0.8b"
+# MODEL = "qwen2.5-coder:1.5b"
+
+PLACE_EXTRACTION_MODEL = "gpt-oss:20b-cloud"
+SQL_GENERATION_MODEL = "qwen2.5-coder:1.5b"
 
 MAX_SQL_ITERATIONS = 5
 

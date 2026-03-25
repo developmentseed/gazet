@@ -1,6 +1,6 @@
 import dspy
 
-from .config import MODEL
+from .config import PLACE_EXTRACTION_MODEL, SQL_GENERATION_MODEL
 from .schemas import PlacesResult
 
 
@@ -103,10 +103,52 @@ class WriteGeoSQL(dspy.Signature):
     )
 
 
-lm = dspy.LM(
-    f"ollama_chat/{MODEL}", api_base="http://localhost:11434", api_key="", temperature=0.1, cache=False,
+place_extraction_lm = dspy.LM(
+    f"ollama_chat/{PLACE_EXTRACTION_MODEL}", 
+    api_base="http://localhost:11435", 
+    api_key="", 
+    temperature=0.1, 
+    cache=False,
 )
-dspy.configure(lm=lm)
 
-extract = dspy.Predict(ExtractPlaces)
-write_sql = dspy.Predict(WriteGeoSQL)
+sql_generation_lm = dspy.LM(
+    f"ollama_chat/{SQL_GENERATION_MODEL}", 
+    api_base="http://localhost:11435", 
+    api_key="", 
+    temperature=0.1, 
+    cache=False,
+    think=False
+)
+
+
+class PlaceExtractor(dspy.Module):
+    def __init__(self, lm):
+        super().__init__()
+        self.lm = lm
+        self.predictor = dspy.Predict(ExtractPlaces)
+    
+    def forward(self, query: str):
+        with dspy.context(lm=self.lm):
+            return self.predictor(query=query)
+
+
+class SQLWriter(dspy.Module):
+    def __init__(self, lm):
+        super().__init__()
+        self.lm = lm
+        self.predictor = dspy.Predict(WriteGeoSQL)
+    
+    def forward(self, user_query: str, schema: str, candidates: str, 
+                previous_sql: str = "", execution_error: str = ""):
+        with dspy.context(lm=self.lm):
+            return self.predictor(
+                user_query=user_query,
+                schema=schema,
+                candidates=candidates,
+                previous_sql=previous_sql,
+                execution_error=execution_error
+            )
+
+
+extract = PlaceExtractor(lm=place_extraction_lm)
+write_sql = SQLWriter(lm=sql_generation_lm)
