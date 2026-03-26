@@ -26,4 +26,6 @@ gazet-dataset = "dataset.scripts.cli:main"
 packages = ["src/gazet", "dataset"]
 
 [dependency-groups]
-dataset = []
+dataset = [
+    "modal>=1.4.0",
+]

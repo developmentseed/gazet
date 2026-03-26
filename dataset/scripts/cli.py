@@ -10,12 +10,13 @@ Usage:
 """
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
-import yaml
-import subprocess
-from typing import Dict, Set
+from typing import Dict
+
 import pandas as pd
+import yaml
 
 
 def load_config(config_path: Path) -> dict:
@@ -129,7 +130,7 @@ def build_relations(config_path: Path):
         relation_limits=relation_limits
     )
     
-    print("\n✓ Relation tables built successfully")
+    print("\nRelation tables built successfully")
 
 
 def generate_samples(config_path: Path, append: bool = False):
@@ -156,7 +157,7 @@ def generate_samples(config_path: Path, append: bool = False):
     # Run the main function
     gs_module.main()
     
-    print("\n✓ Samples generated successfully")
+    print("\nSamples generated successfully")
 
 
 def validate_dataset(config_path: Path):
@@ -171,7 +172,7 @@ def validate_dataset(config_path: Path):
         check=True
     )
     
-    print("\n✓ Dataset validated successfully")
+    print("\nDataset validated successfully")
 
 
 def export_dataset(config_path: Path):
@@ -186,14 +187,44 @@ def export_dataset(config_path: Path):
         check=True
     )
     
-    print("\n✓ Dataset exported successfully")
+    print("\nDataset exported successfully")
+
+
+def modal_upload(config_path: Path):
+    """Upload local data to Modal volume."""
+    subprocess.run(
+        [sys.executable, "-m", "modal", "run",
+         "dataset/modal_app.py::upload_data"],
+        check=True
+    )
+
+
+def modal_generate(config_path: Path, num_containers: int = 0,
+                   skip_inventory: bool = False, skip_relations: bool = False,
+                   fresh: bool = False):
+    """Run distributed generation on Modal (appends by default)."""
+    cmd = [
+        sys.executable, "-m", "modal", "run",
+        "dataset/modal_app.py::run_pipeline",
+        "--config-path", str(config_path),
+    ]
+    if num_containers > 0:
+        cmd.extend(["--num-containers", str(num_containers)])
+    if skip_inventory:
+        cmd.append("--skip-inventory")
+    if skip_relations:
+        cmd.append("--skip-relations")
+    if fresh:
+        cmd.append("--fresh")
+    
+    subprocess.run(cmd, check=True)
+    validate_dataset(config_path)
+    export_dataset(config_path)
 
 
 def full_pipeline(config_path: Path, append: bool = False):
     """Run the full pipeline."""
-    print("\n" + "=" * 60)
-    print("RUNNING FULL DATASET GENERATION PIPELINE")
-    print("=" * 60 + "\n")
+    print("Running full dataset generation pipeline")
     
     config = load_config(config_path)
     
@@ -211,12 +242,9 @@ def full_pipeline(config_path: Path, append: bool = False):
         print("=" * 60)
         print("STEP 0: Building Entity Inventory")
         print("=" * 60)
-        print("Inventory files not found. Building inventory...\n")
-        
+        print("Inventory files not found, building...")
         from dataset.scripts import build_inventory
         build_inventory.main()
-        
-        print("\n✓ Inventory built successfully\n")
     
     # Check if we need to rebuild relations
     need_rebuild = should_rebuild_relations(config, intermediate_dir, append)
@@ -230,9 +258,7 @@ def full_pipeline(config_path: Path, append: bool = False):
     validate_dataset(config_path)
     export_dataset(config_path)
     
-    print("\n" + "=" * 60)
-    print("✓ PIPELINE COMPLETED SUCCESSFULLY")
-    print("=" * 60)
+    print("\nPipeline complete")
 
 
 def main():
@@ -255,12 +281,21 @@ Examples:
   
   # Run full pipeline in append mode (skip relation building)
   python cli.py full-pipeline --config ../config.yaml --append
+  
+  # Upload data to Modal volume (one-time)
+  python cli.py modal-upload --config ../config.yaml
+  
+  # Run distributed generation on Modal
+  python cli.py modal-generate --config ../config.yaml
+  python cli.py modal-generate --config ../config.yaml --num-containers 100
+  python cli.py modal-generate --config ../config.yaml --skip-inventory --skip-relations
         """
     )
     
     parser.add_argument(
         'command',
-        choices=['build-relations', 'generate-samples', 'validate', 'export', 'full-pipeline'],
+        choices=['build-relations', 'generate-samples', 'validate', 'export',
+                 'full-pipeline', 'modal-upload', 'modal-generate'],
         help='Command to run'
     )
     
@@ -275,6 +310,31 @@ Examples:
         '--append',
         action='store_true',
         help='Append to existing dataset instead of overwriting'
+    )
+    
+    parser.add_argument(
+        '--num-containers',
+        type=int,
+        default=0,
+        help='Number of Modal containers (0 = use config default)'
+    )
+    
+    parser.add_argument(
+        '--skip-inventory',
+        action='store_true',
+        help='Skip inventory building on Modal'
+    )
+    
+    parser.add_argument(
+        '--skip-relations',
+        action='store_true',
+        help='Skip relation building on Modal'
+    )
+    
+    parser.add_argument(
+        '--fresh',
+        action='store_true',
+        help='Overwrite existing dataset instead of appending (Modal only)'
     )
     
     args = parser.parse_args()
@@ -296,8 +356,18 @@ Examples:
             export_dataset(args.config)
         elif args.command == 'full-pipeline':
             full_pipeline(args.config, args.append)
+        elif args.command == 'modal-upload':
+            modal_upload(args.config)
+        elif args.command == 'modal-generate':
+            modal_generate(
+                args.config,
+                num_containers=args.num_containers,
+                skip_inventory=args.skip_inventory,
+                skip_relations=args.skip_relations,
+                fresh=args.fresh,
+            )
     except Exception as e:
-        print(f"\n✗ Error: {e}")
+        print(f"\nError: {e}")
         sys.exit(1)
 
 

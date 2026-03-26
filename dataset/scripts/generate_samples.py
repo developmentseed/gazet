@@ -919,6 +919,111 @@ def generate_sample_batch_worker(args):
     return results
 
 
+def generate_batch_core(
+    work_items: List[tuple],
+    intermediate_dir: str,
+) -> List[Dict[str, Any]]:
+    """Standalone batch worker usable from Modal or any remote context.
+    
+    Data paths are resolved via GAZET_DATA_DIR env var (set in Modal image).
+    
+    Args:
+        work_items: List of (family, template_dict, sample_id, _) tuples
+        intermediate_dir: Path to intermediate dir with relation parquets
+        
+    Returns:
+        List of dicts with keys: sample (dict or None), family, template_id, error
+    """
+    from pathlib import Path as _Path
+    intermediate = _Path(intermediate_dir)
+    
+    con = duckdb.connect()
+    con.execute("SET enable_progress_bar=false")
+    con.execute("INSTALL spatial")
+    con.execute("LOAD spatial")
+    
+    tables = load_relation_tables(intermediate, quiet=True)
+    
+    results = []
+    for family, template_dict, sample_id, _ in work_items:
+        template = sql_templates.SQLTemplate(**template_dict)
+        try:
+            sample = generate_template_based_sample(con, template, tables, sample_id)
+            if sample:
+                results.append({
+                    "sample": sample.model_dump(),
+                    "family": family,
+                    "template_id": template.template_id,
+                    "error": None,
+                })
+            else:
+                results.append({
+                    "sample": None,
+                    "family": family,
+                    "template_id": template.template_id,
+                    "error": "Empty result",
+                })
+        except Exception as e:
+            results.append({
+                "sample": None,
+                "family": family,
+                "template_id": template_dict.get('template_id', 'unknown'),
+                "error": str(e),
+            })
+    
+    con.close()
+    return results
+
+
+def prepare_work_items(
+    target_counts: Dict[str, int],
+    retry_multiplier: int = 2,
+    start_counter: int = 1,
+    intermediate_dir_str: str = "",
+) -> List[tuple]:
+    """Prepare shuffled work items for sample generation.
+    
+    Returns list of (family, template_dict, sample_id, intermediate_dir_str) tuples.
+    Reusable by both local main() and Modal orchestrator.
+    """
+    work_items = []
+    sample_counter = start_counter
+    
+    for family, target_count in target_counts.items():
+        if target_count == 0:
+            continue
+        
+        family_templates = [t for t in TEMPLATES if t.family == family]
+        if not family_templates:
+            print(f"No templates found for {family}, skipping...")
+            continue
+        
+        for _ in range(target_count * retry_multiplier):
+            template = random.choice(family_templates)
+            template_dict = {
+                'template_id': template.template_id,
+                'family': template.family,
+                'sql_difficulty': template.sql_difficulty,
+                'anchor_source': template.anchor_source,
+                'num_anchors': template.num_anchors,
+                'sql_template': template.sql_template,
+                'question_hints': template.question_hints,
+                'target_subtype': template.target_subtype,
+                'requires_buffer': template.requires_buffer,
+                'requires_aggregation': template.requires_aggregation
+            }
+            work_items.append((
+                family,
+                template_dict,
+                f"sample_{sample_counter:06d}",
+                intermediate_dir_str,
+            ))
+            sample_counter += 1
+    
+    random.shuffle(work_items)
+    return work_items
+
+
 def main():
     """Generate training samples."""
     global TARGET_COUNTS, MAX_WORKERS, RETRY_MULTIPLIER, APPEND_MODE
@@ -970,46 +1075,14 @@ def main():
     else:
         sample_counter = 1
     
-    # Prepare work items for parallel processing
-    work_items = []
-    starting_sample_counter = sample_counter  # Track starting point for logging
-    
-    for family, target_count in target_counts.items():
-        if target_count == 0:
-            continue
-        
-        # Get templates for this family
-        family_templates = [t for t in TEMPLATES if t.family == family]
-        if not family_templates:
-            print(f"No templates found for {family}, skipping...")
-            continue
-        
-        # Create work items (try retry_multiplier * target to account for failures)
-        for _ in range(target_count * RETRY_MULTIPLIER):
-            template = random.choice(family_templates)
-            # Convert template to dict for pickling
-            template_dict = {
-                'template_id': template.template_id,
-                'family': template.family,
-                'sql_difficulty': template.sql_difficulty,
-                'anchor_source': template.anchor_source,
-                'num_anchors': template.num_anchors,
-                'sql_template': template.sql_template,
-                'question_hints': template.question_hints,
-                'target_subtype': template.target_subtype,
-                'requires_buffer': template.requires_buffer,
-                'requires_aggregation': template.requires_aggregation
-            }
-            work_items.append((
-                family,
-                template_dict,
-                f"sample_{sample_counter:03d}",
-                str(intermediate_dir)  # Convert Path to string for pickling
-            ))
-            sample_counter += 1
-    
-    # Shuffle work items for balanced batches across families
-    random.shuffle(work_items)
+    # Prepare work items using shared helper
+    work_items = prepare_work_items(
+        target_counts=target_counts,
+        retry_multiplier=RETRY_MULTIPLIER,
+        start_counter=sample_counter,
+        intermediate_dir_str=str(intermediate_dir),
+    )
+    starting_sample_counter = sample_counter
     
     # Partition work items into batches (one per worker)
     num_workers = min(MAX_WORKERS, len(work_items))

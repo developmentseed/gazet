@@ -22,6 +22,30 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from gazet.config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
 
 
+# Subtypes too granular for spatial self-joins at global scale
+_EXCLUDED_SUBTYPES_FOR_GLOBAL = ("locality", "neighborhood", "microhood", "macrohood")
+
+
+def _country_filter(countries: list) -> tuple[str, list]:
+    """Return (SQL WHERE clause, params) handling 'all' sentinel."""
+    if countries == ["all"]:
+        return "", []
+    return "WHERE country IN (SELECT unnest(?))", [countries]
+
+
+def _country_filter_for_join(countries: list) -> tuple[str, list]:
+    """Like _country_filter but also excludes fine-grained subtypes for global runs.
+
+    When joining all 1M+ entities, localities/neighborhoods/microhoods cause
+    OOM. Excluding them keeps ~110K higher-level admin entities.
+    """
+    excluded = "', '".join(_EXCLUDED_SUBTYPES_FOR_GLOBAL)
+    subtype_clause = f"AND subtype NOT IN ('{excluded}')"
+    if countries == ["all"]:
+        return f"WHERE 1=1 {subtype_clause}", []
+    return f"WHERE country IN (SELECT unnest(?)) {subtype_clause}", [countries]
+
+
 def compute_adjacency_pairs(
     con: duckdb.DuckDBPyConnection,
     countries: list,
@@ -30,8 +54,10 @@ def compute_adjacency_pairs(
     """Find all pairs of features that touch (share a boundary)."""
     print("Computing adjacency pairs (optimized with spatial index)...")
     
+    cfilter, cparams = _country_filter_for_join(countries)
+    
     # Use bounding box pre-filter to avoid full cartesian product
-    query = """
+    query = f"""
     WITH features AS (
         SELECT 
             id,
@@ -42,7 +68,7 @@ def compute_adjacency_pairs(
             geometry,
             ST_Envelope(geometry) AS bbox
         FROM read_parquet(?)
-        WHERE country IN (SELECT unnest(?))
+        {cfilter}
     )
     SELECT 
         a.id AS anchor_id,
@@ -63,7 +89,7 @@ def compute_adjacency_pairs(
     LIMIT ?
     """
     
-    df = con.execute(query, [DIVISIONS_AREA_PATH, countries, limit]).fetchdf()
+    df = con.execute(query, [DIVISIONS_AREA_PATH] + cparams + [limit]).fetchdf()
     print(f"Found {len(df)} adjacency pairs")
     
     return df
@@ -77,7 +103,9 @@ def compute_containment_pairs(
     """Find all pairs where one feature contains another."""
     print("\nComputing containment pairs (optimized)...")
     
-    query = """
+    cfilter, cparams = _country_filter(countries)
+    
+    query = f"""
     WITH features AS (
         SELECT 
             id,
@@ -88,7 +116,7 @@ def compute_containment_pairs(
             geometry,
             ST_Envelope(geometry) AS bbox
         FROM read_parquet(?)
-        WHERE country IN (SELECT unnest(?))
+        {cfilter}
     )
     SELECT 
         a.id AS container_id,
@@ -108,7 +136,7 @@ def compute_containment_pairs(
     LIMIT ?
     """
     
-    df = con.execute(query, [DIVISIONS_AREA_PATH, countries, limit]).fetchdf()
+    df = con.execute(query, [DIVISIONS_AREA_PATH] + cparams + [limit]).fetchdf()
     print(f"Found {len(df)} containment pairs")
     
     return df
@@ -122,7 +150,9 @@ def compute_intersection_pairs(
     """Find pairs that intersect but don't touch or contain."""
     print("\nComputing intersection pairs (optimized)...")
     
-    query = """
+    cfilter, cparams = _country_filter_for_join(countries)
+    
+    query = f"""
     WITH features AS (
         SELECT 
             id,
@@ -133,7 +163,7 @@ def compute_intersection_pairs(
             geometry,
             ST_Envelope(geometry) AS bbox
         FROM read_parquet(?)
-        WHERE country IN (SELECT unnest(?))
+        {cfilter}
     )
     SELECT 
         a.id AS anchor_id,
@@ -155,7 +185,7 @@ def compute_intersection_pairs(
     LIMIT ?
     """
     
-    df = con.execute(query, [DIVISIONS_AREA_PATH, countries, limit]).fetchdf()
+    df = con.execute(query, [DIVISIONS_AREA_PATH] + cparams + [limit]).fetchdf()
     print(f"Found {len(df)} same-source intersection pairs")
     
     return df
@@ -169,7 +199,9 @@ def compute_cross_source_relations(
     """Find relations between divisions_area and natural_earth."""
     print("\nComputing cross-source relations...")
     
-    query = """
+    cfilter, cparams = _country_filter(countries)
+    
+    query = f"""
     WITH divisions AS (
         SELECT 
             id,
@@ -178,14 +210,14 @@ def compute_cross_source_relations(
             country,
             geometry
         FROM read_parquet(?)
-        WHERE country IN (SELECT unnest(?))
+        {cfilter}
     ),
     natural_features AS (
         SELECT 
             id,
             names."primary" AS name,
             subtype,
-            geometry
+            ST_SetCRS(geometry, 'OGC:CRS84') AS geometry
         FROM read_parquet(?)
         WHERE subtype IN ('sea', 'ocean', 'Lake', 'River', 'Basin', 'gulf', 'bay')
         LIMIT 200
@@ -209,7 +241,7 @@ def compute_cross_source_relations(
     LIMIT ?
     """
     
-    df = con.execute(query, [DIVISIONS_AREA_PATH, countries, NATURAL_EARTH_PATH, limit]).fetchdf()
+    df = con.execute(query, [DIVISIONS_AREA_PATH] + cparams + [NATURAL_EARTH_PATH, limit]).fetchdf()
     print(f"Found {len(df)} cross-source relations")
     
     return df
@@ -220,6 +252,9 @@ def _make_connection():
     con = duckdb.connect()
     con.execute("INSTALL spatial")
     con.execute("LOAD spatial")
+    con.execute("SET memory_limit='24GB'")
+    con.execute("SET temp_directory='/tmp/duckdb_tmp'")
+    con.execute("SET threads=4")
     return con
 
 
@@ -233,6 +268,36 @@ def _compute_and_save(compute_fn, countries, limit, output_path):
         return df
     finally:
         con.close()
+
+
+RELATION_FUNCTIONS = {
+    "adjacency": compute_adjacency_pairs,
+    "containment": compute_containment_pairs,
+    "intersection": compute_intersection_pairs,
+    "cross_source": compute_cross_source_relations,
+}
+
+
+def compute_single_relation(
+    relation_type: str,
+    countries: list,
+    limit: int,
+    output_dir: Path,
+) -> int:
+    """Compute one relation type and save to output_dir.
+
+    Returns the number of rows computed. Usable from Modal or locally.
+    """
+    compute_fn = RELATION_FUNCTIONS.get(relation_type)
+    if compute_fn is None:
+        raise ValueError(
+            f"Unknown relation type: {relation_type}. "
+            f"Expected one of {list(RELATION_FUNCTIONS)}"
+        )
+    output_dir.mkdir(exist_ok=True, parents=True)
+    output_path = output_dir / f"{relation_type}_pairs.parquet"
+    df = _compute_and_save(compute_fn, countries, limit, output_path)
+    return len(df)
 
 
 def main(countries: list = None, relation_limits: dict = None):
@@ -281,7 +346,7 @@ def main(countries: list = None, relation_limits: dict = None):
                 print(f"ERROR computing {name}: {e}")
                 raise
     
-    print("\n✓ Relation tables build complete")
+    print("\nRelation tables build complete")
 
 
 if __name__ == "__main__":

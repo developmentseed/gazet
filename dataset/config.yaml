@@ -2,30 +2,27 @@
 # This config controls which countries to process and how many samples to generate
 
 # Countries to include in relation building
-# Use ISO 3166-1 alpha-2 codes
+# Use ISO 3166-1 alpha-2 codes, or "all" to include every country
 countries:
-  # - EC  # Ecuador
-  # - BE  # Belgium
-  # - KE  # Kenya
-  # - AE  # UAE
-  # - SG  # Singapore
-  # - CH  # Switzerland
-  - IN   # India
-  - PK   # Pakistan
-  # - SL   # Sri Lanka
-  # - BD   # Bangladesh
+  - all
+  # Or specify a subset:
+  # - IN   # India
+  # - PK   # Pakistan
+  # - EC   # Ecuador
+  # - BE   # Belgium
+  # - KE   # Kenya
 
 # Sample generation targets per family
 # Relation limits are auto-calculated from these targets
 sample_targets:
-  direct_lookup: 20
-  adjacency: 20
-  containment: 20
-  intersection: 20
-  buffer: 20
-  set_operations: 20
-  partial_selection: 20
-  aggregation: 20
+  direct_lookup: 1250
+  adjacency: 1250
+  containment: 2000
+  intersection: 1250
+  buffer: 1250
+  set_operations: 1250
+  partial_selection: 2000
+  aggregation: 2000
 
 # Generation settings
 generation:
@@ -45,6 +42,15 @@ auto_scaling:
     # intersection: 1000
     # cross_source: 500
   
+# Modal configuration for distributed generation
+modal:
+  volume_name: "gazet-data"         # Modal Volume for parquet data
+  app_name: "gazet-dataset"         # Modal app name
+  num_containers: 100               # Number of parallel containers for sample generation
+  container_cpu: 2                  # CPUs per container
+  container_memory: 4096            # Memory (MB) per container
+  timeout: 3600                     # Per-container timeout in seconds
+
 # Output paths (relative to dataset directory)
 output:
   samples_dir: "output/samples"

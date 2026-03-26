@@ -65,18 +65,48 @@ gazet-dataset full-pipeline --config dataset/config.yaml --append
 # Auto-rebuilds relations if countries changed
 ```
 
-### Scale to 10K+
-```yaml
-# config.yaml - increase targets
-sample_targets:
-  adjacency: 1000
-  containment: 1000
-  intersection: 1000
-  # ... etc
-```
+### Scale to 10K+ with Modal
+
+For large datasets, use Modal to distribute generation across cloud containers:
 
 ```bash
-gazet-dataset full-pipeline --config dataset/config.yaml --append
+# One-time setup: install modal and authenticate
+uv sync --group dataset
+modal setup
+
+# Upload parquet data to Modal volume (one-time)
+gazet-dataset modal-upload --config dataset/config.yaml
+
+# Run distributed generation (50 containers by default)
+gazet-dataset modal-generate --config dataset/config.yaml
+
+# Or override container count
+gazet-dataset modal-generate --config dataset/config.yaml --num-containers 100
+
+# Skip inventory/relations if already built
+gazet-dataset modal-generate --config dataset/config.yaml --skip-inventory --skip-relations
+```
+
+Or run Modal directly:
+```bash
+modal run dataset/modal_app.py::upload_data --data-dir data
+modal run dataset/modal_app.py::run_pipeline --config-path dataset/config.yaml
+```
+
+Configure in `config.yaml`:
+```yaml
+countries:
+  - all          # Use all countries for maximum diversity
+
+sample_targets:
+  adjacency: 1250
+  containment: 1250
+  # ... 8 families x 1250 = 10K samples
+
+modal:
+  num_containers: 50
+  container_cpu: 2
+  container_memory: 4096
 ```
 
 ## Commands
@@ -87,6 +117,8 @@ gazet-dataset build-relations --config <path>   # Build spatial relations
 gazet-dataset generate-samples --config <path>  # Generate samples
 gazet-dataset validate --config <path>          # Validate dataset
 gazet-dataset export --config <path>            # Export train/val/test
+gazet-dataset modal-upload --config <path>      # Upload data to Modal volume
+gazet-dataset modal-generate --config <path>    # Distributed generation via Modal
 ```
 
 **Options:**

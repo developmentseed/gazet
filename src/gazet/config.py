@@ -1,7 +1,11 @@
+import os
 import pathlib
 
-# Data lives at project root (gazet/data/), not inside the package
-_DATA_DIR = pathlib.Path(__file__).resolve().parent.parent.parent / "data"
+# Data lives at project root (gazet/data/), not inside the package.
+# Override with GAZET_DATA_DIR env var for remote execution (e.g. Modal volume at /data).
+_DATA_DIR = pathlib.Path(os.environ.get("GAZET_DATA_DIR", str(
+    pathlib.Path(__file__).resolve().parent.parent.parent / "data"
+)))
 DIVISIONS_AREA_PATH = str(_DATA_DIR / "overture/divisions_area/*.parquet")
 NATURAL_EARTH_PATH = str(_DATA_DIR / "natural_earth_geoparquet/ne_geography.parquet")
 
