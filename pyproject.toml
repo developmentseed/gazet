@@ -19,5 +19,11 @@ dependencies = [
 ]
 optional-dependencies = { demo = ["streamlit", "requests", "pydeck"], dev = ["ruff"] }
 
+[project.scripts]
+gazet-dataset = "dataset.scripts.cli:main"
+
 [tool.hatch.build.targets.wheel]
-packages = ["src/gazet"]
+packages = ["src/gazet", "dataset"]
+
+[dependency-groups]
+dataset = []

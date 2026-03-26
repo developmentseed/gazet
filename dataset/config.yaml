@@ -1,0 +1,52 @@
+# Dataset Generation Configuration
+# This config controls which countries to process and how many samples to generate
+
+# Countries to include in relation building
+# Use ISO 3166-1 alpha-2 codes
+countries:
+  # - EC  # Ecuador
+  # - BE  # Belgium
+  # - KE  # Kenya
+  # - AE  # UAE
+  # - SG  # Singapore
+  # - CH  # Switzerland
+  - IN   # India
+  - PK   # Pakistan
+  # - SL   # Sri Lanka
+  # - BD   # Bangladesh
+
+# Sample generation targets per family
+# Relation limits are auto-calculated from these targets
+sample_targets:
+  direct_lookup: 20
+  adjacency: 20
+  containment: 20
+  intersection: 20
+  buffer: 20
+  set_operations: 20
+  partial_selection: 20
+  aggregation: 20
+
+# Generation settings
+generation:
+  max_workers: 8           # Number of parallel workers
+  retry_multiplier: 2      # Generate 2x samples to account for failures
+  append_mode: true        # If true, append to existing dataset instead of overwriting
+
+# Auto-scaling configuration
+# Relation limits are automatically calculated: target * retry_multiplier * safety_factor
+auto_scaling:
+  safety_factor: 1.5       # Extra buffer to ensure enough unique pairs
+  
+  # Manual overrides (optional) - uncomment to override auto-calculated limits
+  manual_limits: {}
+    # adjacency: 10000     # Uncomment to manually set
+    # containment: 2000
+    # intersection: 1000
+    # cross_source: 500
+  
+# Output paths (relative to dataset directory)
+output:
+  samples_dir: "output/samples"
+  dataset_file: "output/dataset_raw.jsonl"
+  intermediate_dir: "intermediate"
