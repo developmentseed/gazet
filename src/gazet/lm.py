@@ -105,7 +105,7 @@ class WriteGeoSQL(dspy.Signature):
 
 place_extraction_lm = dspy.LM(
     f"ollama_chat/{PLACE_EXTRACTION_MODEL}", 
-    api_base="http://localhost:11435", 
+    api_base="http://localhost:11434", 
     api_key="", 
     temperature=0.1, 
     cache=False,
@@ -113,7 +113,7 @@ place_extraction_lm = dspy.LM(
 
 sql_generation_lm = dspy.LM(
     f"ollama_chat/{SQL_GENERATION_MODEL}", 
-    api_base="http://localhost:11435", 
+    api_base="http://localhost:11434", 
     api_key="", 
     temperature=0.1, 
     cache=False,
