@@ -1,7 +1,20 @@
-import dspy
+import json
+import logging
 
-from .config import PLACE_EXTRACTION_MODEL, SQL_GENERATION_MODEL
+import dspy
+import httpx
+import pandas as pd
+
+from .config import (
+    LLAMA_MAX_TOKENS,
+    LLAMA_SERVER_URL,
+    LLAMA_TEMPERATURE,
+    PLACE_EXTRACTION_MODEL,
+    SQL_GENERATION_MODEL,
+)
 from .schemas import PlacesResult
+
+logger = logging.getLogger(__name__)
 
 
 class ExtractPlaces(dspy.Signature):
@@ -19,6 +32,13 @@ class ExtractPlaces(dspy.Signature):
     - If the user mentions a place name that is not in the overture divisions or natural earth physical features, return the place name as is.
 
     Where possible and relevant, also extract the ISO country code for each place.
+
+    Only extract place names that are explicitly mentioned in the query.
+    Do NOT generate or infer place names from your own knowledge.
+    For example:
+    - "north half of India" -> extract "India", NOT individual state names
+    - "coastal cities of France" -> extract "France", NOT city names
+    - "neighbouring states of Odisha" -> extract "Odisha", NOT neighbouring state names
 
     Do not repeat the same place name in the result.
 
@@ -152,3 +172,111 @@ class SQLWriter(dspy.Module):
 
 extract = PlaceExtractor(lm=place_extraction_lm)
 write_sql = SQLWriter(lm=sql_generation_lm)
+
+
+# ── GGUF SQL generation via llama-server ──────────────────────────────────────
+
+_SYSTEM_PROMPT = (
+    "You are a text to SQL query translator that helps in natural language geocoding."
+)
+
+_SCHEMA_DETAILS = """1. divisions_area  -- Overture polygon/multipolygon admin boundaries
+   path: '/data/overture/division_area/*.parquet'
+   columns:
+     id VARCHAR
+     names STRUCT("primary" VARCHAR, ...)
+     country VARCHAR
+     subtype VARCHAR
+     class VARCHAR
+     region VARCHAR
+     admin_level INTEGER
+     division_id VARCHAR
+     is_land BOOLEAN
+     is_territorial BOOLEAN
+     geometry GEOMETRY
+
+2. natural_earth  -- Natural Earth geography polygons
+   path: '/data/natural_earth_geoparquet/ne_geography.parquet'
+   columns:
+     id VARCHAR
+     name VARCHAR
+     featurecla VARCHAR
+     scalerank INTEGER
+     min_zoom DOUBLE
+     geometry GEOMETRY"""
+
+_USER_PROMPT_TEMPLATE = """GIVEN the <SCHEMA_DETAILS>, <CANDIDATES> and <USER_QUERY>, generate the corresponding SQL command to retrieve the desired geometry.
+
+<SCHEMA_DETAILS>
+{schema_details}
+</SCHEMA_DETAILS>
+
+<CANDIDATES>
+{candidates_csv}
+</CANDIDATES>
+
+<USER_QUERY>
+{question}
+</USER_QUERY>
+"""
+
+
+def _postprocess_sql(text: str) -> str:
+    """Strip markdown fences and whitespace from generated SQL."""
+    cleaned = text.strip()
+    if "```sql" in cleaned:
+        cleaned = cleaned.split("```sql", 1)[1]
+    if cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if "```" in cleaned:
+        cleaned = cleaned.split("```", 1)[0]
+    return cleaned.strip()
+
+
+def is_llama_server_available() -> bool:
+    """Check if the llama-server is running and healthy."""
+    try:
+        resp = httpx.get(f"{LLAMA_SERVER_URL}/health", timeout=2)
+        return resp.status_code == 200
+    except (httpx.ConnectError, httpx.TimeoutException):
+        return False
+
+
+def _llama_complete(prompt: str) -> str:
+    """Call llama-server /completion endpoint and return generated text."""
+    resp = httpx.post(
+        f"{LLAMA_SERVER_URL}/completion",
+        json={
+            "prompt": prompt,
+            "n_predict": LLAMA_MAX_TOKENS,
+            "temperature": LLAMA_TEMPERATURE,
+        },
+        timeout=60,
+    )
+    if resp.status_code != 200:
+        logger.error("llama-server %s: %s", resp.status_code, resp.text[:500])
+    resp.raise_for_status()
+    return resp.json()["content"]
+
+
+def generate_sql(user_query: str, candidates_df: pd.DataFrame) -> str:
+    """Generate SQL from a natural language query using the finetuned GGUF model.
+
+    Uses the same prompt format the model was trained on:
+    SYSTEM_PROMPT + USER_PROMPT_TEMPLATE with schema, candidates CSV, and question.
+    Single-shot — no retry loop (the finetuned model can't improve from error feedback).
+    """
+    # Keep only columns the model was trained on
+    keep_cols = ["source", "id", "name", "subtype", "country", "region", "admin_level", "similarity"]
+    cols = [c for c in keep_cols if c in candidates_df.columns]
+    candidates_csv = candidates_df[cols].to_csv(index=False)
+
+    user_prompt = _USER_PROMPT_TEMPLATE.format(
+        schema_details=_SCHEMA_DETAILS.strip(),
+        candidates_csv=candidates_csv.strip(),
+        question=user_query.strip(),
+    )
+
+    raw_prompt = _SYSTEM_PROMPT + "\n\n" + user_prompt
+    raw_output = _llama_complete(raw_prompt)
+    return _postprocess_sql(raw_output)

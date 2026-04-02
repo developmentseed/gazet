@@ -2,7 +2,23 @@ import json
 import pathlib
 import re
 
+import numpy as np
 import pandas as pd
+
+
+def _to_serializable(val):
+    """Convert a value to a JSON-serializable Python type."""
+    if isinstance(val, (bytearray, bytes)):
+        return None
+    if isinstance(val, np.ndarray):
+        return val.tolist()
+    if isinstance(val, (np.integer,)):
+        return int(val)
+    if isinstance(val, (np.floating,)):
+        return float(val)
+    if isinstance(val, (np.bool_,)):
+        return bool(val)
+    return val
 
 
 def _is_geojson_col(series: pd.Series) -> bool:
@@ -14,6 +30,31 @@ def _is_geojson_col(series: pd.Series) -> bool:
         ).all()
         and len(sample) > 0
     )
+
+
+def _is_wkb_col(series: pd.Series) -> bool:
+    """Heuristic: a column whose non-null values are bytearray or bytes (WKB geometry)."""
+    sample = series.dropna().head(5)
+    return (
+        sample.apply(lambda v: isinstance(v, (bytearray, bytes))).all()
+        and len(sample) > 0
+    )
+
+
+def _wkb_to_geojson(wkb: bytearray | bytes) -> dict | None:
+    """Convert WKB geometry to GeoJSON dict via DuckDB."""
+    import duckdb
+
+    try:
+        result = duckdb.sql(
+            "SELECT ST_AsGeoJSON(ST_GeomFromWKB(?::BLOB)) AS geojson",
+            params=[bytes(wkb)],
+        ).fetchone()
+        if result and result[0]:
+            return json.loads(result[0])
+    except Exception:
+        pass
+    return None
 
 
 def save_geojson(
@@ -43,22 +84,33 @@ def to_feature_collection(result_df: pd.DataFrame) -> dict:
 
 
 def _to_feature_collection(result_df: pd.DataFrame) -> dict:
-    geom_cols = [c for c in result_df.columns if _is_geojson_col(result_df[c])]
+    geojson_cols = [c for c in result_df.columns if _is_geojson_col(result_df[c])]
+    wkb_cols = [c for c in result_df.columns if _is_wkb_col(result_df[c])]
+    geom_cols = geojson_cols + wkb_cols
     prop_cols = [c for c in result_df.columns if c not in geom_cols]
     features = []
     for _, row in result_df.iterrows():
         geometry = None
-        if geom_cols:
-            raw = row[geom_cols[0]]
+        if geojson_cols:
+            raw = row[geojson_cols[0]]
             if raw and isinstance(raw, str):
                 try:
                     geometry = json.loads(raw)
                 except json.JSONDecodeError:
                     pass
-        properties = {c: row[c] for c in prop_cols if pd.notna(row[c])}
-        for c in geom_cols[1:]:
-            if pd.notna(row[c]):
-                properties[c] = row[c]
+        elif wkb_cols:
+            raw = row[wkb_cols[0]]
+            if raw and isinstance(raw, (bytearray, bytes)):
+                geometry = _wkb_to_geojson(raw)
+        properties = {}
+        for c in prop_cols:
+            v = row[c]
+            try:
+                if not pd.notna(v):
+                    continue
+            except ValueError:
+                pass  # pd.notna fails on arrays — treat as present
+            properties[c] = _to_serializable(v)
         features.append(
             {"type": "Feature", "geometry": geometry, "properties": properties}
         )

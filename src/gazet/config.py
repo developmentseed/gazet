@@ -22,9 +22,14 @@ NATURAL_EARTH_PATH = str(_DATA_DIR / "natural_earth_geoparquet/ne_geography.parq
 # MODEL = "qwen2.5-coder:1.5b"
 
 PLACE_EXTRACTION_MODEL = "gpt-oss:20b-cloud"
-SQL_GENERATION_MODEL = "qwen2.5-coder:1.5b"
+SQL_GENERATION_MODEL = "gpt-oss:20b-cloud"
 
 MAX_SQL_ITERATIONS = 5
+
+# ── GGUF / llama-server config ────────────────────────────────────────────────
+LLAMA_SERVER_URL = os.environ.get("LLAMA_SERVER_URL", "http://localhost:8080")
+LLAMA_MAX_TOKENS = int(os.environ.get("LLAMA_MAX_TOKENS", "350"))
+LLAMA_TEMPERATURE = float(os.environ.get("LLAMA_TEMPERATURE", "0"))
 
 SCHEMA_INFO = f"""
 Available DuckDB datasets (read via read_parquet):

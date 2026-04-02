@@ -53,7 +53,6 @@ def complete(prompt: str) -> str:
         "prompt": prompt,
         "n_predict": MAX_TOKENS,
         "temperature": TEMPERATURE,
-        "stop": ["<eos>", "</s>"],
     }).encode()
 
     req = urllib.request.Request(

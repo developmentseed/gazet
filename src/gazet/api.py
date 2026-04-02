@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from .export import to_feature_collection
 from .lm import extract
 from .search import search_divisions_area, search_natural_earth
-from .sql import run_geo_sql_loop
+from .sql import run_geo_sql_dspy, run_geo_sql_gguf
 
 app = FastAPI()
 
@@ -19,7 +19,7 @@ def _df_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
     return df.replace({float("nan"): None}).to_dict(orient="records")
 
 
-def _run_stream(query: str) -> Generator[str, None, None]:
+def _run_stream(query: str, backend: str = "gguf") -> Generator[str, None, None]:
     """Yield NDJSON lines as each stage of the search completes.
 
     Event ``type`` values (in order of emission):
@@ -64,8 +64,9 @@ def _run_stream(query: str) -> Generator[str, None, None]:
             + "\n"
         )
 
+        sql_fn = run_geo_sql_gguf if backend == "gguf" else run_geo_sql_dspy
         result_df: pd.DataFrame | None = None
-        for event in run_geo_sql_loop(con, query, candidates_df):
+        for event in sql_fn(con, query, candidates_df):
             if event["type"] == "sql_attempt":
                 yield (
                     json.dumps(
@@ -105,13 +106,13 @@ def _run_stream(query: str) -> Generator[str, None, None]:
 
 
 @app.get("/search/stream")
-def search_stream(q: str) -> StreamingResponse:
+def search_stream(q: str, backend: str = "gguf") -> StreamingResponse:
     """Stream search progress as NDJSON (one JSON object per line)."""
-    return StreamingResponse(_run_stream(q), media_type="application/x-ndjson")
+    return StreamingResponse(_run_stream(q, backend), media_type="application/x-ndjson")
 
 
 @app.get("/search", response_model=None)
-def search(q: str) -> dict[str, Any]:
+def search(q: str, backend: str = "gguf") -> dict[str, Any]:
     """Run geo search for natural-language query (non-streaming).
 
     Returns GeoJSON FeatureCollection, the executed SQL, and the identified
@@ -122,7 +123,7 @@ def search(q: str) -> dict[str, Any]:
     sql = ""
     geojson: dict | None = None
 
-    for line in _run_stream(q):
+    for line in _run_stream(q, backend):
         if not line.strip():
             continue
         event = json.loads(line)

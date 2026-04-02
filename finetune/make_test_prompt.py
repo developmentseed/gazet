@@ -1,27 +1,37 @@
-"""Build a formatted prompt from a test sample and write to stdout."""
+"""Print the full raw prompt for a test sample — paste into llama-server Completion UI.
+
+Usage
+-----
+uv run finetune/make_test_prompt.py        # sample 0
+uv run finetune/make_test_prompt.py 5      # sample 5
+"""
 import json
 import sys
 sys.path.insert(0, ".")
 
-from finetune.prompts import DEFAULT_SCHEMA_DETAILS, build_user_prompt
+from finetune.prompts import DEFAULT_SCHEMA_DETAILS, SYSTEM_PROMPT, build_user_prompt
 
-# Load first test sample
+index = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+
 with open("dataset/output/test.jsonl") as f:
-    sample = json.loads(f.readline())
+    samples = [json.loads(line) for line in f]
 
-user_prompt = build_user_prompt(
+sample = samples[index]
+
+raw_prompt = SYSTEM_PROMPT + "\n\n" + build_user_prompt(
     question=sample["question"],
     candidates=sample["candidates"],
     schema_details=DEFAULT_SCHEMA_DETAILS,
 )
 
+out_path = "/tmp/gazet_prompt.txt"
+with open(out_path, "w") as f:
+    f.write(raw_prompt)
+
 print(f"Question : {sample['question']}")
 print(f"Expected : {sample['target']['sql']}")
-print("---")
-print(user_prompt)
-
-# Write prompt to file for llama-cli
-with open("/tmp/gazet_prompt.txt", "w") as f:
-    f.write(user_prompt)
-
-print("\n[Prompt written to /tmp/gazet_prompt.txt]")
+print(f"Prompt   : {out_path}")
+print(f"\n{'─' * 60}")
+print("Paste into llama-server → Completion tab:")
+print(f"{'─' * 60}\n")
+print(raw_prompt)
