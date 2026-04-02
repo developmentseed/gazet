@@ -3,16 +3,16 @@
 Usage
 -----
 # Eval finetuned model (uses raw prompt-completion format):
-modal run finetune/infer_modal.py --label finetuned
+modal run finetune/eval_batch.py --label finetuned
 
 # Eval base model (uses chat template so the model understands the instruction):
-modal run finetune/infer_modal.py \
+modal run finetune/eval_batch.py \
     --model-path google/gemma-3-270m-it \
     --label base \
     --use-chat-template
 
 # Limit samples:
-modal run finetune/infer_modal.py --max-samples 50
+modal run finetune/eval_batch.py --max-samples 50
 """
 
 from __future__ import annotations

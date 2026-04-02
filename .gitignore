@@ -138,3 +138,12 @@ data/
 output/
 *.parquet
 *.jsonl
+
+# Model
+models/
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
