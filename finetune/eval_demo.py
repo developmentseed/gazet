@@ -29,8 +29,14 @@ def load_eval_results(path):
 
 
 def rewrite_data_paths(sql):
-    """Replace hardcoded /data/ paths with the local data directory."""
-    return sql.replace("/data/", f"{DATA_DIR}/")
+    """Replace symbolic and legacy paths with actual local data paths."""
+    div_path = str(DATA_DIR / "overture" / "divisions_area" / "*.parquet")
+    ne_path = str(DATA_DIR / "natural_earth_geoparquet" / "ne_geography.parquet")
+    sql = sql.replace("read_parquet('divisions_area')", f"read_parquet('{div_path}')")
+    sql = sql.replace("read_parquet('natural_earth')", f"read_parquet('{ne_path}')")
+    # Legacy fixed Docker paths
+    sql = sql.replace("/data/", f"{DATA_DIR}/")
+    return sql
 
 
 def format_sql(sql):

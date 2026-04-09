@@ -1,4 +1,4 @@
-"""Training configuration for text-to-SQL LoRA finetuning."""
+"""Training configuration for gazet LoRA fine-tuning."""
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -21,11 +21,8 @@ class TrainingConfig:
     # Model
     base_model: str = "google/gemma-3-270m-it"
 
-    # Dataset (paths on the Modal volume)
-    train_jsonl: str = "/mnt/gazet/data/output/train.jsonl"
-    val_jsonl: Optional[str] = "/mnt/gazet/data/output/val.jsonl"
-    test_jsonl: Optional[str] = "/mnt/gazet/data/output/test.jsonl"
-    schema_file: Optional[str] = None
+    # Dataset — path to run dir with {task}/{split}.jsonl files (prompt+completion message lists)
+    run_dir: str = "/mnt/gazet/data/v3-symbolic-paths"
     max_train_samples: Optional[int] = None
     max_eval_samples: Optional[int] = None
 
@@ -60,7 +57,7 @@ class TrainingConfig:
     trackio_space_id: Optional[str] = "srmsoumya/gazet-trackio"
     project: str = "gazet-nlg"
 
-    # SFT-specific
+    # SFT-specific — plain prompt+completion, loss only on completion tokens
     completion_only_loss: bool = True
     dataset_num_proc: Optional[int] = 8
 

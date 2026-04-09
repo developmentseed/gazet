@@ -15,14 +15,20 @@ countries:
 # Sample generation targets per family
 # Relation limits are auto-calculated from these targets
 sample_targets:
-  direct_lookup: 1250
-  adjacency: 1250
-  containment: 2000
-  intersection: 1250
-  buffer: 1250
-  set_operations: 1250
-  partial_selection: 2000
-  aggregation: 2000
+  direct_lookup:       500
+  adjacency:           750
+  multi_adjacency:     300
+  containment:         750
+  intersection:        500
+  buffer:              500
+  chained:             750   # coastal / landlocked variants
+  difference:          300
+  border_corridor:     300
+  set_operations:      500
+  partial_selection:   500
+  aggregation:         500
+  window_function:     300
+  attribute_filter:    300
 
 # Generation settings
 generation:
@@ -56,3 +62,8 @@ output:
   samples_dir: "output/samples"
   dataset_file: "output/dataset_raw.jsonl"
   intermediate_dir: "intermediate"
+
+# Run name — used to version exported splits so re-runs never overwrite previous data.
+# Change this whenever you regenerate from scratch (e.g. after template changes).
+# Exported files land in: output/runs/{run_name}/
+run_name: "v3-symbolic-paths"

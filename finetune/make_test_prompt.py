@@ -1,37 +1,65 @@
-"""Print the full raw prompt for a test sample — paste into llama-server Completion UI.
+"""Print the full chat messages for a test sample — paste into llama-server Chat UI.
 
 Usage
 -----
-uv run finetune/make_test_prompt.py        # sample 0
-uv run finetune/make_test_prompt.py 5      # sample 5
+uv run finetune/make_test_prompt.py             # sample 0 from sql test set
+uv run finetune/make_test_prompt.py 5           # sample 5
+uv run finetune/make_test_prompt.py --task places 3
 """
+
+import argparse
 import json
 import sys
-sys.path.insert(0, ".")
+from pathlib import Path
 
-from finetune.prompts import DEFAULT_SCHEMA_DETAILS, SYSTEM_PROMPT, build_user_prompt
+DEFAULT_RUN_DIR = Path("dataset/output/runs/v2-all-families")
 
-index = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-with open("dataset/output/test.jsonl") as f:
-    samples = [json.loads(line) for line in f]
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("index", nargs="?", type=int, default=0)
+    parser.add_argument("--task", default="sql", choices=["sql", "places"])
+    parser.add_argument("--run-dir", type=Path, default=DEFAULT_RUN_DIR)
+    args = parser.parse_args()
 
-sample = samples[index]
+    path = args.run_dir / args.task / "test.jsonl"
+    if not path.exists():
+        print(f"Error: {path} not found")
+        sys.exit(1)
 
-raw_prompt = SYSTEM_PROMPT + "\n\n" + build_user_prompt(
-    question=sample["question"],
-    candidates=sample["candidates"],
-    schema_details=DEFAULT_SCHEMA_DETAILS,
-)
+    with open(path) as f:
+        samples = [json.loads(line) for line in f if line.strip()]
 
-out_path = "/tmp/gazet_prompt.txt"
-with open(out_path, "w") as f:
-    f.write(raw_prompt)
+    if args.index >= len(samples):
+        print(f"Index {args.index} out of range (0-{len(samples)-1})")
+        sys.exit(1)
 
-print(f"Question : {sample['question']}")
-print(f"Expected : {sample['target']['sql']}")
-print(f"Prompt   : {out_path}")
-print(f"\n{'─' * 60}")
-print("Paste into llama-server → Completion tab:")
-print(f"{'─' * 60}\n")
-print(raw_prompt)
+    sample = samples[args.index]
+    prompt_msgs = sample["prompt"]
+    expected = sample["completion"][0]["content"]
+
+    out_path = "/tmp/gazet_prompt.json"
+    with open(out_path, "w") as f:
+        json.dump(prompt_msgs, f, indent=2)
+
+    print(f"Task     : {args.task}")
+    print(f"Sample   : {args.index}")
+    print(f"Expected : {expected[:120]}{'...' if len(expected) > 120 else ''}")
+    print(f"Messages : {out_path}")
+
+    print(f"\n{'─' * 60}")
+    for msg in prompt_msgs:
+        role = msg["role"].upper()
+        content = msg["content"]
+        print(f"\n[{role}]")
+        print(content[:500])
+        if len(content) > 500:
+            print(f"  ... ({len(content)} chars total)")
+
+    print(f"\n{'─' * 60}")
+    print(f"\n[EXPECTED COMPLETION]")
+    print(expected)
+
+
+if __name__ == "__main__":
+    main()

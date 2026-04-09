@@ -23,6 +23,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import duckdb
 import pandas as pd
 
+from gazet.config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
+
 
 def load_samples(jsonl_path: Path) -> List[Dict[str, Any]]:
     """Load samples from JSONL file."""
@@ -33,10 +35,28 @@ def load_samples(jsonl_path: Path) -> List[Dict[str, Any]]:
     return samples
 
 
+def _resolve_paths(sql: str) -> str:
+    """Replace symbolic placeholder paths with actual runtime paths for execution."""
+    sql = sql.replace(
+        "read_parquet('divisions_area')", f"read_parquet('{DIVISIONS_AREA_PATH}')"
+    )
+    sql = sql.replace(
+        "read_parquet('natural_earth')", f"read_parquet('{NATURAL_EARTH_PATH}')"
+    )
+    # Legacy fixed Docker paths from earlier dataset versions
+    sql = sql.replace("/data/overture/division_area/*.parquet",          DIVISIONS_AREA_PATH)
+    sql = sql.replace("/data/overture/divisions_area/*.parquet",         DIVISIONS_AREA_PATH)
+    sql = sql.replace("/data/natural_earth_geoparquet/ne_geography.parquet", NATURAL_EARTH_PATH)
+    return sql
+
+
 def validate_sql(con: duckdb.DuckDBPyConnection, sql: str) -> tuple[bool, str]:
-    """Validate that SQL executes without error."""
+    """Validate that SQL executes without error.
+
+    Resolves symbolic path placeholders to actual runtime paths before execution.
+    """
     try:
-        result = con.execute(sql).fetchdf()
+        result = con.execute(_resolve_paths(sql)).fetchdf()
         if result.empty:
             return False, "Empty result"
         return True, "OK"

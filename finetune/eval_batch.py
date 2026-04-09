@@ -2,14 +2,16 @@
 
 Usage
 -----
-# Eval finetuned model (uses raw prompt-completion format):
+# Eval fine-tuned model (sql task):
 modal run finetune/eval_batch.py --label finetuned
 
-# Eval base model (uses chat template so the model understands the instruction):
+# Eval base model:
 modal run finetune/eval_batch.py \
     --model-path google/gemma-3-270m-it \
-    --label base \
-    --use-chat-template
+    --label base
+
+# Eval places task:
+modal run finetune/eval_batch.py --task places --label finetuned-places
 
 # Limit samples:
 modal run finetune/eval_batch.py --max-samples 50
@@ -30,7 +32,6 @@ infer_image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
         "accelerate>=1.0",
-        "pandas>=2.2",
         "torch>=2.4",
         "transformers>=4.46",
     )
@@ -45,6 +46,7 @@ VOLUMES = {
 }
 
 DEFAULT_MODEL_PATH = "/mnt/gazet/checkpoints/gemma-3-270m-it-r16-20260331-134642/merged"
+DEFAULT_RUN_DIR = "/mnt/gazet/data/output/runs/v3-symbolic-paths"
 
 
 def postprocess_sql(text: str) -> str:
@@ -68,20 +70,21 @@ def postprocess_sql(text: str) -> str:
 def run_eval(
     model_path: str,
     label: str,
+    task: str,
     samples: list[dict],
     output_path: str,
     max_new_tokens: int = 512,
     batch_size: int = 16,
-    use_chat_template: bool = False,
 ):
-    """Run batched inference on all samples, save results to volume."""
+    """Run batched inference on all samples, save results to volume.
+
+    Uses raw prompt strings (no chat template) — matching training format.
+    """
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    from finetune.prompts import SYSTEM_PROMPT, build_user_prompt, DEFAULT_SCHEMA_DETAILS
-
     print(f"Loading model [{label}]: {model_path}")
-    print(f"Chat template: {use_chat_template}")
+    print(f"Task: {task}, Samples: {len(samples)}")
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -95,24 +98,11 @@ def run_eval(
     )
     model.eval()
 
-    # Build all prompts upfront
+    # Build raw prompt strings — same format as training (no chat template)
     prompts = []
     for sample in samples:
-        user_content = build_user_prompt(
-            question=sample["question"],
-            candidates=sample["candidates"],
-            schema_details=DEFAULT_SCHEMA_DETAILS,
-        )
-        if use_chat_template:
-            messages = [
-                {"role": "user", "content": SYSTEM_PROMPT + "\n\n" + user_content},
-            ]
-            prompt = tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
-        else:
-            prompt = SYSTEM_PROMPT + "\n\n" + user_content
-        prompts.append(prompt)
+        prompt_str = sample["prompt"][0]["content"] + "\n\n" + sample["prompt"][1]["content"]
+        prompts.append(prompt_str)
 
     # Batched inference
     all_predictions = []
@@ -145,7 +135,11 @@ def run_eval(
             generated = tokenizer.decode(
                 outputs[j][input_len:], skip_special_tokens=True
             )
-            all_predictions.append(postprocess_sql(generated))
+            if task == "sql":
+                generated = postprocess_sql(generated)
+            else:
+                generated = generated.strip()
+            all_predictions.append(generated)
 
         print(f"Batch {batch_idx+1}/{num_batches} done ({end}/{len(prompts)} samples)")
 
@@ -153,7 +147,7 @@ def run_eval(
     results = []
     matches = 0
     for i, sample in enumerate(samples):
-        expected = sample.get("target", {}).get("sql", "")
+        expected = sample["completion"][0]["content"]
         predicted = all_predictions[i]
         is_match = predicted.strip() == expected.strip()
         if is_match:
@@ -161,11 +155,10 @@ def run_eval(
 
         results.append({
             "index": i,
-            "question": sample["question"],
-            "candidates": sample["candidates"],
-            "expected_sql": expected,
-            "predicted_sql": predicted,
+            "expected": expected,
+            "predicted": predicted,
             "exact_match": is_match,
+            "metadata": sample.get("metadata", {}),
         })
 
     total = len(results)
@@ -174,6 +167,7 @@ def run_eval(
     output = {
         "summary": {
             "label": label,
+            "task": task,
             "model_path": model_path,
             "num_samples": total,
             "exact_matches": matches,
@@ -199,38 +193,41 @@ def run_eval(
     image=infer_image,
     volumes=VOLUMES,
 )
-def read_test_data(test_jsonl: str) -> list[dict]:
+def read_test_data(run_dir: str, task: str) -> list[dict]:
     """Read test JSONL from the volume."""
-    lines = []
-    with open(test_jsonl) as f:
+    path = pathlib.Path(run_dir) / task / "test.jsonl"
+    rows = []
+    with open(path) as f:
         for line in f:
-            lines.append(json.loads(line))
-    return lines
+            if line.strip():
+                rows.append(json.loads(line))
+    return rows
 
 
 @app.local_entrypoint()
 def main(
     model_path: str = DEFAULT_MODEL_PATH,
     label: str = "finetuned",
-    test_jsonl: str = "/mnt/gazet/data/output/test.jsonl",
+    task: str = "sql",
+    run_dir: str = DEFAULT_RUN_DIR,
     max_samples: Optional[int] = None,
     max_new_tokens: int = 512,
     batch_size: int = 16,
-    use_chat_template: bool = False,
     output_dir: str = "/mnt/gazet/eval_results",
 ):
-    print(f"Model: {model_path}")
-    print(f"Label: {label}")
-    print(f"Chat template: {use_chat_template}")
+    print(f"Model:   {model_path}")
+    print(f"Label:   {label}")
+    print(f"Task:    {task}")
+    print(f"Run dir: {run_dir}")
 
     print("Loading test data...")
-    samples = read_test_data.remote(test_jsonl)
+    samples = read_test_data.remote(run_dir, task)
     if max_samples:
         samples = samples[:max_samples]
     print(f"Eval samples: {len(samples)}")
 
-    output_file = f"{output_dir}/eval-{label}.json"
+    output_file = f"{output_dir}/eval-{label}-{task}.json"
     run_eval.remote(
-        model_path, label, samples, output_file,
-        max_new_tokens, batch_size, use_chat_template,
+        model_path, label, task, samples, output_file,
+        max_new_tokens, batch_size,
     )

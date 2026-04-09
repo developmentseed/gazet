@@ -31,6 +31,22 @@ warnings.filterwarnings('ignore')
 
 from gazet.config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
 
+# Fixed paths embedded in every training SQL string.
+# The model learns these short, stable strings rather than machine-specific
+# local paths.  At inference, sql.py's _rewrite_data_paths substitutes them
+# with the actual runtime paths from gazet.config.
+_DIVISIONS_SQL_PATH = 'divisions_area'
+_NATURAL_EARTH_SQL_PATH = 'natural_earth'
+
+
+def _for_execution(sql: str) -> str:
+    """Replace symbolic placeholder paths with actual local paths for verification."""
+    return (
+        sql
+        .replace("read_parquet('divisions_area')", f"read_parquet('{DIVISIONS_AREA_PATH}')")
+        .replace("read_parquet('natural_earth')",  f"read_parquet('{NATURAL_EARTH_PATH}')")
+    )
+
 # Configurable parameters (can be overridden by CLI)
 TARGET_COUNTS = None  # Will be set in main() or by CLI
 MAX_WORKERS = 8
@@ -141,6 +157,36 @@ def sample_cross_source_anchor(cross_source_df: pd.DataFrame) -> Optional[Dict[s
     }
 
 
+def _merge_candidate_lists(
+    *lists: List[Candidate],
+    max_total: int = 10,
+) -> List[Candidate]:
+    """Merge N candidate lists, deduplicate by id, reassign candidate_ids.
+
+    Interleaves the lists so each anchor is represented before any anchor
+    gets a second candidate — matching the grouped-then-interleaved order
+    that inference produces.
+    """
+    from itertools import zip_longest
+
+    seen: set = set()
+    merged: List[Candidate] = []
+    for row in zip_longest(*lists):
+        for c in row:
+            if c is None:
+                continue
+            if c.id not in seen:
+                merged.append(c)
+                seen.add(c.id)
+            if len(merged) >= max_total:
+                break
+        if len(merged) >= max_total:
+            break
+    for i, c in enumerate(merged, 1):
+        c.candidate_id = f"c{i}"
+    return merged
+
+
 def build_candidate_list(
     con: duckdb.DuckDBPyConnection,
     anchor_id: str,
@@ -204,14 +250,15 @@ def build_candidate_list(
         difficulty
     )
     
-    # Combine and shuffle
+    # Order: true anchor first, then same-source distractors, then cross-source
+    # distractors. This mirrors inference order (anchor at top by similarity,
+    # same source grouped before the other source).
     candidates = [true_candidate] + distractors
-    random.shuffle(candidates)
-    
-    # Reassign candidate IDs after shuffling
+
+    # Reassign candidate IDs in order
     for i, cand in enumerate(candidates, 1):
         cand.candidate_id = f"c{i}"
-    
+
     return candidates
 
 
@@ -221,14 +268,28 @@ def build_distractors(
     anchor_source: str,
     exclude_id: str,
     num_distractors: int,
-    difficulty: str
+    difficulty: str,
+    cross_source_ratio: float = 0.5,
 ) -> List[Candidate]:
-    """Build distractor candidates using fuzzy search."""
-    
-    # Fuzzy search for similar names
-    if anchor_source == "divisions_area":
+    """Build distractor candidates using fuzzy search.
+
+    Always includes candidates from both sources so the model sees mixed
+    ``source`` values in every training example — matching the inference
+    behaviour where search.py queries divisions_area AND natural_earth equally
+    (5 results each per place).
+
+    Args:
+        cross_source_ratio: Fraction of distractors drawn from the *other*
+            source.  Defaults to 0.5 (50/50 split) to match inference exactly.
+    """
+
+    def safe_get(row, key, default=None):
+        val = row.get(key, default)
+        return None if pd.isna(val) else val
+
+    def _query_source(path: str, src_name: str, n: int, excl_id: str) -> List[Candidate]:
         query = """
-        SELECT 
+        SELECT
             id,
             names."primary" AS name,
             subtype,
@@ -242,48 +303,33 @@ def build_distractors(
         ORDER BY similarity DESC
         LIMIT ?
         """
-        df = con.execute(query, [
-            anchor_name, DIVISIONS_AREA_PATH, exclude_id, num_distractors
-        ]).fetchdf()
-        source = "divisions_area"
+        df = con.execute(query, [anchor_name, path, excl_id, n]).fetchdf()
+        results = []
+        for _, row in df.iterrows():
+            results.append(Candidate(
+                candidate_id="temp",
+                source=src_name,
+                id=row["id"],
+                name=safe_get(row, "name"),
+                subtype=safe_get(row, "subtype"),
+                country=safe_get(row, "country"),
+                region=safe_get(row, "region"),
+                admin_level=safe_get(row, "admin_level"),
+                similarity=float(row["similarity"]),
+            ))
+        return results
+
+    cross_n = max(1, round(num_distractors * cross_source_ratio))
+    same_n = num_distractors - cross_n
+
+    if anchor_source == "divisions_area":
+        same = _query_source(DIVISIONS_AREA_PATH, "divisions_area", same_n, exclude_id)
+        cross = _query_source(NATURAL_EARTH_PATH, "natural_earth", cross_n, "")
     else:
-        query = """
-        SELECT 
-            id,
-            names."primary" AS name,
-            subtype,
-            jaro_winkler_similarity(lower(names."primary"), lower(?)) AS similarity
-        FROM read_parquet(?)
-        WHERE id != ?
-          AND names."primary" IS NOT NULL
-        ORDER BY similarity DESC
-        LIMIT ?
-        """
-        df = con.execute(query, [
-            anchor_name, NATURAL_EARTH_PATH, exclude_id, num_distractors
-        ]).fetchdf()
-        source = "natural_earth"
-    
-    # Helper to convert pandas NA to None
-    def safe_get(row, key, default=None):
-        val = row.get(key, default)
-        return None if pd.isna(val) else val
-    
-    distractors = []
-    for _, row in df.iterrows():
-        distractors.append(Candidate(
-            candidate_id="temp",  # Will be reassigned
-            source=source,
-            id=row['id'],
-            name=safe_get(row, 'name'),
-            subtype=safe_get(row, 'subtype'),
-            country=safe_get(row, 'country'),
-            region=safe_get(row, 'region'),
-            admin_level=safe_get(row, 'admin_level'),
-            similarity=float(row['similarity'])
-        ))
-    
-    return distractors
+        same = _query_source(NATURAL_EARTH_PATH, "natural_earth", same_n, exclude_id)
+        cross = _query_source(DIVISIONS_AREA_PATH, "divisions_area", cross_n, "")
+
+    return same + cross
 
 
 def generate_adjacency_sample(
@@ -299,18 +345,18 @@ def generate_adjacency_sample(
     
     # Build SQL
     sql = f"""WITH a AS (
-  SELECT geometry FROM read_parquet('{DIVISIONS_AREA_PATH}')
+  SELECT geometry FROM read_parquet('divisions_area')
   WHERE id = '{anchor['anchor_id']}'
 )
 SELECT b.id, b.names."primary" AS name, b.geometry
-FROM read_parquet('{DIVISIONS_AREA_PATH}') AS b, a
+FROM read_parquet('divisions_area') AS b, a
 WHERE b.id != '{anchor['anchor_id']}'
   AND b.subtype = '{anchor['target_subtype']}'
   AND ST_Touches(a.geometry, b.geometry)"""
     
     # Execute to verify
     try:
-        result = con.execute(sql).fetchdf()
+        result = con.execute(_for_execution(sql)).fetchdf()
         if result.empty:
             return None
     except Exception as e:
@@ -366,18 +412,18 @@ def generate_containment_sample(
     
     # Build SQL
     sql = f"""WITH a AS (
-  SELECT geometry FROM read_parquet('{DIVISIONS_AREA_PATH}')
+  SELECT geometry FROM read_parquet('divisions_area')
   WHERE id = '{anchor['container_id']}'
 )
 SELECT b.id, b.names."primary" AS name, b.geometry
-FROM read_parquet('{DIVISIONS_AREA_PATH}') AS b, a
+FROM read_parquet('divisions_area') AS b, a
 WHERE b.id != '{anchor['container_id']}'
   AND b.subtype = '{anchor['contained_subtype']}'
   AND ST_Within(b.geometry, a.geometry)"""
     
     # Execute to verify
     try:
-        result = con.execute(sql).fetchdf()
+        result = con.execute(_for_execution(sql)).fetchdf()
         if result.empty:
             return None
     except Exception as e:
@@ -460,8 +506,6 @@ def generate_template_based_sample(
         
         # Render SQL
         sql = template.sql_template.format(
-            DIVISIONS_AREA_PATH=DIVISIONS_AREA_PATH,
-            NATURAL_EARTH_PATH=NATURAL_EARTH_PATH,
             anchor_id=anchor['id']
         )
         
@@ -480,8 +524,6 @@ def generate_template_based_sample(
             return None
         
         sql = template.sql_template.format(
-            DIVISIONS_AREA_PATH=DIVISIONS_AREA_PATH,
-            NATURAL_EARTH_PATH=NATURAL_EARTH_PATH,
             anchor_id=anchor['anchor_id'],
             target_subtype=anchor['target_subtype']
         )
@@ -502,8 +544,6 @@ def generate_template_based_sample(
             return None
         
         sql = template.sql_template.format(
-            DIVISIONS_AREA_PATH=DIVISIONS_AREA_PATH,
-            NATURAL_EARTH_PATH=NATURAL_EARTH_PATH,
             anchor_id=anchor['container_id'],
             target_subtype=anchor['contained_subtype']
         )
@@ -525,9 +565,7 @@ def generate_template_based_sample(
                 return None
             
             sql = template.sql_template.format(
-                NATURAL_EARTH_PATH=NATURAL_EARTH_PATH,
-                DIVISIONS_AREA_PATH=DIVISIONS_AREA_PATH,
-                anchor_id=anchor['natural_id'],
+                        anchor_id=anchor['natural_id'],
                 target_subtype='country'
             )
             
@@ -550,9 +588,7 @@ def generate_template_based_sample(
             target_subtype = anchor.get('target_subtype') or 'region'
             
             sql = template.sql_template.format(
-                DIVISIONS_AREA_PATH=DIVISIONS_AREA_PATH,
-                NATURAL_EARTH_PATH=NATURAL_EARTH_PATH,
-                anchor_id=anchor['anchor_id'],
+                        anchor_id=anchor['anchor_id'],
                 target_subtype=target_subtype
             )
             
@@ -567,89 +603,176 @@ def generate_template_based_sample(
             )
     
     elif template.family == "set_operations":
-        # Union of two entities
-        anchor1 = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
-        anchor2 = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
-        
-        if not anchor1 or not anchor2:
-            return None
-        
-        sql = template.sql_template.format(
-            DIVISIONS_AREA_PATH=DIVISIONS_AREA_PATH,
-            NATURAL_EARTH_PATH=NATURAL_EARTH_PATH,
-            anchor_id_1=anchor1['id'],
-            anchor_id_2=anchor2['id']
-        )
-        
-        # Build candidates for both anchors
-        candidates1 = build_candidate_list(
-            con, anchor1['id'], anchor1['name'], 'divisions_area',
-            num_candidates=5, difficulty="medium"
-        )
-        candidates2 = build_candidate_list(
-            con, anchor2['id'], anchor2['name'], 'divisions_area',
-            num_candidates=5, difficulty="medium"
-        )
-        
-        # Combine and deduplicate
-        candidates = candidates1 + candidates2
-        seen_ids = set()
-        unique_candidates = []
-        for c in candidates:
-            if c.id not in seen_ids:
-                unique_candidates.append(c)
-                seen_ids.add(c.id)
-        candidates = unique_candidates[:10]
-        
-        # Reassign IDs
-        for i, c in enumerate(candidates, 1):
-            c.candidate_id = f"c{i}"
-        
-        question = f"{anchor1['name']} and {anchor2['name']}"
+        if template.template_id == "union_03":
+            # 3-anchor union by ID — candidates: 3 per anchor (9 total)
+            anchors = [
+                sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
+                for _ in range(3)
+            ]
+            if any(a is None for a in anchors):
+                return None
+            anchor1, anchor2, anchor3 = anchors
+
+            sql = template.sql_template.format(
+                    anchor_id_1=anchor1['id'],
+                anchor_id_2=anchor2['id'],
+                anchor_id_3=anchor3['id'],
+            )
+
+            per_anchor = 3
+            cands = [
+                build_candidate_list(con, a['id'], a['name'], 'divisions_area',
+                                     num_candidates=per_anchor, difficulty="medium")
+                for a in anchors
+            ]
+            candidates = _merge_candidate_lists(*cands, max_total=9)
+
+            question = random.choice(template.question_hints).format(
+                anchor_1_name=anchor1['name'],
+                anchor_2_name=anchor2['name'],
+                anchor_3_name=anchor3['name'],
+            )
+
+        elif template.template_id in ("contain_multi_01", "contain_multi_02"):
+            # country IN clause — 2 or 3 anchors, each contributes its country code
+            num_a = 3 if template.template_id == "contain_multi_02" else 2
+            anchors = [
+                sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
+                for _ in range(num_a)
+            ]
+            if any(a is None for a in anchors):
+                return None
+
+            countries = [a.get('country') or 'US' for a in anchors]
+            target_subtype = random.choice(['region', 'locality'])
+            per_anchor = 3 if num_a == 3 else 4
+
+            fmt_kwargs = dict(
+                    target_subtype=target_subtype,
+            )
+            for i, c in enumerate(countries, 1):
+                fmt_kwargs[f'country_{i}'] = c
+
+            sql = template.sql_template.format(**fmt_kwargs)
+
+            cands = [
+                build_candidate_list(con, a['id'], a['name'], 'divisions_area',
+                                     num_candidates=per_anchor, difficulty="medium")
+                for a in anchors
+            ]
+            candidates = _merge_candidate_lists(*cands, max_total=num_a * per_anchor)
+
+            q_kwargs = dict(target_subtype=target_subtype)
+            for i, a in enumerate(anchors, 1):
+                q_kwargs[f'anchor_{i}_name'] = a['name']
+
+            question = random.choice(template.question_hints).format(**q_kwargs)
+
+        elif template.template_id == "union_02":
+            # Filtered union: ST_Union_Agg of contained sub-features
+            pair = sample_containment_anchor(tables['containment_pairs'])
+            if not pair:
+                return None
+
+            target_subtype = pair.get('contained_subtype', 'locality')
+            sql = template.sql_template.format(
+                    anchor_id=pair['container_id'],
+                target_subtype=target_subtype,
+            )
+
+            candidates = build_candidate_list(
+                con, pair['container_id'], pair['container_name'], 'divisions_area',
+                num_candidates=10, difficulty="medium"
+            )
+
+            question = random.choice(template.question_hints).format(
+                anchor_name=pair['container_name'],
+                target_subtype=target_subtype,
+            )
+
+        else:
+            # union_01: 2-anchor union by ID — candidates: 5 per anchor
+            anchor1 = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
+            anchor2 = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
+            if not anchor1 or not anchor2:
+                return None
+
+            sql = template.sql_template.format(
+                    anchor_id_1=anchor1['id'],
+                anchor_id_2=anchor2['id'],
+            )
+
+            cands1 = build_candidate_list(
+                con, anchor1['id'], anchor1['name'], 'divisions_area',
+                num_candidates=5, difficulty="medium"
+            )
+            cands2 = build_candidate_list(
+                con, anchor2['id'], anchor2['name'], 'divisions_area',
+                num_candidates=5, difficulty="medium"
+            )
+            candidates = _merge_candidate_lists(cands1, cands2, max_total=10)
+
+            question = random.choice(template.question_hints).format(
+                anchor_1_name=anchor1['name'],
+                anchor_2_name=anchor2['name'],
+            )
     
     elif template.family == "buffer":
         # Buffer operations
+        # Kilometre distances used by buffer_01 and buffer_03 templates.
+        # Metre distances used by buffer_02 and buffer_04 templates.
+        # The template SQL divides by 111 320 to convert to degrees.
+        _buffer_km_choices = [1, 2, 5, 10, 25, 50, 100, 200]
+        _buffer_m_choices = [100, 250, 500, 1000, 2000, 5000]
+
         if template.num_anchors == 1:
-            anchor = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
+            if template.anchor_source == "natural_earth":
+                anchor = sample_random_entity(con, tables['natural_earth_inventory'], 'natural_earth')
+            else:
+                anchor = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
             if not anchor:
                 return None
-            
-            buffer_degrees = random.choice([0.1, 0.5, 1.0])
-            
-            sql = template.sql_template.format(
-                DIVISIONS_AREA_PATH=DIVISIONS_AREA_PATH,
-                NATURAL_EARTH_PATH=NATURAL_EARTH_PATH,
-                anchor_id=anchor['id'],
-                buffer_degrees=buffer_degrees
-            )
-            
+
+            # Choose unit based on which placeholder the template uses.
+            uses_km = "{buffer_km}" in template.sql_template
+            if uses_km:
+                buffer_val = random.choice(_buffer_km_choices)
+                fmt_kwargs = dict(
+                    anchor_id=anchor['id'],
+                    buffer_km=buffer_val,
+                )
+                q_kwargs = dict(anchor_name=anchor['name'], buffer_km=buffer_val)
+            else:
+                buffer_val = random.choice(_buffer_m_choices)
+                fmt_kwargs = dict(
+                    anchor_id=anchor['id'],
+                    buffer_m=buffer_val,
+                )
+                q_kwargs = dict(anchor_name=anchor['name'], buffer_m=buffer_val)
+
+            sql = template.sql_template.format(**fmt_kwargs)
+
             candidates = build_candidate_list(
-                con, anchor['id'], anchor['name'], 'divisions_area',
+                con, anchor['id'], anchor['name'], anchor['source'],
                 num_candidates=10, difficulty="medium"
             )
-            
-            question = random.choice(template.question_hints).format(
-                anchor_name=anchor['name'],
-                buffer_degrees=buffer_degrees
-            )
+
+            question = random.choice(template.question_hints).format(**q_kwargs)
         else:
-            # Two anchor buffer
+            # Two anchor buffer (union / set-op style) — kept for completeness.
             anchor1 = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
             anchor2 = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
-            
+
             if not anchor1 or not anchor2:
                 return None
-            
-            buffer_degrees = random.choice([0.1, 0.5])
-            
+
+            buffer_val = random.choice(_buffer_km_choices[:4])  # smaller range for two-anchor
             sql = template.sql_template.format(
-                DIVISIONS_AREA_PATH=DIVISIONS_AREA_PATH,
-                NATURAL_EARTH_PATH=NATURAL_EARTH_PATH,
-                anchor_id_1=anchor1['id'],
+                        anchor_id_1=anchor1['id'],
                 anchor_id_2=anchor2['id'],
-                buffer_degrees=buffer_degrees
+                buffer_km=buffer_val,
             )
-            
+
             candidates1 = build_candidate_list(
                 con, anchor1['id'], anchor1['name'], 'divisions_area',
                 num_candidates=5, difficulty="medium"
@@ -658,7 +781,7 @@ def generate_template_based_sample(
                 con, anchor2['id'], anchor2['name'], 'divisions_area',
                 num_candidates=5, difficulty="medium"
             )
-            
+
             candidates = candidates1 + candidates2
             seen_ids = set()
             unique_candidates = []
@@ -667,14 +790,14 @@ def generate_template_based_sample(
                     unique_candidates.append(c)
                     seen_ids.add(c.id)
             candidates = unique_candidates[:10]
-            
+
             for i, c in enumerate(candidates, 1):
                 c.candidate_id = f"c{i}"
-            
+
             question = random.choice(template.question_hints).format(
                 anchor_1_name=anchor1['name'],
                 anchor_2_name=anchor2['name'],
-                buffer_degrees=buffer_degrees
+                buffer_km=buffer_val,
             )
     
     elif template.family == "partial_selection":
@@ -685,112 +808,379 @@ def generate_template_based_sample(
         
         if template.num_anchors == 1:
             sql = template.sql_template.format(
-                DIVISIONS_AREA_PATH=DIVISIONS_AREA_PATH,
-                NATURAL_EARTH_PATH=NATURAL_EARTH_PATH,
-                anchor_id=anchor['id']
+                        anchor_id=anchor['id'],
             )
-            
-            question = random.choice(template.question_hints).format(anchor_name=anchor['name'])
-        else:
-            # Mixed source clipping
-            clip_feature = sample_random_entity(con, tables['natural_earth_inventory'], 'natural_earth')
-            if not clip_feature:
-                return None
-            
-            sql = template.sql_template.format(
-                DIVISIONS_AREA_PATH=DIVISIONS_AREA_PATH,
-                NATURAL_EARTH_PATH=NATURAL_EARTH_PATH,
-                anchor_id=anchor['id'],
-                clip_feature_id=clip_feature['id']
-            )
-            
             question = random.choice(template.question_hints).format(
                 anchor_name=anchor['name'],
-                clip_feature_name=clip_feature['name']
             )
-        
-        candidates = build_candidate_list(
-            con, anchor['id'], anchor['name'], 'divisions_area',
-            num_candidates=10, difficulty="hard"
-        )
+            candidates = build_candidate_list(
+                con, anchor['id'], anchor['name'], 'divisions_area',
+                num_candidates=10, difficulty="hard",
+            )
+        else:
+            # Mixed-source clip: division intersected with a natural_earth feature.
+            # Use cross_source_relations so the pair is guaranteed to intersect —
+            # random sampling almost never produces an intersecting pair.
+            cs_df = tables.get('cross_source_relations', pd.DataFrame())
+            if cs_df.empty:
+                return None
+            row = cs_df.sample(n=1).iloc[0]
+            clip_feature = {
+                'id':   row['natural_id'],
+                'name': row['natural_name'],
+                'source': 'natural_earth',
+            }
+            # Override the division anchor with the paired division so the
+            # ST_Intersects check in the SQL is guaranteed to pass.
+            anchor = {
+                'id':   row['division_id'],
+                'name': row['division_name'],
+                'source': 'divisions_area',
+            }
+
+            sql = template.sql_template.format(
+                        anchor_id=anchor['id'],
+                clip_feature_id=clip_feature['id'],
+            )
+            question = random.choice(template.question_hints).format(
+                anchor_name=anchor['name'],
+                clip_feature_name=clip_feature['name'],
+            )
+            # Build candidates for BOTH anchors so the model sees both IDs
+            # in context and learns to pick the right one for each placeholder.
+            div_cands = build_candidate_list(
+                con, anchor['id'], anchor['name'], 'divisions_area',
+                num_candidates=5, difficulty="hard",
+            )
+            ne_cands = build_candidate_list(
+                con, clip_feature['id'], clip_feature['name'], 'natural_earth',
+                num_candidates=5, difficulty="hard",
+            )
+            candidates = _merge_candidate_lists(div_cands, ne_cands, max_total=10)
     
     elif template.family == "aggregation":
-        # Aggregation queries (e.g., largest N localities in a region)
         top_n = random.choice([3, 5, 10])
-        
-        # Check if this is a country-level query (agg_04, agg_05)
-        if template.template_id in ['agg_04', 'agg_05']:
-            # Country-level aggregation
+        target_subtype = random.choice(['locality', 'region'])
+
+        if template.template_id in ['agg_03', 'agg_04']:
+            # Country-level aggregation: SQL uses country code, not anchor id.
             anchor = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
             if not anchor:
                 return None
-            
-            country = anchor.get('country', 'EC')
-            target_subtype = random.choice(['locality', 'region'])
-            
+
+            country = anchor.get('country') or 'US'
+
             sql = template.sql_template.format(
-                DIVISIONS_AREA_PATH=DIVISIONS_AREA_PATH,
-                NATURAL_EARTH_PATH=NATURAL_EARTH_PATH,
-                country=country,
+                    country=country,
                 target_subtype=target_subtype,
-                top_n=top_n
+                top_n=top_n,
             )
-            
+
             candidates = build_candidate_list(
                 con, anchor['id'], anchor['name'], 'divisions_area',
                 num_candidates=10, difficulty="hard"
             )
-            
+
             question = random.choice(template.question_hints).format(
                 top_n=top_n,
                 target_subtype=target_subtype,
-                country=country
+                anchor_name=anchor['name'],
             )
         else:
-            # Container-based aggregation (within a region)
+            # Containment-based aggregation: anchor is the container region.
             anchor = sample_containment_anchor(tables['containment_pairs'])
             if not anchor:
                 return None
-            
-            target_subtype = anchor.get('contained_subtype', 'locality')
-            
+
             sql = template.sql_template.format(
-                DIVISIONS_AREA_PATH=DIVISIONS_AREA_PATH,
-                NATURAL_EARTH_PATH=NATURAL_EARTH_PATH,
-                anchor_id=anchor['container_id'],
+                    anchor_id=anchor['container_id'],
                 target_subtype=target_subtype,
-                top_n=top_n
+                top_n=top_n,
             )
-            
+
             candidates = build_candidate_list(
                 con, anchor['container_id'], anchor['container_name'], 'divisions_area',
                 num_candidates=10, difficulty="hard"
             )
-            
+
             question = random.choice(template.question_hints).format(
                 top_n=top_n,
                 target_subtype=target_subtype,
-                anchor_name=anchor['container_name']
+                anchor_name=anchor['container_name'],
             )
         
+    elif template.family == "chained":
+        # Use pre-filtered coastal/landlocked containment pairs so the SQL
+        # verification step doesn't constantly return empty results.
+        if template.template_id == "chained_01":
+            table_key = 'coastal_containment_pairs'
+        elif template.template_id == "chained_02":
+            table_key = 'landlocked_containment_pairs'
+        else:
+            table_key = 'containment_pairs'
+        anchor = sample_containment_anchor(tables.get(table_key, tables['containment_pairs']))
+        if not anchor:
+            return None
+
+        target_subtype = anchor.get('contained_subtype', 'locality')
+
+        sql = template.sql_template.format(
+            anchor_id=anchor['container_id'],
+            target_subtype=target_subtype,
+        )
+
+        candidates = build_candidate_list(
+            con, anchor['container_id'], anchor['container_name'], 'divisions_area',
+            num_candidates=10, difficulty="hard"
+        )
+
+        question = random.choice(template.question_hints).format(
+            anchor_name=anchor['container_name'],
+            target_subtype=target_subtype,
+        )
+
+    elif template.family == "multi_adjacency":
+        # Use common_neighbor_pairs so anchor1 and anchor2 are guaranteed to
+        # share at least one touching neighbour — SQL will return non-empty.
+        cn_df = tables.get('common_neighbor_pairs', pd.DataFrame())
+        if cn_df.empty:
+            return None
+        row = cn_df.sample(n=1).iloc[0]
+        anchor1 = {'id': row['anchor_id_1'], 'name': row['anchor_name_1'], 'source': 'divisions_area'}
+        anchor2 = {'id': row['anchor_id_2'], 'name': row['anchor_name_2'], 'source': 'divisions_area'}
+
+        sql = template.sql_template.format(
+            anchor_id_1=anchor1['id'],
+            anchor_id_2=anchor2['id'],
+        )
+
+        candidates1 = build_candidate_list(
+            con, anchor1['id'], anchor1['name'], 'divisions_area',
+            num_candidates=5, difficulty="medium"
+        )
+        candidates2 = build_candidate_list(
+            con, anchor2['id'], anchor2['name'], 'divisions_area',
+            num_candidates=5, difficulty="medium"
+        )
+        candidates = _merge_candidate_lists(candidates1, candidates2)
+
+        question = random.choice(template.question_hints).format(
+            anchor_1_name=anchor1['name'],
+            anchor_2_name=anchor2['name'],
+        )
+
+    elif template.family == "difference":
+        if template.anchor_source == "mixed":
+            # divisions_area anchor differenced against a natural_earth feature.
+            # Use cross_source_relations so the pair is guaranteed to intersect
+            # (ST_Difference on non-intersecting geometries is always equal to
+            # the original geometry — a trivial and uninformative sample).
+            cs_df = tables.get('cross_source_relations', pd.DataFrame())
+            if cs_df.empty:
+                return None
+            row = cs_df.sample(n=1).iloc[0]
+            anchor = {
+                'id':   row['division_id'],
+                'name': row['division_name'],
+                'source': 'divisions_area',
+            }
+            clip_feature = {
+                'id':   row['natural_id'],
+                'name': row['natural_name'],
+                'source': 'natural_earth',
+            }
+
+            sql = template.sql_template.format(
+                        anchor_id=anchor['id'],
+                clip_feature_id=clip_feature['id'],
+            )
+            question = random.choice(template.question_hints).format(
+                anchor_name=anchor['name'],
+                clip_feature_name=clip_feature['name'],
+            )
+            # Build candidates for BOTH anchors — model must see both IDs
+            # to correctly assign anchor_id vs clip_feature_id in the SQL.
+            div_cands = build_candidate_list(
+                con, anchor['id'], anchor['name'], 'divisions_area',
+                num_candidates=5, difficulty="hard",
+            )
+            ne_cands = build_candidate_list(
+                con, clip_feature['id'], clip_feature['name'], 'natural_earth',
+                num_candidates=5, difficulty="hard",
+            )
+            candidates = _merge_candidate_lists(div_cands, ne_cands, max_total=10)
+
+        else:
+            # Two divisions_area anchors — use containment pairs so the
+            # smaller (contained) is guaranteed to intersect the larger.
+            pair = sample_containment_anchor(tables['containment_pairs'])
+            if not pair:
+                return None
+
+            anchor1 = {'id': pair['container_id'], 'name': pair['container_name']}
+            anchor2_row = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
+            if not anchor2_row:
+                return None
+            anchor2 = anchor2_row
+
+            sql = template.sql_template.format(
+                        anchor_id_1=anchor1['id'],
+                anchor_id_2=anchor2['id'],
+            )
+
+            candidates1 = build_candidate_list(
+                con, anchor1['id'], anchor1['name'], 'divisions_area',
+                num_candidates=5, difficulty="medium"
+            )
+            candidates2 = build_candidate_list(
+                con, anchor2['id'], anchor2['name'], 'divisions_area',
+                num_candidates=5, difficulty="medium"
+            )
+            candidates = _merge_candidate_lists(candidates1, candidates2)
+
+            question = random.choice(template.question_hints).format(
+                anchor_1_name=anchor1['name'],
+                anchor_2_name=anchor2['name'],
+            )
+
+    elif template.family == "border_corridor":
+        # Buffered border zone — needs two anchors that actually touch.
+        pair = sample_adjacency_anchor(tables['adjacency_pairs'])
+        if not pair:
+            return None
+
+        # The adjacency table only records one direction; sample a second
+        # anchor that is known to be adjacent to the first.
+        anchor1 = {'id': pair['anchor_id'], 'name': pair['anchor_name']}
+
+        # Find a random neighbour of anchor1 from adjacency pairs
+        neighbours = tables['adjacency_pairs']
+        neighbours = neighbours[neighbours['anchor_id'] == anchor1['id']]
+        if neighbours.empty:
+            return None
+        nb_row = neighbours.sample(n=1).iloc[0]
+        anchor2 = {'id': nb_row.get('target_id', nb_row['anchor_id']), 'name': nb_row.get('target_name', nb_row['anchor_name'])}
+        if anchor1['id'] == anchor2['id']:
+            return None
+
+        buffer_val = random.choice([5, 10, 25, 50])
+
+        sql = template.sql_template.format(
+            anchor_id_1=anchor1['id'],
+            anchor_id_2=anchor2['id'],
+            buffer_km=buffer_val,
+        )
+
+        candidates1 = build_candidate_list(
+            con, anchor1['id'], anchor1['name'], 'divisions_area',
+            num_candidates=5, difficulty="medium"
+        )
+        candidates2 = build_candidate_list(
+            con, anchor2['id'], anchor2['name'], 'divisions_area',
+            num_candidates=5, difficulty="medium"
+        )
+        candidates = _merge_candidate_lists(candidates1, candidates2)
+
+        question = random.choice(template.question_hints).format(
+            anchor_1_name=anchor1['name'],
+            anchor_2_name=anchor2['name'],
+            buffer_km=buffer_val,
+        )
+
+    elif template.family == "window_function":
+        anchor = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
+        if not anchor:
+            return None
+
+        country = anchor.get('country') or 'US'
+        target_subtype = random.choice(['locality', 'neighborhood'])
+
+        sql = template.sql_template.format(
+            country=country,
+            target_subtype=target_subtype,
+        )
+
+        candidates = build_candidate_list(
+            con, anchor['id'], anchor['name'], 'divisions_area',
+            num_candidates=10, difficulty="hard"
+        )
+
+        question = random.choice(template.question_hints).format(
+            anchor_name=anchor['name'],
+            target_subtype=target_subtype,
+        )
+
+    elif template.family == "attribute_filter":
+        anchor = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
+        if not anchor:
+            return None
+
+        country = anchor.get('country') or 'US'
+        target_subtype = template.target_subtype or random.choice(['dependency', 'region', 'locality'])
+
+        sql = template.sql_template.format(
+            country=country,
+            target_subtype=target_subtype,
+        )
+
+        candidates = build_candidate_list(
+            con, anchor['id'], anchor['name'], 'divisions_area',
+            num_candidates=10, difficulty="medium"
+        )
+
+        question = random.choice(template.question_hints).format(
+            anchor_name=anchor['name'],
+            target_subtype=target_subtype,
+            country=country,
+        )
+
     else:
         # Skip unsupported families
         return None
-    
+
     # Execute SQL to verify
     try:
-        result = con.execute(sql).fetchdf()
+        result = con.execute(_for_execution(sql)).fetchdf()
         if result.empty:
             return None
     except Exception as e:
         # Errors are tracked in worker return, no need to print
         return None
-    
-    # Find selected candidates
-    if template.family == "set_operations":
-        selected_candidate_ids = [c.candidate_id for c in candidates if c.id in [anchor1['id'], anchor2['id']]]
+
+    # Collect every anchor ID that appears in the generated SQL so we can
+    # mark them as the "selected" candidates in the training sample.
+    _multi_anchor_families = {"set_operations", "multi_adjacency", "difference", "border_corridor"}
+
+    # Mixed partial_selection (partial_05) and mixed difference (diff_02) each
+    # have two anchors from different sources — both must be marked selected.
+    _is_mixed_two_anchor = (
+        template.anchor_source == "mixed" and template.num_anchors == 2
+    )
+
+    if template.family in _multi_anchor_families and template.num_anchors >= 2:
+        anchor_ids: set = set()
+        for var in ("anchor1", "anchor2", "anchor3"):
+            obj = locals().get(var)
+            if obj:
+                anchor_ids.add(obj.get("id", ""))
+        if "anchors" in locals():
+            for a in locals()["anchors"]:
+                if a:
+                    anchor_ids.add(a.get("id", ""))
+        selected_candidate_ids = [c.candidate_id for c in candidates if c.id in anchor_ids]
+
+    elif _is_mixed_two_anchor:
+        # partial_05 / diff_02: anchor (division) + clip_feature (natural_earth)
+        mixed_ids = {anchor.get("id", ""), clip_feature.get("id", "")}
+        selected_candidate_ids = [c.candidate_id for c in candidates if c.id in mixed_ids]
+
     else:
-        anchor_id_to_find = anchor.get('anchor_id') or anchor.get('container_id') or anchor.get('natural_id') or anchor.get('id')
+        anchor_id_to_find = (
+            anchor.get('anchor_id')
+            or anchor.get('container_id')
+            or anchor.get('natural_id')
+            or anchor.get('id')
+        )
         selected_candidate_ids = [c.candidate_id for c in candidates if c.id == anchor_id_to_find]
     
     return TrainingSample(
@@ -826,17 +1216,17 @@ def generate_cross_source_sample(
     
     # Build SQL (natural feature -> divisions)
     sql = f"""WITH a AS (
-  SELECT geometry FROM read_parquet('{NATURAL_EARTH_PATH}')
+  SELECT geometry FROM read_parquet('natural_earth')
   WHERE id = '{anchor['natural_id']}'
 )
 SELECT b.id, b.names."primary" AS name, b.geometry
-FROM read_parquet('{DIVISIONS_AREA_PATH}') AS b, a
+FROM read_parquet('divisions_area') AS b, a
 WHERE b.subtype = 'country'
   AND ST_Intersects(b.geometry, a.geometry)"""
     
     # Execute to verify
     try:
-        result = con.execute(sql).fetchdf()
+        result = con.execute(_for_execution(sql)).fetchdf()
         if result.empty:
             return None
     except Exception as e:
@@ -1042,14 +1432,20 @@ def main():
     # Use configured target counts or defaults
     if TARGET_COUNTS is None:
         target_counts = {
-            'direct_lookup': 100,
-            'adjacency': 200,
-            'containment': 100,
-            'intersection': 150,
-            'buffer': 100,
-            'set_operations': 150,
-            'partial_selection': 100,
-            'aggregation': 100
+            'direct_lookup':    100,
+            'adjacency':        150,
+            'multi_adjacency':   75,
+            'containment':      100,
+            'intersection':     100,
+            'buffer':           100,
+            'chained':          150,
+            'difference':        75,
+            'border_corridor':   75,
+            'set_operations':   150,
+            'partial_selection': 75,
+            'aggregation':      100,
+            'window_function':   75,
+            'attribute_filter':  75,
         }
     else:
         target_counts = TARGET_COUNTS

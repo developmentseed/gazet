@@ -1,11 +1,10 @@
-"""Modal training script for text-to-SQL LoRA finetuning.
+"""Modal training script for gazet LoRA fine-tuning.
 
 Usage
 -----
-modal run finetune/train_modal.py \
-    --train-jsonl /data/train.jsonl \
-    --val-jsonl /data/val.jsonl \
-    --base-model google/gemma-3-1b-it
+modal run finetune/train_modal.py
+modal run finetune/train_modal.py --base-model google/gemma-3-1b-it
+modal run finetune/train_modal.py --run-dir /mnt/gazet/data/output/runs/v3-symbolic-paths
 
 All CLI arguments map to TrainingConfig fields. Run with --help for details.
 """
@@ -19,7 +18,7 @@ import modal
 
 app = modal.App("gazet-nlg-finetune")
 
-GPU_TYPE = "A100-80GB"  # "L40S"
+GPU_TYPE = "A100-80GB"
 TIMEOUT_HOURS = 6
 MAX_RETRIES = 1
 
@@ -44,7 +43,6 @@ train_image = (
 
 with train_image.imports():
     import torch
-    from datasets import DatasetDict
     from peft import LoraConfig
     from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
     from trl import SFTConfig, SFTTrainer
@@ -83,30 +81,6 @@ def _build_lora_config(config) -> LoraConfig:
     )
 
 
-def _load_and_format_dataset(config) -> DatasetDict:
-    """Load JSONL splits and apply prompt-completion formatting."""
-    from finetune.data import (
-        format_dataset_for_sft,
-        load_jsonl_splits,
-        read_text,
-    )
-    from finetune.prompts import DEFAULT_SCHEMA_DETAILS
-
-    schema_details = read_text(config.schema_file, DEFAULT_SCHEMA_DETAILS)
-    raw_ds = load_jsonl_splits(config.train_jsonl, config.val_jsonl, config.test_jsonl)
-    ds = format_dataset_for_sft(raw_ds, schema_details)
-
-    if config.max_train_samples is not None:
-        ds["train"] = ds["train"].select(
-            range(min(config.max_train_samples, len(ds["train"])))
-        )
-    if config.max_eval_samples is not None and "val" in ds:
-        ds["val"] = ds["val"].select(
-            range(min(config.max_eval_samples, len(ds["val"])))
-        )
-    return ds
-
-
 def _find_latest_checkpoint(checkpoint_dir: pathlib.Path) -> str | None:
     if not checkpoint_dir.exists():
         return None
@@ -129,6 +103,7 @@ def _find_latest_checkpoint(checkpoint_dir: pathlib.Path) -> str | None:
 def finetune(config_dict: dict):
     """Run LoRA SFT training inside a Modal container."""
     from finetune.config import TrainingConfig
+    from finetune.data import load_and_prepare
 
     config = TrainingConfig(**config_dict)
     set_seed(config.seed)
@@ -136,23 +111,24 @@ def finetune(config_dict: dict):
     experiment_dir = pathlib.Path("/mnt/gazet/checkpoints") / config.experiment_name
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Experiment: {config.experiment_name}")
-    print(f"Model: {config.base_model}")
+    print(f"Experiment:       {config.experiment_name}")
+    print(f"Model:            {config.base_model}")
+    print(f"Run dir:          {config.run_dir}")
 
-    # Model and tokenizer
     tokenizer = _load_tokenizer(config.base_model)
     model = _load_model(config.base_model)
 
-    # Dataset
-    ds = _load_and_format_dataset(config)
-    print(f"Train samples: {len(ds['train']):,}")
+    ds = load_and_prepare(
+        config.run_dir,
+        max_train_samples=config.max_train_samples,
+        max_eval_samples=config.max_eval_samples,
+    )
+    print(f"Train samples:    {len(ds['train']):,}")
     if "val" in ds:
-        print(f"Val samples: {len(ds['val']):,}")
+        print(f"Val samples:      {len(ds['val']):,}")
 
-    # LoRA
     peft_config = _build_lora_config(config)
 
-    # SFT config
     sft_args = SFTConfig(
         output_dir=str(experiment_dir),
         max_length=config.max_length,
@@ -193,23 +169,20 @@ def finetune(config_dict: dict):
 
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Total parameters: {total_params:,}")
+    print(f"Total parameters:     {total_params:,}")
     print(f"Trainable parameters: {trainable_params:,}")
 
-    # Resume from checkpoint if available (handles preemption)
     resume_from = _find_latest_checkpoint(experiment_dir)
     if resume_from:
         print(f"Resuming from {resume_from}")
 
     trainer.train(resume_from_checkpoint=resume_from)
 
-    # Save final adapter + tokenizer
     print(f"Saving adapter to {experiment_dir}")
     trainer.save_model(str(experiment_dir))
     tokenizer.save_pretrained(str(experiment_dir))
     gazet_vol.commit()
 
-    # Optionally merge adapter into base model
     if config.merge_after_training:
         _merge_and_save(config, experiment_dir)
 
@@ -218,6 +191,8 @@ def finetune(config_dict: dict):
 
 
 def _merge_and_save(config, experiment_dir: pathlib.Path):
+    import shutil
+    from huggingface_hub import snapshot_download
     from peft import PeftModel
 
     merged_dir = experiment_dir / "merged"
@@ -233,18 +208,27 @@ def _merge_and_save(config, experiment_dir: pathlib.Path):
 
     tokenizer = _load_tokenizer(config.base_model)
     tokenizer.save_pretrained(str(merged_dir))
+
+    # Copy tokenizer.model from base model cache (fast tokenizer doesn't save it)
+    sp_dest = merged_dir / "tokenizer.model"
+    if not sp_dest.exists():
+        base_dir = pathlib.Path(snapshot_download(config.base_model))
+        sp_src = base_dir / "tokenizer.model"
+        if sp_src.exists():
+            shutil.copy2(sp_src, sp_dest)
+            print(f"Copied tokenizer.model from {sp_src}")
+        else:
+            print("WARNING: tokenizer.model not found in base model cache")
+
     gazet_vol.commit()
     print(f"Merged model saved to {merged_dir}")
 
-
-# ---------------------------------------------------------------------------
-# Local entrypoint
-# ---------------------------------------------------------------------------
 
 @app.local_entrypoint()
 def main(
     base_model: Optional[str] = None,
     experiment_name: Optional[str] = None,
+    run_dir: Optional[str] = None,
     per_device_train_batch_size: Optional[int] = None,
     max_train_samples: Optional[int] = None,
     max_eval_samples: Optional[int] = None,
@@ -258,6 +242,7 @@ def main(
         k: v for k, v in dict(
             base_model=base_model,
             experiment_name=experiment_name,
+            run_dir=run_dir,
             per_device_train_batch_size=per_device_train_batch_size,
             max_train_samples=max_train_samples,
             max_eval_samples=max_eval_samples,
@@ -270,8 +255,9 @@ def main(
     config = TrainingConfig(**overrides)
 
     print(f"Starting experiment: {config.experiment_name}")
-    print(f"Model: {config.base_model}")
-    print(f"LoRA: r={config.lora_r}, alpha={config.lora_alpha}")
+    print(f"Model:               {config.base_model}")
+    print(f"Run dir:             {config.run_dir}")
+    print(f"LoRA:                r={config.lora_r}, alpha={config.lora_alpha}")
     effective_batch = config.per_device_train_batch_size * config.gradient_accumulation_steps
     print(f"Effective batch size: {effective_batch}")
 

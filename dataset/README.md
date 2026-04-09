@@ -1,140 +1,151 @@
-# Dataset Generation CLI
+# Gazet Dataset Generation
 
-Generate synthetic text-to-SQL training datasets.
+Generates synthetic training data for fine-tuning the geocoding model.
+Two datasets come out of one pipeline run:
 
-## Quick Start
+- **SQL generation** — `(question + candidates) → DuckDB SQL`
+- **Place extraction** — `question → place names JSON`
+
+---
+
+## Prerequisites
 
 ```bash
-# Install
 uv sync
-
-# Generate dataset
-gazet-dataset full-pipeline --config dataset/config.yaml
 ```
 
-## Configuration
+You need the Overture and Natural Earth parquet files under `data/` locally,
+or on a Modal volume if running in the cloud.
 
-Edit `dataset/config.yaml`:
+---
+
+## Option A — Run locally (small datasets, development)
+
+Use this when you want to iterate quickly on a laptop with a subset of countries.
+
+**Step 1 — Pick a run name and countries in `config.yaml`**
 
 ```yaml
+run_name: "my-run-001"   # change this every time you generate fresh data
+
 countries:
-  - EC  # Ecuador
-  - BE  # Belgium
-  - KE  # Kenya
-  - AE  # UAE
-  - SG  # Singapore
-  - CH  # Switzerland
-
-sample_targets:
-  direct_lookup: 100
-  adjacency: 100
-  containment: 100
-  intersection: 100
-  buffer: 100
-  set_operations: 100
-  partial_selection: 100
-  aggregation: 100
-
-generation:
-  max_workers: 8
-  retry_multiplier: 2
-  append_mode: true
-
-auto_scaling:
-  safety_factor: 1.5  # Auto-calculates relation limits
+  - IN   # India
+  - BR   # Brazil
+  - US   # United States
+  # add more, or use "- all" for every country (slow locally)
 ```
 
-## Growing Your Dataset
+**Step 2 — Run the full pipeline**
 
-### Start Small
 ```bash
-# Generate initial dataset (e.g., 100 samples)
 gazet-dataset full-pipeline --config dataset/config.yaml
 ```
 
-### Add More Samples (Same Countries)
+That's it. It runs all four steps in order and puts the results in
+`dataset/output/runs/my-run-001/`.
+
+If you want to run steps individually (e.g. to re-export without regenerating):
+
 ```bash
-# Increase sample_targets in config.yaml, then:
-gazet-dataset full-pipeline --config dataset/config.yaml --append
+gazet-dataset build-relations  --config dataset/config.yaml  # ~5 min
+gazet-dataset generate-samples --config dataset/config.yaml  # ~15 min
+gazet-dataset validate         --config dataset/config.yaml  # ~5 min
+gazet-dataset export           --config dataset/config.yaml  # <1 min
 ```
 
-### Add New Countries
+---
+
+## Option B — Run on Modal (large datasets, production)
+
+Use this when you need 10 K+ samples or want to use all countries. Modal
+distributes generation across many containers in parallel.
+
+**Step 1 — One-time setup**
+
 ```bash
-# Add countries to config.yaml, then:
-gazet-dataset full-pipeline --config dataset/config.yaml --append
-# Auto-rebuilds relations if countries changed
+modal setup   # authenticate with Modal (one time)
+gazet-dataset modal-upload --config dataset/config.yaml   # upload parquet data to Modal volume
 ```
 
-### Scale to 10K+ with Modal
+**Step 2 — Set run name and targets in `config.yaml`**
 
-For large datasets, use Modal to distribute generation across cloud containers:
+```yaml
+run_name: "v2-full-10k"
+
+countries:
+  - all
+
+sample_targets:
+  adjacency:     1250
+  containment:   1250
+  # ... see config.yaml for all families
+```
+
+**Step 3 — Run on Modal**
 
 ```bash
-# One-time setup: install modal and authenticate
-uv sync --group dataset
-modal setup
-
-# Upload parquet data to Modal volume (one-time)
-gazet-dataset modal-upload --config dataset/config.yaml
-
-# Run distributed generation (50 containers by default)
 gazet-dataset modal-generate --config dataset/config.yaml
-
-# Or override container count
-gazet-dataset modal-generate --config dataset/config.yaml --num-containers 100
-
-# Skip inventory/relations if already built
-gazet-dataset modal-generate --config dataset/config.yaml --skip-inventory --skip-relations
 ```
 
-Or run Modal directly:
-```bash
-modal run dataset/modal_app.py::upload_data --data-dir data
-modal run dataset/modal_app.py::run_pipeline --config-path dataset/config.yaml
-```
+This builds relations, generates samples, validates, and exports — same as
+`full-pipeline` but distributed across 100 cloud containers.
 
-Configure in `config.yaml`:
-```yaml
-countries:
-  - all          # Use all countries for maximum diversity
-
-sample_targets:
-  adjacency: 1250
-  containment: 1250
-  # ... 8 families x 1250 = 10K samples
-
-modal:
-  num_containers: 50
-  container_cpu: 2
-  container_memory: 4096
-```
-
-## Commands
+If relations are already built from a previous run (same countries, same
+template version), skip rebuilding them:
 
 ```bash
-gazet-dataset full-pipeline --config <path>     # Run everything
-gazet-dataset build-relations --config <path>   # Build spatial relations
-gazet-dataset generate-samples --config <path>  # Generate samples
-gazet-dataset validate --config <path>          # Validate dataset
-gazet-dataset export --config <path>            # Export train/val/test
-gazet-dataset modal-upload --config <path>      # Upload data to Modal volume
-gazet-dataset modal-generate --config <path>    # Distributed generation via Modal
+gazet-dataset modal-generate --config dataset/config.yaml --skip-relations
 ```
 
-**Options:**
-- `--append`: Add to existing dataset instead of overwriting
+---
 
 ## Output
 
-- `dataset/output/dataset_raw.jsonl` - Generated samples
-- `dataset/output/dataset_validated.jsonl` - Validated samples
-- `dataset/output/train.jsonl` - Training split
-- `dataset/output/val.jsonl` - Validation split
-- `dataset/output/test.jsonl` - Test split
+After running, your training files are at:
 
-## Tips
+```
+dataset/output/runs/{run_name}/
+  sql/
+    train.jsonl    ← use this to fine-tune the SQL generation model
+    val.jsonl
+    test.jsonl
+  places/
+    train.jsonl    ← use this to fine-tune the place extraction model
+    val.jsonl
+    test.jsonl
+  stats.json       ← sample counts by family
+```
 
-- Start with 2-3 countries and small sample targets
-- Use `--append` to grow dataset incrementally
-- Relation limits auto-calculate from sample targets
-- Check success rates in output summary
+---
+
+## When to regenerate from scratch
+
+Change `run_name` and run without `--append` whenever you:
+
+- Change any SQL templates (`sql_templates.py`)
+- Add new template families
+- Change the candidate format or count
+- Change the training prompt/completion format
+
+Use `--append` only when you're adding more samples of the same type
+(e.g. adding more countries to an existing run with identical templates).
+
+---
+
+## Troubleshooting
+
+**Very few samples generated for a family**
+The generation loop tries `retry_multiplier × target` and discards SQL that
+returns empty results. Some families (e.g. `multi_adjacency`, `chained`) have
+a lower success rate. Increase `sample_targets` for those families or increase
+`retry_multiplier` in `config.yaml`.
+
+**Relations step is slow**
+Normal for `countries: [all]` — it's a spatial self-join over millions of
+features. Use a country subset for development. Relations only need to be
+rebuilt when you add countries or change template families.
+
+**`dataset_validated.jsonl` has far fewer samples than `dataset_raw.jsonl`**
+The validate step re-executes every SQL query and drops ones that return empty
+results. This is expected — check `output/dataset_stats.json` for per-family
+pass rates.

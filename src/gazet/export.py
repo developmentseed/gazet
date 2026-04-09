@@ -45,15 +45,20 @@ def _wkb_to_geojson(wkb: bytearray | bytes) -> dict | None:
     """Convert WKB geometry to GeoJSON dict via DuckDB."""
     import duckdb
 
+    con = duckdb.connect()
     try:
-        result = duckdb.sql(
+        con.execute("INSTALL spatial")
+        con.execute("LOAD spatial")
+        result = con.execute(
             "SELECT ST_AsGeoJSON(ST_GeomFromWKB(?::BLOB)) AS geojson",
-            params=[bytes(wkb)],
+            [bytes(wkb)],
         ).fetchone()
         if result and result[0]:
             return json.loads(result[0])
     except Exception:
         pass
+    finally:
+        con.close()
     return None
 
 

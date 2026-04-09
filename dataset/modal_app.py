@@ -17,6 +17,7 @@ image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install(
         "duckdb>=1.4.4",
+        "dspy>=3.1.3",
         "fastapi>=0.100",
         "pandas>=2.2",
         "pydantic>=2.0",

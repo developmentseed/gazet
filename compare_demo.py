@@ -36,7 +36,7 @@ from gazet.config import (
     SCHEMA_INFO,
 )
 from gazet.lm import extract, generate_sql, is_llama_server_available, write_sql
-from gazet.search import search_divisions_area, search_natural_earth
+from gazet.search import search_candidates
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -64,8 +64,12 @@ def get_duckdb_connection():
 
 
 def rewrite_data_paths(sql: str) -> str:
-    """Replace hardcoded /data/ paths with the local data directory."""
-    return sql.replace("/data/", f"{DATA_DIR}/")
+    """Replace symbolic read_parquet names with actual local file paths."""
+    sql = sql.replace("read_parquet('divisions_area')", f"read_parquet('{DIVISIONS_AREA_PATH}')")
+    sql = sql.replace('read_parquet("divisions_area")', f'read_parquet("{DIVISIONS_AREA_PATH}")')
+    sql = sql.replace("read_parquet('natural_earth')", f"read_parquet('{NATURAL_EARTH_PATH}')")
+    sql = sql.replace('read_parquet("natural_earth")', f'read_parquet("{NATURAL_EARTH_PATH}")')
+    return sql
 
 
 def execute_sql(con, sql: str) -> pd.DataFrame:
@@ -335,10 +339,7 @@ if to_run:
     with st.status("Searching candidates...", expanded=False) as status:
         all_candidates = []
         for place in places.places:
-            for search_fn in (search_divisions_area, search_natural_earth):
-                df = search_fn(con, place)
-                if not df.empty:
-                    all_candidates.append(df)
+            all_candidates.extend(search_candidates(con, place))
 
         if not all_candidates:
             st.error("No candidates found.")

@@ -74,29 +74,34 @@ def calculate_relation_limits(config: dict) -> Dict[str, int]:
     retry_mult = config['generation']['retry_multiplier']
     safety = config.get('auto_scaling', {}).get('safety_factor', 1.5)
     
-    # Map task families to relation types they need
-    family_to_relation = {
-        'adjacency': 'adjacency',
-        'containment': 'containment',
-        'intersection': 'intersection',
-        'buffer': 'adjacency',  # Buffer uses adjacency pairs
-        'set_operations': 'intersection',  # Set ops use intersection pairs
-        'partial_selection': 'containment',  # Partial uses containment
-        'aggregation': 'containment',  # Aggregation uses containment
-        'direct_lookup': None,  # Uses inventory only
+    # Map each task family to the relation tables it draws anchors from.
+    # A family can need multiple relation types.
+    family_to_relations = {
+        'direct_lookup':      [],
+        'adjacency':          ['adjacency'],
+        'multi_adjacency':    ['adjacency', 'common_neighbor'],
+        'containment':        ['containment'],
+        'intersection':       ['intersection', 'cross_source'],
+        'buffer':             ['adjacency'],
+        'chained':            ['coastal_containment', 'landlocked_containment', 'containment'],
+        'difference':         ['containment', 'cross_source'],
+        'border_corridor':    ['adjacency'],
+        'set_operations':     ['containment', 'cross_source'],
+        'partial_selection':  ['containment', 'cross_source'],
+        'aggregation':        ['containment'],
+        'window_function':    [],
+        'attribute_filter':   [],
     }
-    
-    # Calculate required limits by summing needs per relation type
-    relation_needs = {}
+
+    relation_needs: Dict[str, int] = {}
     for family, target in sample_targets.items():
-        relation_type = family_to_relation.get(family)
-        if relation_type:
+        for rel_type in family_to_relations.get(family, []):
             needed = int(target * retry_mult * safety)
-            relation_needs[relation_type] = relation_needs.get(relation_type, 0) + needed
-    
-    # Add cross-source (used by mixed-source partial selection)
-    partial_target = sample_targets.get('partial_selection', 0)
-    relation_needs['cross_source'] = int(partial_target * retry_mult * safety * 0.3)
+            relation_needs[rel_type] = relation_needs.get(rel_type, 0) + needed
+
+    # common_neighbor is derived from adjacency — keep its limit proportional
+    if 'common_neighbor' not in relation_needs and 'adjacency' in relation_needs:
+        relation_needs['common_neighbor'] = relation_needs['adjacency'] * 3
     
     # Apply manual overrides if specified
     manual = config.get('auto_scaling', {}).get('manual_limits', {})
@@ -176,17 +181,14 @@ def validate_dataset(config_path: Path):
 
 
 def export_dataset(config_path: Path):
-    """Run dataset export."""
+    """Run dataset export for both SQL generation and place extraction tasks."""
     print("=" * 60)
     print("STEP 4: Exporting Dataset")
     print("=" * 60)
-    
-    script_dir = Path(__file__).parent
-    result = subprocess.run(
-        [sys.executable, str(script_dir / "export_training_data.py")],
-        check=True
-    )
-    
+
+    from dataset.scripts.export_training_data import main as export_main
+    export_main(config_path=config_path)
+
     print("\nDataset exported successfully")
 
 

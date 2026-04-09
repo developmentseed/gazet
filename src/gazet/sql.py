@@ -9,15 +9,33 @@ from .lm import generate_sql, write_sql
 
 
 def _rewrite_data_paths(sql: str) -> str:
-    """Replace training-time /data/ paths with local data paths."""
+    """Replace any read_parquet table reference with the correct runtime path.
+
+    Handles three generations of model output:
+      - Symbolic:  read_parquet('divisions_area')
+      - Old paths: read_parquet('/data/overture/division_area/...')
+      - Hallucinated variants: any quoted path containing 'division' or 'natural_earth'
+
+    Legacy replacements run FIRST so the absolute path is never re-matched.
+    """
+    # Any quoted path that looks like a divisions_area reference
+    sql = re.sub(
+        r"read_parquet\(['\"][^'\"]*(?:division_area|divisions_area)[^'\"]*['\"]\)",
+        f"read_parquet('{DIVISIONS_AREA_PATH}')",
+        sql,
+    )
+    # Any quoted path that looks like a natural_earth reference
+    sql = re.sub(
+        r"read_parquet\(['\"][^'\"]*natural_earth[^'\"]*['\"]\)",
+        f"read_parquet('{NATURAL_EARTH_PATH}')",
+        sql,
+    )
+    # Symbolic names (current training format)
     sql = sql.replace(
-        "/data/overture/division_area/*.parquet", DIVISIONS_AREA_PATH
+        "read_parquet('divisions_area')", f"read_parquet('{DIVISIONS_AREA_PATH}')"
     )
     sql = sql.replace(
-        "/data/overture/divisions_area/*.parquet", DIVISIONS_AREA_PATH
-    )
-    sql = sql.replace(
-        "/data/natural_earth_geoparquet/ne_geography.parquet", NATURAL_EARTH_PATH
+        "read_parquet('natural_earth')", f"read_parquet('{NATURAL_EARTH_PATH}')"
     )
     return sql
 

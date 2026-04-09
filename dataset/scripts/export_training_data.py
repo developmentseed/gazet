@@ -1,190 +1,341 @@
 """
 Export validated dataset to train/val/test splits.
 
-This script:
-1. Loads validated samples
-2. Splits into train (80%), val (10%), test (10%)
-3. Ensures balanced splits across task families
-4. Exports to JSONL format
+Produces two task datasets from the same source samples:
 
-Output:
-- output/train.jsonl (80% of samples)
-- output/val.jsonl (10% of samples)
-- output/test.jsonl (10% of samples)
+1. SQL generation  (prompt = question + candidates CSV, completion = SQL)
+2. Place extraction (prompt = question only, completion = PlacesResult JSON)
+
+Place extraction pairs are derived automatically: for each SQL sample the
+selected_candidates give us the correct place names, subtypes, and country
+codes that the extractor should return.
+
+Output layout (all paths relative to dataset/):
+    output/runs/{run_name}/sql/train.jsonl
+    output/runs/{run_name}/sql/val.jsonl
+    output/runs/{run_name}/sql/test.jsonl
+    output/runs/{run_name}/places/train.jsonl
+    output/runs/{run_name}/places/val.jsonl
+    output/runs/{run_name}/places/test.jsonl
+    output/runs/{run_name}/stats.json
 """
 
 import json
 import random
-from pathlib import Path
-from typing import List, Dict, Any
+import sys
 from collections import defaultdict
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
+import yaml
+
+
+# ---------------------------------------------------------------------------
+# Loading
+# ---------------------------------------------------------------------------
 
 def load_samples(jsonl_path: Path) -> List[Dict[str, Any]]:
-    """Load samples from JSONL file."""
     samples = []
-    with open(jsonl_path, 'r') as f:
+    with open(jsonl_path) as f:
         for line in f:
-            samples.append(json.loads(line))
+            line = line.strip()
+            if line:
+                samples.append(json.loads(line))
     return samples
 
+
+def load_run_name(config_path: Optional[Path]) -> str:
+    if config_path and config_path.exists():
+        with open(config_path) as f:
+            cfg = yaml.safe_load(f)
+        return cfg.get("run_name", "default")
+    return "default"
+
+
+# ---------------------------------------------------------------------------
+# Splitting
+# ---------------------------------------------------------------------------
 
 def stratified_split(
     samples: List[Dict[str, Any]],
     train_ratio: float = 0.8,
     val_ratio: float = 0.1,
-    test_ratio: float = 0.1,
-    random_seed: int = 42
-) -> tuple[List[Dict], List[Dict], List[Dict]]:
-    """Split samples by task family to ensure balanced distribution."""
-    
-    random.seed(random_seed)
-    
-    # Group by task family
-    by_family = defaultdict(list)
-    for sample in samples:
-        family = sample['metadata']['task_family']
-        by_family[family].append(sample)
-    
-    train_samples = []
-    val_samples = []
-    test_samples = []
-    
-    # Split each family
-    for family, family_samples in by_family.items():
-        # Shuffle
+    seed: int = 42,
+) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+    """Split stratified by task_family so every family is represented in each split."""
+    random.seed(seed)
+    by_family: Dict[str, List] = defaultdict(list)
+    for s in samples:
+        by_family[s["metadata"]["task_family"]].append(s)
+
+    train, val, test = [], [], []
+    for family_samples in by_family.values():
         random.shuffle(family_samples)
-        
         n = len(family_samples)
         n_train = int(n * train_ratio)
         n_val = int(n * val_ratio)
-        
-        train_samples.extend(family_samples[:n_train])
-        val_samples.extend(family_samples[n_train:n_train + n_val])
-        test_samples.extend(family_samples[n_train + n_val:])
-    
-    # Shuffle final splits
-    random.shuffle(train_samples)
-    random.shuffle(val_samples)
-    random.shuffle(test_samples)
-    
-    return train_samples, val_samples, test_samples
+        train.extend(family_samples[:n_train])
+        val.extend(family_samples[n_train : n_train + n_val])
+        test.extend(family_samples[n_train + n_val :])
+
+    random.shuffle(train)
+    random.shuffle(val)
+    random.shuffle(test)
+    return train, val, test
 
 
-def save_split(samples: List[Dict[str, Any]], output_path: Path):
-    """Save samples to JSONL file."""
-    with open(output_path, 'w') as f:
-        for sample in samples:
-            f.write(json.dumps(sample) + '\n')
+# ---------------------------------------------------------------------------
+# SQL generation format
+# Conversational prompt-completion: model sees system + user, generates SQL.
+# ---------------------------------------------------------------------------
+
+_SQL_SYSTEM = (
+    "You are a text to SQL query translator that helps in natural language geocoding."
+)
+
+_CANDIDATES_COLS = [
+    "source", "id", "name", "subtype", "country", "region",
+    "admin_level", "similarity",
+]
+
+_SCHEMA = """1. divisions_area  -- Overture polygon/multipolygon admin boundaries
+   query: read_parquet('divisions_area')
+   columns:
+     id VARCHAR              -- unique feature id
+     names STRUCT("primary" VARCHAR, ...)
+     country VARCHAR         -- ISO 3166-1 alpha-2
+     subtype VARCHAR         -- country | region | dependency | county | localadmin |
+                               locality | macrohood | neighborhood | microhood
+     class VARCHAR
+     region VARCHAR
+     admin_level INTEGER
+     division_id VARCHAR
+     is_land BOOLEAN
+     is_territorial BOOLEAN
+     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
+
+2. natural_earth  -- Natural Earth geography polygons (oceans, seas, rivers, terrain)
+   query: read_parquet('natural_earth')
+   columns:
+     id VARCHAR              -- unique feature id prefixed 'ne_'
+     names STRUCT("primary" VARCHAR, ...)
+     country VARCHAR
+     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'Terrain area', 'Island group'
+     class VARCHAR
+     region VARCHAR
+     admin_level INTEGER
+     is_land BOOLEAN
+     is_territorial BOOLEAN
+     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
+
+The candidates table has a 'source' column: 'divisions_area' or 'natural_earth'.
+Use read_parquet('divisions_area') or read_parquet('natural_earth') accordingly.
+Use ST_AsGeoJSON(geometry) for all geometry outputs."""
 
 
-def print_split_stats(split_name: str, samples: List[Dict[str, Any]]):
-    """Print statistics for a split."""
-    families = defaultdict(int)
-    for sample in samples:
-        family = sample['metadata']['task_family']
-        families[family] += 1
-    
-    print(f"\n{split_name}:")
-    print(f"  Total: {len(samples)}")
-    for family, count in sorted(families.items()):
-        print(f"    {family:20s}: {count:3d}")
+def _candidates_csv(candidates: List[Dict]) -> str:
+    import io
+    import csv
+    rows = []
+    for c in candidates:
+        row = {col: c.get(col, "") for col in _CANDIDATES_COLS if col in c}
+        rows.append(row)
+    if not rows:
+        return ""
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=[k for k in _CANDIDATES_COLS if k in rows[0]])
+    writer.writeheader()
+    writer.writerows(rows)
+    return buf.getvalue().strip()
 
 
-def print_country_stats(samples: List[Dict[str, Any]]):
-    """Print country distribution statistics."""
-    country_counts = defaultdict(int)
-    
-    # Extract countries from selected/answer candidates only
-    for sample in samples:
-        selected_ids = set(sample.get('target', {}).get('selected_candidates', []))
-        countries_in_sample = set()
-        for candidate in sample.get('candidates', []):
-            if candidate.get('candidate_id') in selected_ids:
-                country = candidate.get('country')
-                if country:
-                    countries_in_sample.add(country)
-        
-        # Count each unique country once per sample
-        for country in countries_in_sample:
-            country_counts[country] += 1
-    
-    if not country_counts:
-        print("\nNo country information found in samples")
-        return
-    
-    print(f"\nCOUNTRY DISTRIBUTION:")
-    print(f"  Total unique countries: {len(country_counts)}")
-    print(f"\n  Top countries by sample count:")
-    
-    # Sort by count descending
-    sorted_countries = sorted(country_counts.items(), key=lambda x: x[1], reverse=True)
-    
-    # Show top 20
-    for country, count in sorted_countries[:20]:
-        percentage = (count / len(samples)) * 100
-        print(f"    {country:3s}: {count:4d} samples ({percentage:5.1f}%)")
-    
-    if len(sorted_countries) > 20:
-        remaining = len(sorted_countries) - 20
-        remaining_count = sum(c for _, c in sorted_countries[20:])
-        print(f"    ... and {remaining} more countries ({remaining_count} samples)")
+def sample_to_sql_pair(sample: Dict[str, Any]) -> Optional[Dict]:
+    """Convert a raw sample to a conversational prompt-completion pair for SQL generation."""
+    sql = sample.get("target", {}).get("sql", "").strip()
+    if not sql:
+        return None
+
+    user_content = (
+        "GIVEN the <SCHEMA_DETAILS>, <CANDIDATES> and <USER_QUERY>, "
+        "generate the corresponding SQL command to retrieve the desired geometry.\n\n"
+        f"<SCHEMA_DETAILS>\n{_SCHEMA}\n</SCHEMA_DETAILS>\n\n"
+        f"<CANDIDATES>\n{_candidates_csv(sample.get('candidates', []))}\n</CANDIDATES>\n\n"
+        f"<USER_QUERY>\n{sample['question']}\n</USER_QUERY>"
+    )
+
+    return {
+        "prompt": [
+            {"role": "system", "content": _SQL_SYSTEM},
+            {"role": "user",   "content": user_content},
+        ],
+        "completion": [
+            {"role": "assistant", "content": sql},
+        ],
+        "metadata": sample.get("metadata", {}),
+    }
 
 
-def main():
-    """Export dataset splits."""
-    
+# ---------------------------------------------------------------------------
+# Place extraction format
+# Derived from the same SQL samples: selected_candidates → PlacesResult JSON.
+# ---------------------------------------------------------------------------
+
+_PLACE_SYSTEM = (
+    "You are a geographic entity extractor. "
+    "Extract place names from the query and return valid JSON only."
+)
+
+# Overture division subtypes — used to filter out natural_earth candidates
+# from the place extraction output (NE features don't have these subtypes).
+_DIVISION_SUBTYPES = {
+    "country", "region", "dependency", "county", "localadmin",
+    "locality", "macrohood", "neighborhood", "microhood",
+}
+
+
+def _candidate_to_place(c: Dict) -> Optional[Dict]:
+    """Convert a selected candidate to a Place dict for PlacesResult."""
+    name = c.get("name", "").strip()
+    if not name:
+        return None
+
+    place: Dict[str, Any] = {"place": name}
+
+    subtype = c.get("subtype", "")
+    if subtype in _DIVISION_SUBTYPES:
+        place["subtype"] = subtype
+
+    country = c.get("country", "")
+    if country and len(country) == 2:
+        place["country"] = country
+
+    return place
+
+
+def sample_to_place_pair(sample: Dict[str, Any]) -> Optional[Dict]:
+    """Convert a raw sample to a conversational prompt-completion pair for place extraction.
+
+    Uses selected_candidates to determine the correct PlacesResult output.
+    Skips samples where no valid places can be derived.
+    """
+    selected_ids = set(sample.get("target", {}).get("selected_candidates", []))
+    if not selected_ids:
+        return None
+
+    id_to_candidate = {c["candidate_id"]: c for c in sample.get("candidates", [])}
+    places = []
+    seen_names: set = set()
+
+    for cid in selected_ids:
+        c = id_to_candidate.get(cid)
+        if not c:
+            continue
+        place = _candidate_to_place(c)
+        if place and place["place"].lower() not in seen_names:
+            places.append(place)
+            seen_names.add(place["place"].lower())
+
+    if not places:
+        return None
+
+    completion_json = json.dumps({"places": places}, ensure_ascii=False)
+
+    return {
+        "prompt": [
+            {"role": "system", "content": _PLACE_SYSTEM},
+            {"role": "user",   "content": sample["question"]},
+        ],
+        "completion": [
+            {"role": "assistant", "content": completion_json},
+        ],
+        "metadata": sample.get("metadata", {}),
+    }
+
+
+# ---------------------------------------------------------------------------
+# I/O helpers
+# ---------------------------------------------------------------------------
+
+def save_jsonl(records: List[Dict], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        for r in records:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+
+def split_stats(samples: List[Dict]) -> Dict[str, int]:
+    counts: Dict[str, int] = defaultdict(int)
+    for s in samples:
+        counts[s.get("metadata", {}).get("task_family", "unknown")] += 1
+    return dict(sorted(counts.items()))
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main(config_path: Optional[Path] = None) -> None:
     script_dir = Path(__file__).parent
-    output_dir = script_dir.parent / "output"
-    
+    dataset_dir = script_dir.parent
+    output_dir = dataset_dir / "output"
+
+    run_name = load_run_name(config_path or dataset_dir / "config.yaml")
+
     validated_file = output_dir / "dataset_validated.jsonl"
-    train_file = output_dir / "train.jsonl"
-    val_file = output_dir / "val.jsonl"
-    test_file = output_dir / "test.jsonl"
-    
     if not validated_file.exists():
-        print(f"Error: {validated_file} not found. Run 05_validate_dataset.py first.")
-        return
-    
-    # Load validated samples
-    print("Loading validated samples...")
+        print(f"Error: {validated_file} not found. Run validate first.")
+        sys.exit(1)
+
+    run_dir = output_dir / "runs" / run_name
+    sql_dir = run_dir / "sql"
+    places_dir = run_dir / "places"
+
+    print(f"Run name   : {run_name}")
+    print(f"Output dir : {run_dir}")
+
+    # Load
+    print("\nLoading validated samples...")
     samples = load_samples(validated_file)
-    print(f"Loaded {len(samples)} samples")
-    
-    # Split
-    print("\nSplitting dataset (80/10/10)...")
-    train_samples, val_samples, test_samples = stratified_split(samples)
-    
-    # Save splits
-    print("\nSaving splits...")
-    save_split(train_samples, train_file)
-    save_split(val_samples, val_file)
-    save_split(test_samples, test_file)
-    
-    print(f"  Train: {train_file} ({len(train_samples)} samples)")
-    print(f"  Val:   {val_file} ({len(val_samples)} samples)")
-    print(f"  Test:  {test_file} ({len(test_samples)} samples)")
-    
-    # Print statistics
-    print("\n" + "=" * 60)
-    print("SPLIT STATISTICS")
-    print("=" * 60)
-    
-    print_split_stats("TRAIN", train_samples)
-    print_split_stats("VAL", val_samples)
-    print_split_stats("TEST", test_samples)
-    
-    # Print country distribution
-    print("\n" + "=" * 60)
-    print("GEOGRAPHIC DISTRIBUTION")
-    print("=" * 60)
-    print_country_stats(samples)
-    
-    print("\n✓ Export complete")
-    print(f"\nReady for training!")
-    print(f"  Training data: {train_file}")
-    print(f"  Validation data: {val_file}")
-    print(f"  Test data: {test_file}")
+    print(f"  {len(samples):,} samples loaded")
+
+    # Split once, reuse for both tasks
+    print("\nSplitting 80 / 10 / 10 (stratified by task family)...")
+    train_raw, val_raw, test_raw = stratified_split(samples)
+    print(f"  train={len(train_raw):,}  val={len(val_raw):,}  test={len(test_raw):,}")
+
+    # --- SQL generation ---
+    print("\nBuilding SQL generation splits...")
+    sql_stats: Dict = {}
+    for split_name, raw in [("train", train_raw), ("val", val_raw), ("test", test_raw)]:
+        pairs = [p for s in raw if (p := sample_to_sql_pair(s)) is not None]
+        save_jsonl(pairs, sql_dir / f"{split_name}.jsonl")
+        sql_stats[split_name] = {"total": len(pairs), "by_family": split_stats(pairs)}
+        print(f"  sql/{split_name}.jsonl  — {len(pairs):,} pairs")
+
+    # --- Place extraction ---
+    print("\nBuilding place extraction splits...")
+    place_stats: Dict = {}
+    for split_name, raw in [("train", train_raw), ("val", val_raw), ("test", test_raw)]:
+        pairs = [p for s in raw if (p := sample_to_place_pair(s)) is not None]
+        save_jsonl(pairs, places_dir / f"{split_name}.jsonl")
+        place_stats[split_name] = {"total": len(pairs), "by_family": split_stats(pairs)}
+        print(f"  places/{split_name}.jsonl  — {len(pairs):,} pairs")
+
+    # --- Stats ---
+    stats = {
+        "run_name": run_name,
+        "total_samples": len(samples),
+        "sql_generation": sql_stats,
+        "place_extraction": place_stats,
+    }
+    stats_path = run_dir / "stats.json"
+    with open(stats_path, "w") as f:
+        json.dump(stats, f, indent=2)
+
+    print(f"\nStats written to {stats_path}")
+    print("\nDone. Training-ready files:")
+    print(f"  SQL generation  : {sql_dir}/{{train,val,test}}.jsonl")
+    print(f"  Place extraction: {places_dir}/{{train,val,test}}.jsonl")
 
 
 if __name__ == "__main__":

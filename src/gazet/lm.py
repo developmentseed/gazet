@@ -12,7 +12,7 @@ from .config import (
     PLACE_EXTRACTION_MODEL,
     SQL_GENERATION_MODEL,
 )
-from .schemas import PlacesResult
+from .schemas import Place, PlacesResult
 
 logger = logging.getLogger(__name__)
 
@@ -181,29 +181,38 @@ _SYSTEM_PROMPT = (
 )
 
 _SCHEMA_DETAILS = """1. divisions_area  -- Overture polygon/multipolygon admin boundaries
-   path: '/data/overture/division_area/*.parquet'
+   query: read_parquet('divisions_area')
    columns:
-     id VARCHAR
+     id VARCHAR              -- unique feature id
      names STRUCT("primary" VARCHAR, ...)
-     country VARCHAR
-     subtype VARCHAR
+     country VARCHAR         -- ISO 3166-1 alpha-2
+     subtype VARCHAR         -- country | region | dependency | county | localadmin |
+                               locality | macrohood | neighborhood | microhood
      class VARCHAR
      region VARCHAR
      admin_level INTEGER
      division_id VARCHAR
      is_land BOOLEAN
      is_territorial BOOLEAN
-     geometry GEOMETRY
+     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
 
-2. natural_earth  -- Natural Earth geography polygons
-   path: '/data/natural_earth_geoparquet/ne_geography.parquet'
+2. natural_earth  -- Natural Earth geography polygons (oceans, seas, rivers, terrain)
+   query: read_parquet('natural_earth')
    columns:
-     id VARCHAR
-     name VARCHAR
-     featurecla VARCHAR
-     scalerank INTEGER
-     min_zoom DOUBLE
-     geometry GEOMETRY"""
+     id VARCHAR              -- unique feature id prefixed 'ne_'
+     names STRUCT("primary" VARCHAR, ...)
+     country VARCHAR
+     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'Terrain area', 'Island group'
+     class VARCHAR
+     region VARCHAR
+     admin_level INTEGER
+     is_land BOOLEAN
+     is_territorial BOOLEAN
+     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
+
+The candidates table has a 'source' column: 'divisions_area' or 'natural_earth'.
+Use read_parquet('divisions_area') or read_parquet('natural_earth') accordingly.
+Use ST_AsGeoJSON(geometry) for all geometry outputs."""
 
 _USER_PROMPT_TEMPLATE = """GIVEN the <SCHEMA_DETAILS>, <CANDIDATES> and <USER_QUERY>, generate the corresponding SQL command to retrieve the desired geometry.
 
@@ -257,6 +266,37 @@ def _llama_complete(prompt: str) -> str:
         logger.error("llama-server %s: %s", resp.status_code, resp.text[:500])
     resp.raise_for_status()
     return resp.json()["content"]
+
+
+_PLACES_SYSTEM_PROMPT = (
+    "You are a geographic entity extractor. "
+    "Extract place names from the query and return valid JSON only."
+)
+
+
+def generate_places(user_query: str) -> PlacesResult:
+    """Extract place names from a query using the finetuned GGUF model.
+
+    Uses the same prompt format the model was trained on.
+    Returns a PlacesResult; falls back to an empty result on parse failure.
+    """
+    raw_prompt = _PLACES_SYSTEM_PROMPT + "\n\n" + user_query
+    raw_output = _llama_complete(raw_prompt).strip()
+
+    # Strip markdown fences if the model wrapped the JSON
+    if raw_output.startswith("```"):
+        raw_output = raw_output.split("```")[1]
+        if raw_output.startswith("json"):
+            raw_output = raw_output[4:]
+        raw_output = raw_output.strip()
+
+    try:
+        data = json.loads(raw_output)
+        return PlacesResult.model_validate(data)
+    except Exception as exc:
+        logger.warning("generate_places: failed to parse output %r: %s", raw_output, exc)
+        # Best-effort: treat entire query as a single unnamed place
+        return PlacesResult(places=[Place(place=user_query)])
 
 
 def generate_sql(user_query: str, candidates_df: pd.DataFrame) -> str:

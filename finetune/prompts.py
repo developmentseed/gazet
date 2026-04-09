@@ -26,29 +26,37 @@ USER_PROMPT_TEMPLATE = """GIVEN the <SCHEMA_DETAILS>, <CANDIDATES> and <USER_QUE
 """
 
 DEFAULT_SCHEMA_DETAILS = """1. divisions_area  -- Overture polygon/multipolygon admin boundaries
-   path: '/data/overture/division_area/*.parquet'
+   query: read_parquet('divisions_area')
    columns:
-     id VARCHAR
+     id VARCHAR              -- unique feature id (use to filter precisely)
      names STRUCT("primary" VARCHAR, ...)
-     country VARCHAR
-     subtype VARCHAR
+     country VARCHAR         -- ISO 3166-1 alpha-2
+     subtype VARCHAR         -- country | region | dependency | county | localadmin |
+                               locality | macrohood | neighborhood | microhood
      class VARCHAR
-     region VARCHAR
+     region VARCHAR          -- region code e.g. 'IN-OR'
      admin_level INTEGER
      division_id VARCHAR
      is_land BOOLEAN
      is_territorial BOOLEAN
-     geometry GEOMETRY
+     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
 
-2. natural_earth  -- Natural Earth geography polygons
-   path: '/data/natural_earth_geoparquet/ne_geography.parquet'
+2. natural_earth  -- Natural Earth geography polygons (oceans, seas, rivers, terrain)
+   query: read_parquet('natural_earth')
    columns:
-     id VARCHAR
-     name VARCHAR
-     featurecla VARCHAR
-     scalerank INTEGER
-     min_zoom DOUBLE
-     geometry GEOMETRY"""
+     id VARCHAR              -- unique feature id prefixed 'ne_'
+     names STRUCT("primary" VARCHAR, ...)
+     country VARCHAR
+     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'Terrain area', 'Island group'
+     class VARCHAR
+     region VARCHAR
+     admin_level INTEGER
+     is_land BOOLEAN
+     is_territorial BOOLEAN
+     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
+
+The candidates table has a 'source' column: 'divisions_area' or 'natural_earth'.
+Use read_parquet('divisions_area') or read_parquet('natural_earth') accordingly."""
 
 
 def candidates_to_csv(candidates: Sequence[Dict[str, Any]]) -> str:
