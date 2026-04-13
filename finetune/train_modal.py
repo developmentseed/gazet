@@ -25,17 +25,17 @@ MAX_RETRIES = 1
 train_image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
-        "accelerate>=1.0",
-        "datasets>=3.0",
-        "hf-transfer>=0.1",
-        "huggingface_hub>=0.25",
-        "jinja2>=3.0",
-        "pandas>=2.2",
-        "peft>=0.13",
-        "torch>=2.4",
-        "trackio[gpu]",
-        "transformers>=4.46",
-        "trl>=0.12",
+        "accelerate==1.13.0",
+        "datasets==4.8.4",
+        "hf-transfer==0.1.9",
+        "huggingface_hub==1.9.2",
+        "jinja2==3.1.6",
+        "pandas==2.3.3",
+        "peft==0.18.1",
+        "torch==2.11.0",
+        "trackio[gpu]==0.21.1",
+        "transformers==5.5.1",
+        "trl==1.0.0",
     )
     .add_local_python_source("finetune", copy=True)
     .env({"HF_HOME": "/mnt/gazet/model_cache", "HF_HUB_ENABLE_HF_TRANSFER": "1"})
@@ -44,7 +44,7 @@ train_image = (
 with train_image.imports():
     import torch
     from peft import LoraConfig
-    from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
+    from transformers import AutoModelForImageTextToText, AutoTokenizer, set_seed
     from trl import SFTConfig, SFTTrainer
 
 gazet_vol = modal.Volume.from_name("gazet", create_if_missing=True)
@@ -55,14 +55,14 @@ VOLUMES = {
 
 
 def _load_tokenizer(model_name: str):
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained("google/gemma-4-E2B-it")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     return tokenizer
 
 
 def _load_model(model_name: str):
-    return AutoModelForCausalLM.from_pretrained(
+    return AutoModelForImageTextToText.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
         attn_implementation="sdpa",
@@ -78,6 +78,8 @@ def _build_lora_config(config) -> LoraConfig:
         bias="none",
         task_type="CAUSAL_LM",
         target_modules=config.target_modules,
+        modules_to_save=["lm_head", "embed_tokens"], # make sure to save the lm_head and embed_tokens as you train the special tokens
+        ensure_weight_tying=True,
     )
 
 
@@ -198,7 +200,7 @@ def _merge_and_save(config, experiment_dir: pathlib.Path):
     merged_dir = experiment_dir / "merged"
     merged_dir.mkdir(parents=True, exist_ok=True)
 
-    base = AutoModelForCausalLM.from_pretrained(
+    base = AutoModelForImageTextToText.from_pretrained(
         config.base_model,
         device_map="cpu",
     )
@@ -206,13 +208,13 @@ def _merge_and_save(config, experiment_dir: pathlib.Path):
     merged = peft_model.merge_and_unload()
     merged.save_pretrained(str(merged_dir), safe_serialization=True, max_shard_size="2GB")
 
-    tokenizer = _load_tokenizer(config.base_model)
+    tokenizer = _load_tokenizer("google/gemma-4-E2B-it")
     tokenizer.save_pretrained(str(merged_dir))
 
     # Copy tokenizer.model from base model cache (fast tokenizer doesn't save it)
     sp_dest = merged_dir / "tokenizer.model"
     if not sp_dest.exists():
-        base_dir = pathlib.Path(snapshot_download(config.base_model))
+        base_dir = pathlib.Path(snapshot_download("google/gemma-4-E2B-it"))
         sp_src = base_dir / "tokenizer.model"
         if sp_src.exists():
             shutil.copy2(sp_src, sp_dest)

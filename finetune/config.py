@@ -19,7 +19,7 @@ LORA_TARGET_MODULES = [
 @dataclass
 class TrainingConfig:
     # Model
-    base_model: str = "google/gemma-3-270m-it"
+    base_model: str = "google/gemma-4-E2B"
 
     # Dataset — path to run dir with {task}/{split}.jsonl files (prompt+completion message lists)
     run_dir: str = "/mnt/gazet/data/v3-symbolic-paths"
