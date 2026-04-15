@@ -1,10 +1,10 @@
 """Interactive eval: run test samples through the local GGUF model.
 
 Requires llama-server running on port 8080:
-  llama-server -m finetune/models/gemma-270m-q8.gguf -ngl 99 --port 8080 --log-disable
+  llama-server -m finetune/models/<model>.gguf -ngl 99 --port 8080 --ctx-size 4096 --log-disable
 
-Uses the /completion endpoint with a raw prompt string — no chat template —
-matching how the model was fine-tuned (completion_only_loss on plain text).
+Uses the /v1/chat/completions endpoint with a messages list. The Qwen3 GGUF
+embeds its chat template in metadata, so llama-server applies it automatically.
 
 Usage
 -----
@@ -28,9 +28,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-SERVER_URL = "http://localhost:8080"
-MAX_TOKENS = 512
-TEMPERATURE = 0
+SERVER_URL = "http://localhost:9000"
+MAX_TOKENS = 2048
+TEMPERATURE = 0.6
 
 DEFAULT_RUN_DIR = Path("dataset/output/runs/v3-symbolic-paths")
 
@@ -54,21 +54,22 @@ def check_server() -> bool:
         return False
 
 
-def complete(prompt: str) -> str:
-    """Call llama-server /completion endpoint with a raw prompt string."""
+def chat_complete(messages: list[dict]) -> str:
+    """Call llama-server /v1/chat/completions with a messages list."""
     payload = json.dumps({
-        "prompt": prompt,
+        "messages": messages,
         "n_predict": MAX_TOKENS,
         "temperature": TEMPERATURE,
+        "chat_template_kwargs": {"enable_thinking": False},
     }).encode()
 
     req = urllib.request.Request(
-        f"{SERVER_URL}/completion",
+        f"{SERVER_URL}/v1/chat/completions",
         data=payload,
         headers={"Content-Type": "application/json"},
     )
     with urllib.request.urlopen(req, timeout=60) as resp:
-        return json.loads(resp.read())["content"]
+        return json.loads(resp.read())["choices"][0]["message"]["content"]
 
 
 def load_samples(run_dir: Path, task: str) -> list[dict]:
@@ -92,7 +93,7 @@ def build_raw_prompt(sample: dict) -> str:
 
 def run_sample(sample: dict, task: str, total: int, index: int, verbose: bool = False) -> None:
     expected = sample["completion"][0]["content"]
-    prompt = build_raw_prompt(sample)
+    messages = sample["prompt"]
 
     user_content = sample["prompt"][1]["content"]
     if "<USER_QUERY>" in user_content:
@@ -107,8 +108,9 @@ def run_sample(sample: dict, task: str, total: int, index: int, verbose: bool = 
     print(f"\nQuestion: {question}\n")
 
     if verbose:
+        prompt = build_raw_prompt(sample)
         print(f"{'─' * 60}")
-        print(f"Full prompt ({len(prompt)} chars, ~{len(prompt.split()) } words):")
+        print(f"Full prompt ({len(prompt)} chars, ~{len(prompt.split())} words):")
         print(f"{'─' * 60}")
         print(prompt)
 
@@ -121,7 +123,7 @@ def run_sample(sample: dict, task: str, total: int, index: int, verbose: bool = 
     print("Generated:")
     print(f"{'─' * 60}")
 
-    raw = complete(prompt)
+    raw = chat_complete(messages)
     generated = postprocess_sql(raw) if task == "sql" else raw.strip()
     print(generated)
 
@@ -145,7 +147,7 @@ def main() -> None:
 
     if not check_server():
         print("llama-server not running. Start it with:")
-        print("  llama-server -m finetune/models/gemma-270m-q8.gguf -ngl 99 --port 8080 --log-disable")
+        print("llama-server -m finetune/models/<model>.gguf -ngl 99 --port 8080 --ctx-size 2048 --log-disable")
         sys.exit(1)
 
     samples = load_samples(args.run_dir, args.task)

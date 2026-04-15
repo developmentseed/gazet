@@ -27,7 +27,7 @@ SQL_GENERATION_MODEL = "gpt-oss:20b-cloud"
 MAX_SQL_ITERATIONS = 5
 
 # ── GGUF / llama-server config ────────────────────────────────────────────────
-LLAMA_SERVER_URL = os.environ.get("LLAMA_SERVER_URL", "http://localhost:8080")
+LLAMA_SERVER_URL = os.environ.get("LLAMA_SERVER_URL", "http://localhost:9000")
 LLAMA_MAX_TOKENS = int(os.environ.get("LLAMA_MAX_TOKENS", "2048"))
 LLAMA_TEMPERATURE = float(os.environ.get("LLAMA_TEMPERATURE", "0"))
 

@@ -251,21 +251,22 @@ def is_llama_server_available() -> bool:
         return False
 
 
-def _llama_complete(prompt: str) -> str:
-    """Call llama-server /completion endpoint and return generated text."""
+def _llama_chat_complete(messages: list[dict]) -> str:
+    """Call llama-server /v1/chat/completions with a messages list."""
     resp = httpx.post(
-        f"{LLAMA_SERVER_URL}/completion",
+        f"{LLAMA_SERVER_URL}/v1/chat/completions",
         json={
-            "prompt": prompt,
+            "messages": messages,
             "n_predict": LLAMA_MAX_TOKENS,
             "temperature": LLAMA_TEMPERATURE,
+            "chat_template_kwargs": {"enable_thinking": False},
         },
         timeout=60,
     )
     if resp.status_code != 200:
         logger.error("llama-server %s: %s", resp.status_code, resp.text[:500])
     resp.raise_for_status()
-    return resp.json()["content"]
+    return resp.json()["choices"][0]["message"]["content"]
 
 
 _PLACES_SYSTEM_PROMPT = (
@@ -280,8 +281,11 @@ def generate_places(user_query: str) -> PlacesResult:
     Uses the same prompt format the model was trained on.
     Returns a PlacesResult; falls back to an empty result on parse failure.
     """
-    raw_prompt = _PLACES_SYSTEM_PROMPT + "\n\n" + user_query
-    raw_output = _llama_complete(raw_prompt).strip()
+    messages = [
+        {"role": "system", "content": _PLACES_SYSTEM_PROMPT},
+        {"role": "user", "content": user_query},
+    ]
+    raw_output = _llama_chat_complete(messages).strip()
 
     # Strip markdown fences if the model wrapped the JSON
     if raw_output.startswith("```"):
@@ -317,6 +321,9 @@ def generate_sql(user_query: str, candidates_df: pd.DataFrame) -> str:
         question=user_query.strip(),
     )
 
-    raw_prompt = _SYSTEM_PROMPT + "\n\n" + user_prompt
-    raw_output = _llama_complete(raw_prompt)
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ]
+    raw_output = _llama_chat_complete(messages)
     return _postprocess_sql(raw_output)

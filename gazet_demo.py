@@ -121,7 +121,7 @@ backend = st.sidebar.radio(
     format_func=lambda x: "⚡ GGUF (llama-server)" if x == "gguf" else "🧠 DSPy (cloud LM)",
 )
 st.sidebar.caption(
-    "**gguf** → finetuned Gemma 270m via llama-server\n\n"
+    "**gguf** → finetuned Qwen3.5 via llama-server\n\n"
     "**dspy** → Ollama / cloud LM with retry loop"
 )
 
