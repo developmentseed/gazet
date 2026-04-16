@@ -66,17 +66,47 @@ from trl import SFTConfig, SFTTrainer
 
 LOGGER = logging.getLogger("nlg")
 
-SYSTEM_PROMPT = (
-    "You are a text to SQL query translator that helps in natural language geocoding."
-)
+SYSTEM_PROMPT = """You are a text to SQL query translator that helps in natural language geocoding.
 
-USER_PROMPT_TEMPLATE = """GIVEN the <SCHEMA_DETAILS>, <CANDIDATES> and <USER_QUERY>, generate the corresponding SQL command to retrieve the desired geometry.
+You have access to two DuckDB parquet tables. Given a set of candidate entities and a user query, generate the SQL to retrieve the desired geometry.
 
-<SCHEMA_DETAILS>
-{schema_details}
-</SCHEMA_DETAILS>
+<SCHEMA>
+1. divisions_area  -- Overture polygon/multipolygon admin boundaries
+   query: read_parquet('divisions_area')
+   columns:
+     id VARCHAR              -- unique feature id
+     names STRUCT("primary" VARCHAR, ...)
+     country VARCHAR         -- ISO 3166-1 alpha-2
+     subtype VARCHAR         -- country | region | dependency | county | localadmin |
+                               locality | macrohood | neighborhood | microhood
+     class VARCHAR
+     region VARCHAR
+     admin_level INTEGER
+     division_id VARCHAR
+     is_land BOOLEAN
+     is_territorial BOOLEAN
+     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
 
-<CANDIDATES>
+2. natural_earth  -- Natural Earth geography polygons (oceans, seas, rivers, terrain)
+   query: read_parquet('natural_earth')
+   columns:
+     id VARCHAR              -- unique feature id prefixed 'ne_'
+     names STRUCT("primary" VARCHAR, ...)
+     country VARCHAR
+     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'Terrain area', 'Island group'
+     class VARCHAR
+     region VARCHAR
+     admin_level INTEGER
+     is_land BOOLEAN
+     is_territorial BOOLEAN
+     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
+</SCHEMA>
+
+The candidates table has a 'source' column: 'divisions_area' or 'natural_earth'.
+Use read_parquet('divisions_area') or read_parquet('natural_earth') accordingly.
+Use ST_AsGeoJSON(geometry) for all geometry outputs."""
+
+USER_PROMPT_TEMPLATE = """<CANDIDATES>
 {candidates_csv}
 </CANDIDATES>
 
@@ -84,31 +114,6 @@ USER_PROMPT_TEMPLATE = """GIVEN the <SCHEMA_DETAILS>, <CANDIDATES> and <USER_QUE
 {question}
 </USER_QUERY>
 """
-
-DEFAULT_SCHEMA_DETAILS = """1. divisions_area  — Overture polygon/multipolygon admin boundaries
-   path: '/data/overture/division_area/*.parquet'
-   columns:
-     id VARCHAR
-     names STRUCT("primary" VARCHAR, ...)
-     country VARCHAR
-     subtype VARCHAR
-     class VARCHAR
-     region VARCHAR
-     admin_level INTEGER
-     division_id VARCHAR
-     is_land BOOLEAN
-     is_territorial BOOLEAN
-     geometry GEOMETRY
-
-2. natural_earth  — Natural Earth geography polygons
-   path: '/data/natural_earth_geoparquet/ne_geography.parquet'
-   columns:
-     id VARCHAR
-     name VARCHAR
-     featurecla VARCHAR
-     scalerank INTEGER
-     min_zoom DOUBLE
-     geometry GEOMETRY"""
 
 
 @dataclass
@@ -126,12 +131,6 @@ def setup_logging(verbose: bool = False) -> None:
     )
 
 
-def read_text(path: Optional[str], default: str) -> str:
-    if not path:
-        return default
-    return Path(path).read_text(encoding="utf-8")
-
-
 def candidates_to_csv(candidates: Sequence[Dict[str, Any]]) -> str:
     df = pd.DataFrame(list(candidates))
     if "candidate_id" in df.columns:
@@ -139,15 +138,14 @@ def candidates_to_csv(candidates: Sequence[Dict[str, Any]]) -> str:
     return df.to_csv(index=False)
 
 
-def build_user_prompt(question: str, candidates: Sequence[Dict[str, Any]], schema_details: str) -> str:
+def build_user_prompt(question: str, candidates: Sequence[Dict[str, Any]]) -> str:
     return USER_PROMPT_TEMPLATE.format(
-        schema_details=schema_details.strip(),
         candidates_csv=candidates_to_csv(candidates).strip(),
         question=question.strip(),
     )
 
 
-def make_messages(sample: Dict[str, Any], schema_details: str) -> Dict[str, Any]:
+def make_messages(sample: Dict[str, Any]) -> Dict[str, Any]:
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {
@@ -155,7 +153,6 @@ def make_messages(sample: Dict[str, Any], schema_details: str) -> Dict[str, Any]
             "content": build_user_prompt(
                 question=sample["question"],
                 candidates=sample["candidates"],
-                schema_details=schema_details,
             ),
         },
     ]
@@ -178,10 +175,10 @@ def load_jsonl_splits(
     return load_dataset("json", data_files=data_files)
 
 
-def format_dataset_for_sft(dataset: DatasetDict, schema_details: str) -> DatasetDict:
+def format_dataset_for_sft(dataset: DatasetDict) -> DatasetDict:
     formatted = DatasetDict()
     for split, ds in dataset.items():
-        formatted[split] = ds.map(lambda row: make_messages(row, schema_details))
+        formatted[split] = ds.map(make_messages)
     return formatted
 
 
@@ -271,9 +268,8 @@ def build_lora_config(args: argparse.Namespace) -> LoraConfig:
 
 def train(args: argparse.Namespace) -> None:
     set_seed(args.seed)
-    schema_details = read_text(args.schema_file, DEFAULT_SCHEMA_DETAILS)
     raw_ds = load_jsonl_splits(args.train_jsonl, args.val_jsonl, args.test_jsonl)
-    ds = format_dataset_for_sft(raw_ds, schema_details)
+    ds = format_dataset_for_sft(raw_ds)
 
     if args.max_train_samples is not None:
         ds["train"] = ds["train"].select(range(min(args.max_train_samples, len(ds["train"]))))
@@ -362,7 +358,6 @@ def generate_sql(
     tokenizer,
     question: str,
     candidates: Sequence[Dict[str, Any]],
-    schema_details: str,
     max_new_tokens: int = 256,
     do_sample: bool = False,
     temperature: float = 0.1,
@@ -371,7 +366,6 @@ def generate_sql(
 ) -> GenerationResult:
     messages = make_messages(
         {"question": question, "candidates": list(candidates), "target": {}},
-        schema_details,
     )["messages"]
     prompt = render_prompt(tokenizer, messages)
     inputs = tokenizer.apply_chat_template(
@@ -446,7 +440,6 @@ def execute_sqlite(sql: str, sqlite_db: str, limit: Optional[int] = None) -> Tup
 
 
 def cmd_generate(args: argparse.Namespace) -> None:
-    schema_details = read_text(args.schema_file, DEFAULT_SCHEMA_DETAILS)
     question = read_question(args)
     candidates = read_candidates(args)
     model, tokenizer = load_model_for_inference(
@@ -463,7 +456,6 @@ def cmd_generate(args: argparse.Namespace) -> None:
         tokenizer=tokenizer,
         question=question,
         candidates=candidates,
-        schema_details=schema_details,
         max_new_tokens=args.max_new_tokens,
         do_sample=args.do_sample,
         temperature=args.temperature,
@@ -511,7 +503,6 @@ def build_parser() -> argparse.ArgumentParser:
     train_p.add_argument("--train-jsonl", required=True)
     train_p.add_argument("--val-jsonl")
     train_p.add_argument("--test-jsonl")
-    train_p.add_argument("--schema-file")
     train_p.add_argument("--output-dir", required=True)
     train_p.add_argument("--max-train-samples", type=int)
     train_p.add_argument("--max-eval-samples", type=int)
@@ -552,7 +543,6 @@ def build_parser() -> argparse.ArgumentParser:
     gen_p.add_argument("--model-path")
     gen_p.add_argument("--base-model")
     gen_p.add_argument("--adapter-path")
-    gen_p.add_argument("--schema-file")
     gen_p.add_argument("--question")
     gen_p.add_argument("--candidates-json")
     gen_p.add_argument("--sample-jsonl")

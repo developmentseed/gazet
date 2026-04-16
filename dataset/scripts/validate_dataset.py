@@ -50,6 +50,18 @@ def _resolve_paths(sql: str) -> str:
     return sql
 
 
+def _to_symbolic_sql(sql: str) -> str:
+    """Normalize any hardcoded or runtime paths back to symbolic names for storage."""
+    # Current local runtime paths
+    sql = sql.replace(DIVISIONS_AREA_PATH, "divisions_area")
+    sql = sql.replace(NATURAL_EARTH_PATH, "natural_earth")
+    # Legacy Docker paths
+    sql = sql.replace("/data/overture/division_area/*.parquet",          "divisions_area")
+    sql = sql.replace("/data/overture/divisions_area/*.parquet",         "divisions_area")
+    sql = sql.replace("/data/natural_earth_geoparquet/ne_geography.parquet", "natural_earth")
+    return sql
+
+
 def validate_sql(con: duckdb.DuckDBPyConnection, sql: str) -> tuple[bool, str]:
     """Validate that SQL executes without error.
 
@@ -120,6 +132,8 @@ def validate_sample_worker(sample: Dict[str, Any]) -> Tuple[str, bool, List[str]
     try:
         is_valid, issues = validate_sample(con, sample)
         con.close()
+        if is_valid:
+            sample['target']['sql'] = _to_symbolic_sql(sample['target']['sql'])
         return (sample['id'], is_valid, issues, sample if is_valid else None)
     except Exception as e:
         con.close()

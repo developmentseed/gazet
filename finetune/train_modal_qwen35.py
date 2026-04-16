@@ -123,8 +123,7 @@ def _load_data(run_dir: str, tokenizer, max_train_samples=None, max_eval_samples
     """Load JSONL data and apply Qwen3.5 chat template.
 
     Each sample must have:
-      prompt: list of {role, content} dicts (system + user)
-      completion: list of {role, content} dicts (assistant)
+      messages: list of {role, content} dicts (system + user + assistant)
 
     The chat template produces the full ChatML string including the assistant turn.
     train_on_responses_only then masks everything except the assistant response.
@@ -143,7 +142,7 @@ def _load_data(run_dir: str, tokenizer, max_train_samples=None, max_eval_samples
 
     def to_message(sample: dict) -> dict:
         text = tokenizer.apply_chat_template(
-            sample["prompt"] + sample["completion"],
+            sample["messages"],
             tokenize=False,
             add_generation_prompt=False,
         )

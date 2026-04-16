@@ -83,19 +83,15 @@ def load_samples(run_dir: Path, task: str) -> list[dict]:
 
 
 def build_raw_prompt(sample: dict) -> str:
-    """Reconstruct the plain prompt string from message-list format.
-
-    sample["prompt"] is [{role:system, content:...}, {role:user, content:...}].
-    Joins them with a blank line — same format used during training.
-    """
-    return sample["prompt"][0]["content"] + "\n\n" + sample["prompt"][1]["content"]
+    """Reconstruct the plain prompt string from messages format (all turns except assistant)."""
+    return "\n\n".join(m["content"] for m in sample["messages"][:-1])
 
 
 def run_sample(sample: dict, task: str, total: int, index: int, verbose: bool = False) -> None:
-    expected = sample["completion"][0]["content"]
-    messages = sample["prompt"]
+    expected = sample["messages"][-1]["content"]
+    messages = sample["messages"][:-1]
 
-    user_content = sample["prompt"][1]["content"]
+    user_content = sample["messages"][-2]["content"]
     if "<USER_QUERY>" in user_content:
         question = user_content.split("<USER_QUERY>")[-1].split("</USER_QUERY>")[0].strip()
     else:

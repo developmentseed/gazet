@@ -27,7 +27,10 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import sqlparse
 import yaml
+
+from gazet.config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
 
 
 # ---------------------------------------------------------------------------
@@ -89,16 +92,12 @@ def stratified_split(
 # Conversational prompt-completion: model sees system + user, generates SQL.
 # ---------------------------------------------------------------------------
 
-_SQL_SYSTEM = (
-    "You are a text to SQL query translator that helps in natural language geocoding."
-)
+_SQL_SYSTEM = """You are a text to SQL query translator that helps in natural language geocoding.
 
-_CANDIDATES_COLS = [
-    "source", "id", "name", "subtype", "country", "region",
-    "admin_level", "similarity",
-]
+You have access to two DuckDB parquet tables. Given a set of candidate entities and a user query, generate the SQL to retrieve the desired geometry.
 
-_SCHEMA = """1. divisions_area  -- Overture polygon/multipolygon admin boundaries
+<SCHEMA>
+1. divisions_area  -- Overture polygon/multipolygon admin boundaries
    query: read_parquet('divisions_area')
    columns:
      id VARCHAR              -- unique feature id
@@ -127,10 +126,16 @@ _SCHEMA = """1. divisions_area  -- Overture polygon/multipolygon admin boundarie
      is_land BOOLEAN
      is_territorial BOOLEAN
      geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
+</SCHEMA>
 
 The candidates table has a 'source' column: 'divisions_area' or 'natural_earth'.
 Use read_parquet('divisions_area') or read_parquet('natural_earth') accordingly.
 Use ST_AsGeoJSON(geometry) for all geometry outputs."""
+
+_CANDIDATES_COLS = [
+    "source", "id", "name", "subtype", "country", "region",
+    "admin_level", "similarity",
+]
 
 
 def _candidates_csv(candidates: List[Dict]) -> str:
@@ -149,26 +154,42 @@ def _candidates_csv(candidates: List[Dict]) -> str:
     return buf.getvalue().strip()
 
 
+def _to_symbolic_sql(sql: str) -> str:
+    """Normalize any hardcoded or runtime paths back to symbolic names."""
+    sql = sql.replace(DIVISIONS_AREA_PATH, "divisions_area")
+    sql = sql.replace(NATURAL_EARTH_PATH, "natural_earth")
+    sql = sql.replace("/data/overture/division_area/*.parquet",          "divisions_area")
+    sql = sql.replace("/data/overture/divisions_area/*.parquet",         "divisions_area")
+    sql = sql.replace("/data/natural_earth_geoparquet/ne_geography.parquet", "natural_earth")
+    return sql
+
+
+def _format_sql(sql: str) -> str:
+    """Pretty-print SQL so the model learns clean, readable style."""
+    return sqlparse.format(
+        sql,
+        reindent=True,
+        keyword_case="upper",
+        indent_width=4,
+    ).strip()
+
+
 def sample_to_sql_pair(sample: Dict[str, Any]) -> Optional[Dict]:
     """Convert a raw sample to a conversational prompt-completion pair for SQL generation."""
     sql = sample.get("target", {}).get("sql", "").strip()
     if not sql:
         return None
+    sql = _format_sql(_to_symbolic_sql(sql))
 
     user_content = (
-        "GIVEN the <SCHEMA_DETAILS>, <CANDIDATES> and <USER_QUERY>, "
-        "generate the corresponding SQL command to retrieve the desired geometry.\n\n"
-        f"<SCHEMA_DETAILS>\n{_SCHEMA}\n</SCHEMA_DETAILS>\n\n"
         f"<CANDIDATES>\n{_candidates_csv(sample.get('candidates', []))}\n</CANDIDATES>\n\n"
         f"<USER_QUERY>\n{sample['question']}\n</USER_QUERY>"
     )
 
     return {
-        "prompt": [
-            {"role": "system", "content": _SQL_SYSTEM},
-            {"role": "user",   "content": user_content},
-        ],
-        "completion": [
+        "messages": [
+            {"role": "system",    "content": _SQL_SYSTEM},
+            {"role": "user",      "content": user_content},
             {"role": "assistant", "content": sql},
         ],
         "metadata": sample.get("metadata", {}),
@@ -180,10 +201,21 @@ def sample_to_sql_pair(sample: Dict[str, Any]) -> Optional[Dict]:
 # Derived from the same SQL samples: selected_candidates → PlacesResult JSON.
 # ---------------------------------------------------------------------------
 
-_PLACE_SYSTEM = (
-    "You are a geographic entity extractor. "
-    "Extract place names from the query and return valid JSON only."
-)
+_PLACE_SYSTEM = """You are a geographic entity extractor. Extract place names from the user query and return valid JSON only.
+
+OUTPUT FORMAT:
+{"places": [{"place": "<name>", "country": "<ISO-2>", "subtype": "<subtype>"}]}
+"country" and "subtype" are optional; omit if not applicable.
+
+RULES:
+- Only extract places explicitly mentioned. Never infer or expand (e.g. "states of India" -> extract "India" only).
+- No duplicate place names.
+- "country": ISO 3166-1 alpha-2. Include only if explicitly mentioned or unambiguous.
+- "subtype": include only when the geographic level is clear from the query.
+
+SUBTYPES:
+country, dependency, region, county, localadmin, locality, macrohood, neighborhood, microhood
+- Default to locality for cities/towns; omit for physical features (oceans, rivers, mountains)."""
 
 # Overture division subtypes — used to filter out natural_earth candidates
 # from the place extraction output (NE features don't have these subtypes).
@@ -241,11 +273,9 @@ def sample_to_place_pair(sample: Dict[str, Any]) -> Optional[Dict]:
     completion_json = json.dumps({"places": places}, ensure_ascii=False)
 
     return {
-        "prompt": [
-            {"role": "system", "content": _PLACE_SYSTEM},
-            {"role": "user",   "content": sample["question"]},
-        ],
-        "completion": [
+        "messages": [
+            {"role": "system",    "content": _PLACE_SYSTEM},
+            {"role": "user",      "content": sample["question"]},
             {"role": "assistant", "content": completion_json},
         ],
         "metadata": sample.get("metadata", {}),
