@@ -3,8 +3,11 @@
 Generates synthetic training data for fine-tuning the geocoding model.
 Two datasets come out of one pipeline run:
 
-- **SQL generation** — `(question + candidates) → DuckDB SQL`
-- **Place extraction** — `question → place names JSON`
+- **SQL generation** — `(question + candidates) -> DuckDB SQL`
+- **Place extraction** — `question -> place names JSON`
+
+Both tasks export in **conversation format** (`messages` list of
+system/user/assistant turns), ready for chat-template fine-tuning.
 
 ---
 
@@ -106,15 +109,37 @@ After running, your training files are at:
 ```
 dataset/output/runs/{run_name}/
   sql/
-    train.jsonl    ← use this to fine-tune the SQL generation model
+    train.jsonl    <- fine-tune the SQL generation model
     val.jsonl
     test.jsonl
   places/
-    train.jsonl    ← use this to fine-tune the place extraction model
+    train.jsonl    <- fine-tune the place extraction model
     val.jsonl
     test.jsonl
-  stats.json       ← sample counts by family
+  stats.json       <- sample counts by family
 ```
+
+Each JSONL row is a conversation-format dict:
+
+```json
+{
+  "messages": [
+    {"role": "system",    "content": "..."},
+    {"role": "user",      "content": "..."},
+    {"role": "assistant", "content": "..."}
+  ]
+}
+```
+
+**SQL task**: the system prompt includes the full two-table schema inside
+`<SCHEMA>` tags. The user prompt contains only `<CANDIDATES>` CSV and
+`<USER_QUERY>`. The assistant response is pretty-printed SQL (via `sqlparse`).
+All parquet paths are symbolic (`divisions_area` / `natural_earth`), never
+runtime-specific.
+
+**Places task**: the system prompt includes output format, extraction rules,
+and the full list of Overture subtypes. The assistant response is a JSON
+object with a `places` array.
 
 ---
 
@@ -125,7 +150,8 @@ Change `run_name` and run without `--append` whenever you:
 - Change any SQL templates (`sql_templates.py`)
 - Add new template families
 - Change the candidate format or count
-- Change the training prompt/completion format
+- Change the system/user prompt structure or content
+- Change the export format (e.g. prompt/completion to messages)
 
 Use `--append` only when you're adding more samples of the same type
 (e.g. adding more countries to an existing run with identical templates).

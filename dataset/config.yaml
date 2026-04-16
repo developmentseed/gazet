@@ -34,7 +34,7 @@ sample_targets:
 generation:
   max_workers: 8           # Number of parallel workers
   retry_multiplier: 2      # Generate 2x samples to account for failures
-  append_mode: true        # If true, append to existing dataset instead of overwriting
+  append_mode: false       # Set false for clean regeneration after template/format changes
 
 # Auto-scaling configuration
 # Relation limits are automatically calculated: target * retry_multiplier * safety_factor
@@ -66,4 +66,4 @@ output:
 # Run name — used to version exported splits so re-runs never overwrite previous data.
 # Change this whenever you regenerate from scratch (e.g. after template changes).
 # Exported files land in: output/runs/{run_name}/
-run_name: "v3-symbolic-paths"
+run_name: "v4-conversation-format"
