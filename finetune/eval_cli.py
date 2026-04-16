@@ -16,7 +16,7 @@ Use --task places for place extraction:
   uv run finetune/eval_cli.py --task places 0 5
 
 Override run directory:
-  uv run finetune/eval_cli.py --run-dir dataset/output/runs/v3-symbolic-paths 0
+  uv run finetune/eval_cli.py --run-dir dataset/output/runs/v4-conversation-format 0
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ SERVER_URL = "http://localhost:9000"
 MAX_TOKENS = 2048
 TEMPERATURE = 0.6
 
-DEFAULT_RUN_DIR = Path("dataset/output/runs/v3-symbolic-paths")
+DEFAULT_RUN_DIR = Path("dataset/output/runs/v4-conversation-format")
 
 
 def postprocess_sql(text: str) -> str:

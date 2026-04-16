@@ -2,13 +2,13 @@
 
 Usage
 -----
-# Eval fine-tuned model (sql task):
-modal run finetune/eval_batch.py --label finetuned
+# Eval fine-tuned Qwen3.5 (sql task):
+modal run finetune/eval_batch.py --label finetuned-qwen35
 
 # Eval base model:
 modal run finetune/eval_batch.py \
-    --model-path google/gemma-3-270m-it \
-    --label base
+    --model-path unsloth/Qwen3.5-0.8B \
+    --label base-qwen35
 
 # Eval places task:
 modal run finetune/eval_batch.py --task places --label finetuned-places
@@ -31,12 +31,17 @@ app = modal.App("gazet-nlg-eval")
 infer_image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
-        "accelerate>=1.0",
-        "torch>=2.4",
-        "transformers>=4.46",
+        "unsloth[cu129-torch280]",
+        "unsloth_zoo",
+        "transformers~=5.2.0",
+        "hf-transfer==0.1.9",
+        "datasets",
     )
     .add_local_python_source("finetune", copy=True)
-    .env({"HF_HOME": "/mnt/gazet/model_cache"})
+    .env({
+        "HF_HOME": "/mnt/gazet/model_cache",
+        "HF_HUB_ENABLE_HF_TRANSFER": "1",
+    })
 )
 
 gazet_vol = modal.Volume.from_name("gazet", create_if_missing=True)
@@ -45,8 +50,8 @@ VOLUMES = {
     "/mnt/gazet": gazet_vol,
 }
 
-DEFAULT_MODEL_PATH = "/mnt/gazet/checkpoints/gemma-3-270m-it-r16-20260331-134642/merged"
-DEFAULT_RUN_DIR = "/mnt/gazet/data/output/runs/v3-symbolic-paths"
+DEFAULT_MODEL_PATH = "/mnt/gazet/checkpoints/Qwen3.5-0.8B-r16-20260415-161156/merged"
+DEFAULT_RUN_DIR = "/mnt/gazet/data/v4-conversation-format"
 
 
 def postprocess_sql(text: str) -> str:
@@ -58,6 +63,14 @@ def postprocess_sql(text: str) -> str:
     if "```" in cleaned:
         cleaned = cleaned.split("```", 1)[0]
     return cleaned.strip()
+
+
+def extract_question(sample: dict) -> str:
+    """Pull the user question from a messages-format sample."""
+    user_content = sample["messages"][-2]["content"]
+    if "<USER_QUERY>" in user_content:
+        return user_content.split("<USER_QUERY>")[-1].split("</USER_QUERY>")[0].strip()
+    return user_content[:120]
 
 
 @app.function(
@@ -78,30 +91,35 @@ def run_eval(
 ):
     """Run batched inference on all samples, save results to volume.
 
-    Uses raw prompt strings (no chat template) — matching training format.
+    Uses the Qwen3.5 chat template (ChatML) to format messages before generation.
+    Thinking is disabled via chat_template_kwargs.
     """
-    import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from unsloth import FastLanguageModel
 
     print(f"Loading model [{label}]: {model_path}")
     print(f"Task: {task}, Samples: {len(samples)}")
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+
+    model, processor = FastLanguageModel.from_pretrained(
+        model_path,
+        max_seq_length=2048,
+        load_in_4bit=False,
+    )
+    tokenizer = processor.tokenizer
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
+    FastLanguageModel.for_inference(model)
 
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        torch_dtype=torch.bfloat16,
-        attn_implementation="sdpa",
-        device_map="auto",
-    )
-    model.eval()
-
-    # Build raw prompt strings — same format as training (no chat template)
+    # Build prompts using the chat template (all messages except the assistant response)
     prompts = []
     for sample in samples:
-        prompt_str = sample["prompt"][0]["content"] + "\n\n" + sample["prompt"][1]["content"]
+        messages = sample["messages"][:-1]
+        prompt_str = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            chat_template_kwargs={"enable_thinking": False},
+        )
         prompts.append(prompt_str)
 
     # Batched inference
@@ -122,14 +140,13 @@ def run_eval(
         ).to(model.device)
         input_len = inputs["input_ids"].shape[1]
 
-        with torch.inference_mode():
-            outputs = model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                do_sample=False,
-                pad_token_id=tokenizer.pad_token_id,
-                eos_token_id=tokenizer.eos_token_id,
-            )
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            pad_token_id=tokenizer.pad_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+        )
 
         for j in range(len(batch_prompts)):
             generated = tokenizer.decode(
@@ -147,7 +164,7 @@ def run_eval(
     results = []
     matches = 0
     for i, sample in enumerate(samples):
-        expected = sample["completion"][0]["content"]
+        expected = sample["messages"][-1]["content"]
         predicted = all_predictions[i]
         is_match = predicted.strip() == expected.strip()
         if is_match:
@@ -155,10 +172,10 @@ def run_eval(
 
         results.append({
             "index": i,
+            "question": extract_question(sample),
             "expected": expected,
             "predicted": predicted,
             "exact_match": is_match,
-            "metadata": sample.get("metadata", {}),
         })
 
     total = len(results)
@@ -193,9 +210,9 @@ def run_eval(
     image=infer_image,
     volumes=VOLUMES,
 )
-def read_test_data(run_dir: str, task: str) -> list[dict]:
-    """Read test JSONL from the volume."""
-    path = pathlib.Path(run_dir) / task / "test.jsonl"
+def read_test_data(run_dir: str, task: str, split: str = "val") -> list[dict]:
+    """Read evaluation JSONL from the volume."""
+    path = pathlib.Path(run_dir) / task / f"{split}.jsonl"
     rows = []
     with open(path) as f:
         for line in f:
@@ -209,6 +226,7 @@ def main(
     model_path: str = DEFAULT_MODEL_PATH,
     label: str = "finetuned",
     task: str = "sql",
+    split: str = "val",
     run_dir: str = DEFAULT_RUN_DIR,
     max_samples: Optional[int] = None,
     max_new_tokens: int = 512,
@@ -218,10 +236,11 @@ def main(
     print(f"Model:   {model_path}")
     print(f"Label:   {label}")
     print(f"Task:    {task}")
+    print(f"Split:   {split}")
     print(f"Run dir: {run_dir}")
 
-    print("Loading test data...")
-    samples = read_test_data.remote(run_dir, task)
+    print("Loading evaluation data...")
+    samples = read_test_data.remote(run_dir, task, split)
     if max_samples:
         samples = samples[:max_samples]
     print(f"Eval samples: {len(samples)}")

@@ -270,7 +270,10 @@ if not results:
     st.warning("No results match the current filter.")
     st.stop()
 
-questions = [f"[{r['index']}] {r['question']}" for r in results]
+questions = [
+    f"[{r['index']}] {r.get('question', 'Sample ' + str(r['index']))}"
+    for r in results
+]
 selected_idx = st.selectbox("Select a query", range(len(questions)), format_func=lambda i: questions[i])
 row = results[selected_idx]
 
@@ -278,19 +281,29 @@ match_label = "MATCH" if row["exact_match"] else "MISMATCH"
 match_color = "green" if row["exact_match"] else "red"
 st.markdown(f"### :{match_color}[{match_label}]")
 
-# Formatted SQL side-by-side
+is_sql = summary.get("task", "sql") == "sql"
+expected = row["expected"]
+predicted = row["predicted"]
+
+# Formatted output side-by-side
 col_expected, col_predicted = st.columns(2)
 with col_expected:
-    st.markdown("**Expected SQL**")
-    st.code(format_sql(row["expected_sql"]), language="sql")
+    st.markdown("**Expected**")
+    if is_sql:
+        st.code(format_sql(expected), language="sql")
+    else:
+        st.code(expected, language="json")
 with col_predicted:
-    st.markdown("**Predicted SQL**")
-    st.code(format_sql(row["predicted_sql"]), language="sql")
+    st.markdown("**Predicted**")
+    if is_sql:
+        st.code(format_sql(predicted), language="sql")
+    else:
+        st.code(predicted, language="json")
 
 # Diff view
 if not row["exact_match"]:
-    with st.expander("SQL Diff", expanded=True):
-        diff_html = sql_diff_html(row["expected_sql"], row["predicted_sql"])
+    with st.expander("Diff", expanded=True):
+        diff_html = sql_diff_html(expected, predicted)
         diff_css = """
         <style>
         .diff_add { background-color: rgba(40, 167, 69, 0.15); }
@@ -303,33 +316,34 @@ if not row["exact_match"]:
         """
         st.html(f"{diff_css}<div style='overflow-x:auto; font-size:13px;'>{diff_html}</div>")
 
-# Auto-execute both SQLs and show maps
-con = get_duckdb_connection()
+# Auto-execute SQL and show maps (only for sql task)
+if is_sql:
+    con = get_duckdb_connection()
 
-map_col1, map_col2 = st.columns(2)
+    map_col1, map_col2 = st.columns(2)
 
-with map_col1:
-    st.markdown("**Expected result**")
-    sql = rewrite_data_paths(row["expected_sql"])
-    try:
-        df = execute_sql(con, sql)
-        geojson = to_feature_collection(df)
-        render_map(geojson, [40, 180, 160, 140], key="map_expected")
-        with st.expander("Result table"):
-            st.dataframe(df, width="stretch")
-    except Exception as e:
-        st.error(f"Execution error: {e}")
+    with map_col1:
+        st.markdown("**Expected result**")
+        sql = rewrite_data_paths(expected)
+        try:
+            df = execute_sql(con, sql)
+            geojson = to_feature_collection(df)
+            render_map(geojson, [40, 180, 160, 140], key="map_expected")
+            with st.expander("Result table"):
+                st.dataframe(df, width="stretch")
+        except Exception as e:
+            st.error(f"Execution error: {e}")
 
-with map_col2:
-    st.markdown("**Predicted result**")
-    sql = rewrite_data_paths(row["predicted_sql"])
-    try:
-        df = execute_sql(con, sql)
-        geojson = to_feature_collection(df)
-        render_map(geojson, [180, 80, 60, 140], key="map_predicted")
-        with st.expander("Result table"):
-            st.dataframe(df, width="stretch")
-    except Exception as e:
-        st.error(f"Execution error: {e}")
+    with map_col2:
+        st.markdown("**Predicted result**")
+        sql = rewrite_data_paths(predicted)
+        try:
+            df = execute_sql(con, sql)
+            geojson = to_feature_collection(df)
+            render_map(geojson, [180, 80, 60, 140], key="map_predicted")
+            with st.expander("Result table"):
+                st.dataframe(df, width="stretch")
+        except Exception as e:
+            st.error(f"Execution error: {e}")
 
-con.close()
+    con.close()

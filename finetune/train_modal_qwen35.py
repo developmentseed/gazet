@@ -23,7 +23,7 @@ from typing import Optional
 
 import modal
 
-app = modal.App("gazet-nlg-qwen35-finetune")
+app = modal.App("gazet-nlg-qwen35-finetune-v2")
 
 GPU_TYPE = "A100-80GB"
 TIMEOUT_HOURS = 24
@@ -74,7 +74,7 @@ class Qwen35Config:
     base_model: str = "unsloth/Qwen3.5-0.8B"
 
     # Dataset — path to run dir with {task}/{split}.jsonl files
-    run_dir: str = "/mnt/gazet/data/v3-symbolic-paths"
+    run_dir: str = "/mnt/gazet/data/v4-conversation-format"
     max_train_samples: Optional[int] = None
     max_eval_samples: Optional[int] = None
 
@@ -246,6 +246,11 @@ def finetune(config_dict: dict):
         max_train_samples=config.max_train_samples,
         max_eval_samples=config.max_eval_samples,
     )
+    if "train" not in ds:
+        raise RuntimeError(
+            f"No training data found in {config.run_dir}. "
+            "Run the dataset pipeline and upload exported data to the volume first."
+        )
     print(f"Train samples:    {len(ds['train']):,}")
     if "val" in ds:
         print(f"Val samples:      {len(ds['val']):,}")
