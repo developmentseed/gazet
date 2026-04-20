@@ -2,6 +2,7 @@
 
 import json
 import math
+import os
 
 import pandas as pd
 import requests
@@ -100,7 +101,7 @@ def _render_map(geojson, placeholder):
             st.json(geojson)
 
 
-API = "http://127.0.0.1:8000"
+API = os.environ.get("GAZET_API_URL", "http://127.0.0.1:8000")
 EXAMPLES = [
     "Angola and Mozambique",
     "Mediterranean Sea",

@@ -1,0 +1,41 @@
+services:
+  llama:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    volumes:
+      - ./finetune/models/qwen-base-run/ckpt-001.gguf:/models/model.gguf:ro
+    command: >
+      -m /models/model.gguf
+      --port 9000
+      --host 0.0.0.0
+      --ctx-size 2048
+      -t 4
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  app:
+    build: .
+    volumes:
+      - ./data:/data:ro
+    environment:
+      GAZET_DATA_DIR: /data
+      LLAMA_SERVER_URL: http://llama:9000
+    ports:
+      - "8000:8000"
+    command: uvicorn gazet.api:app --host 0.0.0.0 --port 8000
+    depends_on:
+      llama:
+        condition: service_healthy
+
+  demo:
+    build: .
+    environment:
+      GAZET_API_URL: http://app:8000
+    ports:
+      - "8501:8501"
+    command: streamlit run gazet_demo.py --server.port 8501 --server.address 0.0.0.0
+    depends_on:
+      - app
