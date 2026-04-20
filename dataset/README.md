@@ -29,7 +29,7 @@ Use this when you want to iterate quickly on a laptop with a subset of countries
 **Step 1 — Pick a run name and countries in `config.yaml`**
 
 ```yaml
-run_name: "my-run-001"   # change this every time you generate fresh data
+run_name: "v1"   # change this every time you generate fresh data
 
 countries:
   - IN   # India
@@ -73,7 +73,7 @@ gazet-dataset modal-upload --config dataset/config.yaml   # upload parquet data 
 **Step 2 — Set run name and targets in `config.yaml`**
 
 ```yaml
-run_name: "v2-full-10k"
+run_name: "v1"
 
 countries:
   - all
@@ -145,16 +145,16 @@ object with a `places` array.
 
 ## When to regenerate from scratch
 
-Change `run_name` and run without `--append` whenever you:
+Change `run_name` and regenerate from scratch whenever you:
 
 - Change any SQL templates (`sql_templates.py`)
 - Add new template families
 - Change the candidate format or count
 - Change the system/user prompt structure or content
-- Change the export format (e.g. prompt/completion to messages)
+- Change the export format
 
-Use `--append` only when you're adding more samples of the same type
-(e.g. adding more countries to an existing run with identical templates).
+For local runs, the default is a clean run. For Modal, `modal-generate` appends
+by default; pass `--fresh` to overwrite existing samples.
 
 ---
 
@@ -171,7 +171,7 @@ Normal for `countries: [all]` — it's a spatial self-join over millions of
 features. Use a country subset for development. Relations only need to be
 rebuilt when you add countries or change template families.
 
-**`dataset_validated.jsonl` has far fewer samples than `dataset_raw.jsonl`**
-The validate step re-executes every SQL query and drops ones that return empty
-results. This is expected — check `output/dataset_stats.json` for per-family
-pass rates.
+**Validate step drops many samples**
+The validate step re-executes every SQL query and discards ones that return
+empty results. This is expected — check `output/runs/{run_name}/stats.json`
+for per-family counts after export.

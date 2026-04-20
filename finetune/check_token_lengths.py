@@ -3,7 +3,7 @@
 Usage
 -----
 modal run finetune/check_token_lengths.py
-modal run finetune/check_token_lengths.py --conversations-dir /mnt/gazet/data/output/conversations
+modal run finetune/check_token_lengths.py --run-dir /mnt/gazet/data/v1
 """
 
 from __future__ import annotations
@@ -35,15 +35,36 @@ VOLUMES = {
     volumes=VOLUMES,
     secrets=[modal.Secret.from_name("huggingface-secret")],
 )
-def analyze_token_lengths(conversations_dir: str, base_model: str):
+def analyze_token_lengths(run_dir: str, base_model: str):
+    import json
+    import pathlib
+
+    from datasets import Dataset, DatasetDict
     from transformers import AutoTokenizer
-    from finetune.data import load_conversations
+
+    def load_jsonl(path):
+        rows = []
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    rows.append(json.loads(line))
+        return rows
 
     print(f"Loading tokenizer: {base_model}")
     tokenizer = AutoTokenizer.from_pretrained(base_model)
 
-    print(f"Loading dataset from {conversations_dir}")
-    ds = load_conversations(conversations_dir)
+    root = pathlib.Path(run_dir)
+    ds_dict = {}
+    for split in ("train", "val", "test"):
+        combined = []
+        for task in ("sql", "places"):
+            path = root / task / f"{split}.jsonl"
+            if path.exists():
+                combined.extend(load_jsonl(path))
+        if combined:
+            ds_dict[split] = Dataset.from_list(combined)
+    ds = DatasetDict(ds_dict)
 
     def token_lengths(dataset):
         lengths = []
@@ -124,11 +145,11 @@ def analyze_token_lengths(conversations_dir: str, base_model: str):
 
 @app.local_entrypoint()
 def main(
-    conversations_dir: str = "/mnt/gazet/data/output/conversations",
-    base_model: str = "google/gemma-3-270m-it",
+    run_dir: str = "/mnt/gazet/data/v1",
+    base_model: str = "unsloth/Qwen3.5-0.8B",
 ):
     print(f"Checking token lengths:")
-    print(f"  Model:               {base_model}")
-    print(f"  Conversations dir:   {conversations_dir}")
-    analyze_token_lengths.remote(conversations_dir, base_model)
+    print(f"  Model:   {base_model}")
+    print(f"  Run dir: {run_dir}")
+    analyze_token_lengths.remote(run_dir, base_model)
     print("Analysis complete!")

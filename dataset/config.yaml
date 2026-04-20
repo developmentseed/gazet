@@ -57,13 +57,7 @@ modal:
   container_memory: 4096            # Memory (MB) per container
   timeout: 3600                     # Per-container timeout in seconds
 
-# Output paths (relative to dataset directory)
-output:
-  samples_dir: "output/samples"
-  dataset_file: "output/dataset_raw.jsonl"
-  intermediate_dir: "intermediate"
-
 # Run name — used to version exported splits so re-runs never overwrite previous data.
 # Change this whenever you regenerate from scratch (e.g. after template changes).
 # Exported files land in: output/runs/{run_name}/
-run_name: "v4-conversation-format"
+run_name: "v1"

@@ -13,8 +13,8 @@ llama-server.
 2. Check token lengths    →  check_token_lengths.py
 3. Train on Modal         →  train_modal_qwen35.py
 4. Convert to GGUF        →  llama.cpp
-5. Serve + eval locally   →  llama-server + eval_cli.py
-6. Batch eval on Modal    →  eval_batch.py + eval_demo.py
+5. Serve locally          →  llama-server
+6. Eval locally           →  eval_cli.py (interactive or batch) + eval_demo.py
 ```
 
 ---
@@ -25,12 +25,12 @@ Before training, verify that your `max_length` setting covers the data.
 SQL samples are long (schema + candidates + SQL), places samples are short.
 
 ```bash
-modal run finetune/check_token_lengths.py \
-    --run-dir /mnt/gazet/data/output/runs/v2-all-families
+modal run finetune/check_token_lengths.py
+modal run finetune/check_token_lengths.py --run-dir /mnt/gazet/data/v1
 ```
 
 This prints per-split statistics (min, max, P95, P99) and recommends a
-`max_length` value. Adjust `config.py` accordingly before training.
+`max_length` value. Adjust `--max-seq-length` in `train_modal_qwen35.py` accordingly.
 
 ---
 
@@ -43,17 +43,18 @@ template, and trains a LoRA adapter using Unsloth's
 
 ```bash
 # Default settings (Qwen3.5-0.8B, r=16, 1 epoch)
-modal run finetune/train_modal_qwen35.py
+modal run finetune/train_modal_qwen35.py --experiment-name qwen35-v1
 
 # Override any config field from CLI
 modal run finetune/train_modal_qwen35.py \
+    --experiment-name qwen35-v1 \
     --base-model unsloth/Qwen3.5-0.8B \
     --num-train-epochs 3 \
     --lora-r 32 \
     --max-seq-length 2048
 
 # Quick smoke test
-modal run finetune/train_modal_qwen35.py --max-train-samples 100
+modal run finetune/train_modal_qwen35.py --experiment-name qwen35-v1 --max-train-samples 100
 ```
 
 All CLI overrides: `--base-model`, `--experiment-name`, `--run-dir`,
@@ -65,7 +66,7 @@ overridden, `lora_alpha` is automatically set to `2 * r`.
 
 ```
 base_model:       unsloth/Qwen3.5-0.8B
-run_dir:          /mnt/gazet/data/v4-conversation-format
+run_dir:          /mnt/gazet/data/v1
 lora_r:           16
 lora_alpha:       32       (2 * r, Unsloth recommendation for Qwen)
 lora_dropout:     0.0
@@ -91,21 +92,10 @@ Checkpoints and the merged model are saved to the Modal volume:
         tokenizer.json
 ```
 
-The experiment name is auto-generated as `{model}-r{lora_r}-{timestamp}`,
-e.g. `Qwen3.5-0.8B-r16-20260415-161156`.
+Pass `--experiment-name` to set a human-readable name (e.g. `qwen35-v1`).
+If omitted, it is auto-generated as `{model}-r{lora_r}-{timestamp}`.
 
 Training metrics are logged to [trackio](https://huggingface.co/spaces/srmsoumya/gazet-trackio).
-
-### Merging a checkpoint manually
-
-If you need to merge a specific intermediate checkpoint (not the final one):
-
-```bash
-modal run finetune/merge_checkpoint.py \
-    --checkpoint /mnt/gazet/checkpoints/Qwen3.5-0.8B-r16-20260415-161156/checkpoint-1800
-```
-
-Output goes to `<checkpoint>-merged` by default, or use `--output` to override.
 
 ---
 
@@ -116,18 +106,19 @@ for local inference with llama-server.
 
 ```bash
 # Download from Modal volume
-modal volume get gazet checkpoints/{experiment_name}/merged ./finetune/models/merged
+modal volume get gazet checkpoints/qwen35-v1/merged ./finetune/models/merged
 
 # Convert to GGUF (requires llama.cpp repo)
-python llama.cpp/convert_hf_to_gguf.py \
-    finetune/models/merged \
-    --outtype bf16 \
-    --outfile finetune/models/gemma-270m-bf16.gguf
-
-# Optional: quantize to Q8
-llama.cpp/build/bin/llama-quantize \
-    finetune/models/gemma-270m-bf16.gguf \
-    finetune/models/gemma-270m-q8.gguf Q8_0
+uv run \ 
+    --no-project \
+    --with transformers \
+    --with sentencepiece \
+    --with protobuf \
+    --with torch \
+    python convert_hf_to_gguf.py \
+    ../gazet/finetune/models/qwen-base/merged \
+    --outtype q8_0 \
+    --outfile ../gazet/finetune/models/qwen-base/ckpt-001.gguf
 ```
 
 ---
@@ -138,11 +129,16 @@ llama.cpp/build/bin/llama-quantize \
 
 ```bash
 llama-server \
-    -m finetune/models/qwen-base-v2/ckpt-001.gguf \
+    -m finetune/models/qwen-base/ckpt-001.gguf \
     -ngl 99 \
     --port 9000 \
     --ctx-size 2048
 ```
+
+`--ctx-size` is the total KV cache shared across all parallel slots. SQL
+prompts can be ~600 tokens; with `--parallel 4` and up to 2048 output
+tokens, use at least `8192`. Match `--parallel` to `--workers` in
+`eval_cli.py`.
 
 ### Docker (CPU-only)
 
@@ -155,7 +151,7 @@ docker run \
     -v $(pwd)/finetune/models:/models \
     -p 9000:9000 \
     ghcr.io/ggml-org/llama.cpp:server \
-        -m /models/qwen-base-v2/ckpt-001.gguf \
+        -m /models/qwen-base/ckpt-001.gguf \
         --port 9000 --host 0.0.0.0 \
         --ctx-size 2048 -t 2 -v
 ```
@@ -176,80 +172,51 @@ The server exposes `/v1/chat/completions` (chat API) on
 
 ## Step 5 — Evaluate
 
-Three evaluation tools, each for a different stage of the workflow.
+Two evaluation tools, both using a locally running llama-server.
 
-### Interactive eval via llama-server (`eval_cli.py`)
-
-Sends individual test samples to a running llama-server and prints
-expected vs generated output with an exact-match check. Useful for
-quick spot-checking during development.
+### Interactive or batch eval (`eval_cli.py`)
 
 Requires llama-server running on port 9000 (see Step 4).
 
+**Interactive** — spot-check individual samples:
+
 ```bash
-# SQL test samples (default task)
 uv run finetune/eval_cli.py              # prompts for sample index
 uv run finetune/eval_cli.py 0 5 12       # run specific samples
-
-# Place extraction test samples
 uv run finetune/eval_cli.py --task places 0 5
-
-# Show the full prompt sent to the model
-uv run finetune/eval_cli.py -v 0
-
-# Use a different run directory
-uv run finetune/eval_cli.py --run-dir dataset/output/runs/my-run 0
+uv run finetune/eval_cli.py -v 0         # print full prompt
 ```
 
-Config constants at the top of `eval_cli.py`: `SERVER_URL` (default
-`http://localhost:9000`), `MAX_TOKENS` (2048), `TEMPERATURE` (0.6).
-
-### Batch eval on Modal GPU (`eval_batch.py`)
-
-Runs the full evaluation split through a model on Modal using Unsloth,
-computes exact match rate, and saves detailed results to the Modal volume.
-Uses the Qwen3.5 chat template with thinking disabled.
+**Batch** — run the full split and save a JSON results file:
 
 ```bash
-# Eval fine-tuned Qwen3.5 on SQL (default)
-modal run finetune/eval_batch.py --label finetuned-qwen35
+# Full val set, SQL task
+uv run finetune/eval_cli.py --all --label finetuned-qwen35
 
-# Eval on place extraction
-modal run finetune/eval_batch.py --task places --label finetuned-places
+# Places task
+uv run finetune/eval_cli.py --all --task places --label finetuned-places
 
-# Eval base model (no fine-tuning)
-modal run finetune/eval_batch.py \
-    --model-path unsloth/Qwen3.5-0.8B \
-    --label base-qwen35
+# Limit samples, custom output path
+uv run finetune/eval_cli.py --all --max-samples 100 --output results/eval-v5.json
 
-# Point to a specific merged checkpoint
-modal run finetune/eval_batch.py \
-    --model-path /mnt/gazet/checkpoints/Qwen3.5-0.8B-r16-20260415-161156/merged \
-    --label my-checkpoint
-
-# Limit samples for quick check
-modal run finetune/eval_batch.py --max-samples 50
-
-# Use a different split or run directory
-modal run finetune/eval_batch.py --split test --run-dir /mnt/gazet/data/v4-conversation-format
+# Evaluate test split instead of val
+uv run finetune/eval_cli.py --all --split test --label finetuned-qwen35
 ```
 
-All CLI args:
+All batch CLI args:
 
 | Arg | Default | Description |
 |-----|---------|-------------|
-| `--model-path` | Latest Qwen3.5 merged checkpoint | HF model ID or path on Modal volume |
-| `--label` | `finetuned` | Label for the output file name |
+| `--all` | off | Enable batch mode |
+| `--label` | `local-gguf` | Label used in the output filename |
 | `--task` | `sql` | `sql` or `places` |
-| `--split` | `val` | Which data split to evaluate (`val`, `test`) |
-| `--run-dir` | `v4-conversation-format` | Run directory with `{task}/{split}.jsonl` files |
+| `--split` | `val` | Data split to evaluate (`val`, `test`) |
+| `--run-dir` | `dataset/output/runs/v1` | Directory with `{task}/{split}.jsonl` |
 | `--max-samples` | all | Cap the number of samples |
-| `--max-new-tokens` | 512 | Max tokens to generate per sample |
-| `--batch-size` | 16 | Inference batch size |
-| `--output-dir` | `/mnt/gazet/eval_results` | Where to write the JSON results file |
+| `--output` | `eval-{label}-{task}.json` | Output JSON path |
+| `--workers` | `4` | Concurrent requests; match llama-server `--parallel` |
 
-Results are saved to `/mnt/gazet/eval_results/eval-{label}-{task}.json` with
-this structure:
+Results are saved to `results/eval-{label}-{task}.json` with this structure:
 
 ```json
 {
@@ -261,9 +228,12 @@ this structure:
 }
 ```
 
+Config constants at the top of `eval_cli.py`: `SERVER_URL` (default
+`http://localhost:9000`), `MAX_TOKENS` (2048), `TEMPERATURE` (0.6).
+
 ### Visual eval (`eval_demo.py`)
 
-Streamlit app that loads the JSON results from `eval_batch.py` and displays
+Streamlit app that loads JSON results from `eval_cli.py --all` and displays
 them interactively. For SQL results, it shows formatted SQL side-by-side,
 a diff view for mismatches, and executes both queries against DuckDB to
 render the geometry on a map. For places results, it shows expected vs
@@ -273,19 +243,13 @@ predicted JSON.
 streamlit run finetune/eval_demo.py
 ```
 
-Set `GAZET_DATA_DIR` env var if your parquet data is not in the default
-`data/` directory.
-
-### Inspect a test prompt
-
-Print the full chat messages for a sample, useful for pasting into the
-llama-server Chat UI:
+Reads result files from `results/eval-*.json` by default. Override with:
 
 ```bash
-uv run finetune/make_test_prompt.py             # SQL sample 0
-uv run finetune/make_test_prompt.py 5           # SQL sample 5
-uv run finetune/make_test_prompt.py --task places 3
+GAZET_EVAL_DIR=/path/to/results streamlit run finetune/eval_demo.py
 ```
+
+Set `GAZET_DATA_DIR` if your parquet data is not in the default `data/` directory.
 
 ---
 
@@ -294,18 +258,9 @@ uv run finetune/make_test_prompt.py --task places 3
 | File | What it does |
 |---|---|
 | `train_modal_qwen35.py` | Modal training script — Qwen3.5 LoRA fine-tuning with Unsloth |
-| `train_modal.py` | Modal training script — Gemma LoRA fine-tuning with SFTTrainer (legacy) |
-| `config.py` | `TrainingConfig` dataclass for Gemma training (legacy) |
-| `data.py` | Loads SQL + places JSONL from a run directory into a HF Dataset (Gemma format) |
-| `prompts.py` | System/user prompt templates and schema text — used by `src/gazet/` |
 | `check_token_lengths.py` | Modal script to analyze token length distribution before training |
-| `merge_checkpoint.py` | Modal script — merge a LoRA checkpoint into the base model |
-| `eval_cli.py` | Local interactive eval — sends samples to llama-server `/v1/chat/completions` |
-| `eval_batch.py` | Modal batch eval — runs full split through Unsloth, computes exact match rate |
-| `eval_demo.py` | Streamlit app — visual diff + map rendering of `eval_batch.py` results |
-| `make_test_prompt.py` | Print chat messages for a test sample — paste into llama-server UI |
-| `test_raw_completion.py` | Test with raw `/completion` endpoint (no chat template) |
-| `nlg.py` | Standalone workbench (train/generate/execute) for local experimentation |
+| `eval_cli.py` | Local eval — interactive spot-check or full batch mode via llama-server |
+| `eval_demo.py` | Streamlit app — visual diff + map rendering of `eval_cli.py --all` results |
 | `models/` | GGUF model files for local llama-server inference |
 
 ---
@@ -313,7 +268,7 @@ uv run finetune/make_test_prompt.py --task places 3
 ## Data format
 
 The Qwen3.5 training pipeline (`train_modal_qwen35.py`) expects data in
-**messages format** (v4-conversation-format):
+**messages format**:
 
 ```json
 {

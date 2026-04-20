@@ -74,7 +74,7 @@ class Qwen35Config:
     base_model: str = "unsloth/Qwen3.5-0.8B"
 
     # Dataset — path to run dir with {task}/{split}.jsonl files
-    run_dir: str = "/mnt/gazet/data/v4-conversation-format"
+    run_dir: str = "/mnt/gazet/data/v1"
     max_train_samples: Optional[int] = None
     max_eval_samples: Optional[int] = None
 

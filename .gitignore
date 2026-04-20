@@ -139,6 +139,15 @@ output/
 *.parquet
 *.jsonl
 
+# Eval results
+results/
+
+# IDE
+.windsurf/
+
+# Local notes
+notes.md
+
 # Model
 models/
 *.gguf
