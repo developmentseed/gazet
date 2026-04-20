@@ -4,12 +4,11 @@ FROM python:3.13-slim
 
 # Install system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl supervisor && rm -rf /var/lib/apt/lists/*
+    curl supervisor libgomp1 && rm -rf /var/lib/apt/lists/*
 
-# Copy llama-server binary and shared libs from official image
-COPY --from=llama /app/llama-server /usr/local/bin/llama-server
-COPY --from=llama /app/*.so* /usr/local/lib/
-RUN ldconfig
+# Copy llama-server binary and backend .so files (must stay together)
+COPY --from=llama /app /usr/local/lib/llama
+RUN ln -s /usr/local/lib/llama/llama-server /usr/local/bin/llama-server
 
 # HF Spaces requires UID 1000
 RUN useradd -m -u 1000 user
