@@ -8,7 +8,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy llama-server binary and backend .so files (must stay together)
 COPY --from=llama /app /usr/local/lib/llama
-RUN ln -s /usr/local/lib/llama/llama-server /usr/local/bin/llama-server
+RUN ln -s /usr/local/lib/llama/llama-server /usr/local/bin/llama-server \
+    && echo /usr/local/lib/llama > /etc/ld.so.conf.d/llama.conf \
+    && ldconfig
+
+ENV LD_LIBRARY_PATH=/usr/local/lib/llama
 
 # HF Spaces requires UID 1000
 RUN useradd -m -u 1000 user
