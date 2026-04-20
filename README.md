@@ -1,3 +1,7 @@
+<p align="center">
+  <img width="50%" alt="gazet" src="https://github.com/user-attachments/assets/b56c91e6-271c-4fb4-9878-dee4786fdf12" />
+</p>
+
 # Gazet
 
 Lean natural-language geocoder with GIS operations over Overture and Natural Earth parquet datasets.
