@@ -133,6 +133,26 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-
+# Dataset
 data/
 output/
+*.parquet
+*.jsonl
+
+# Eval results
+results/
+
+# IDE
+.windsurf/
+
+# Local notes
+notes.md
+
+# Model
+models/
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt

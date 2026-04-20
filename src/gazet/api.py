@@ -1,4 +1,5 @@
 import json
+import math
 from typing import Any, Generator
 
 import duckdb
@@ -7,11 +8,25 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 
 from .export import to_feature_collection
-from .lm import extract
-from .search import search_divisions_area, search_natural_earth
-from .sql import run_geo_sql_loop
+from .lm import extract, generate_places
+from .search import search_candidates
+from .sql import run_geo_sql_dspy, run_geo_sql_gguf
 
 app = FastAPI()
+
+
+def _per_source_limit(num_places: int) -> int:
+    """Candidates to fetch per source per place, scaled by number of places.
+
+    Keeps the total candidate count in the prompt manageable:
+      1 place  → 5 per source → 10 total
+      2 places → 4 per source → 16 total
+      3 places → 3 per source → 18 total
+      4 places → 2 per source → 16 total
+      5 places → 2 per source → 20 total
+    """
+    table = {1: 5, 2: 4, 3: 3, 4: 2, 5: 2}
+    return table.get(num_places, max(1, math.ceil(5 / num_places)))
 
 
 def _df_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
@@ -19,7 +34,7 @@ def _df_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
     return df.replace({float("nan"): None}).to_dict(orient="records")
 
 
-def _run_stream(query: str) -> Generator[str, None, None]:
+def _run_stream(query: str, backend: str = "gguf") -> Generator[str, None, None]:
     """Yield NDJSON lines as each stage of the search completes.
 
     Event ``type`` values (in order of emission):
@@ -30,9 +45,12 @@ def _run_stream(query: str) -> Generator[str, None, None]:
     - ``geojson``     – final FeatureCollection
     - ``error``       – fatal error (no result)
     """
-    pred = extract(query=query)
-    print("extract result:", pred.result)
-    places_result = pred.result
+    if backend == "gguf":
+        places_result = generate_places(query)
+    else:
+        pred = extract(query=query)
+        places_result = pred.result
+    print("places:", places_result)
 
     yield json.dumps({"type": "places", "data": places_result.model_dump()}) + "\n"
 
@@ -41,12 +59,10 @@ def _run_stream(query: str) -> Generator[str, None, None]:
     con.execute("LOAD spatial")
 
     try:
+        limit = _per_source_limit(len(places_result.places))
         all_candidates: list[pd.DataFrame] = []
         for place in places_result.places:
-            for search_fn in (search_divisions_area, search_natural_earth):
-                df = search_fn(con, place)
-                if not df.empty:
-                    all_candidates.append(df)
+            all_candidates.extend(search_candidates(con, place, limit=limit))
 
         if not all_candidates:
             yield json.dumps({"type": "error", "data": "No candidates found"}) + "\n"
@@ -64,8 +80,9 @@ def _run_stream(query: str) -> Generator[str, None, None]:
             + "\n"
         )
 
+        sql_fn = run_geo_sql_gguf if backend == "gguf" else run_geo_sql_dspy
         result_df: pd.DataFrame | None = None
-        for event in run_geo_sql_loop(con, query, candidates_df):
+        for event in sql_fn(con, query, candidates_df):
             if event["type"] == "sql_attempt":
                 yield (
                     json.dumps(
@@ -105,13 +122,13 @@ def _run_stream(query: str) -> Generator[str, None, None]:
 
 
 @app.get("/search/stream")
-def search_stream(q: str) -> StreamingResponse:
+def search_stream(q: str, backend: str = "gguf") -> StreamingResponse:
     """Stream search progress as NDJSON (one JSON object per line)."""
-    return StreamingResponse(_run_stream(q), media_type="application/x-ndjson")
+    return StreamingResponse(_run_stream(q, backend), media_type="application/x-ndjson")
 
 
 @app.get("/search", response_model=None)
-def search(q: str) -> dict[str, Any]:
+def search(q: str, backend: str = "gguf") -> dict[str, Any]:
     """Run geo search for natural-language query (non-streaming).
 
     Returns GeoJSON FeatureCollection, the executed SQL, and the identified
@@ -122,7 +139,7 @@ def search(q: str) -> dict[str, Any]:
     sql = ""
     geojson: dict | None = None
 
-    for line in _run_stream(q):
+    for line in _run_stream(q, backend):
         if not line.strip():
             continue
         event = json.loads(line)

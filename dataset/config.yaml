@@ -1,0 +1,63 @@
+# Dataset Generation Configuration
+# This config controls which countries to process and how many samples to generate
+
+# Countries to include in relation building
+# Use ISO 3166-1 alpha-2 codes, or "all" to include every country
+countries:
+  - all
+  # Or specify a subset:
+  # - IN   # India
+  # - PK   # Pakistan
+  # - EC   # Ecuador
+  # - BE   # Belgium
+  # - KE   # Kenya
+
+# Sample generation targets per family
+# Relation limits are auto-calculated from these targets
+sample_targets:
+  direct_lookup:       500
+  adjacency:           750
+  multi_adjacency:     300
+  containment:         750
+  intersection:        500
+  buffer:              500
+  chained:             750   # coastal / landlocked variants
+  difference:          300
+  border_corridor:     300
+  set_operations:      500
+  partial_selection:   500
+  aggregation:         500
+  window_function:     300
+  attribute_filter:    300
+
+# Generation settings
+generation:
+  max_workers: 8           # Number of parallel workers
+  retry_multiplier: 2      # Generate 2x samples to account for failures
+  append_mode: false       # Set false for clean regeneration after template/format changes
+
+# Auto-scaling configuration
+# Relation limits are automatically calculated: target * retry_multiplier * safety_factor
+auto_scaling:
+  safety_factor: 1.5       # Extra buffer to ensure enough unique pairs
+  
+  # Manual overrides (optional) - uncomment to override auto-calculated limits
+  manual_limits: {}
+    # adjacency: 10000     # Uncomment to manually set
+    # containment: 2000
+    # intersection: 1000
+    # cross_source: 500
+  
+# Modal configuration for distributed generation
+modal:
+  volume_name: "gazet-data"         # Modal Volume for parquet data
+  app_name: "gazet-dataset"         # Modal app name
+  num_containers: 100               # Number of parallel containers for sample generation
+  container_cpu: 2                  # CPUs per container
+  container_memory: 4096            # Memory (MB) per container
+  timeout: 3600                     # Per-container timeout in seconds
+
+# Run name — used to version exported splits so re-runs never overwrite previous data.
+# Change this whenever you regenerate from scratch (e.g. after template changes).
+# Exported files land in: output/runs/{run_name}/
+run_name: "v1"

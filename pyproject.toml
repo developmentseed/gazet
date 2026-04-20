@@ -16,8 +16,18 @@ dependencies = [
     "pydantic>=2.0",
     "pyarrow>=17.0.0",
     "geopandas>=1.1.2",
+    "httpx>=0.28.1",
+    "sqlparse>=0.5.5",
 ]
 optional-dependencies = { demo = ["streamlit", "requests", "pydeck"], dev = ["ruff"] }
 
+[project.scripts]
+gazet-dataset = "dataset.scripts.cli:main"
+
 [tool.hatch.build.targets.wheel]
-packages = ["src/gazet"]
+packages = ["src/gazet", "dataset"]
+
+[dependency-groups]
+dataset = [
+    "modal>=1.4.0",
+]

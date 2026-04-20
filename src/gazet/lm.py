@@ -1,7 +1,20 @@
-import dspy
+import json
+import logging
 
-from .config import MODEL
-from .schemas import PlacesResult
+import dspy
+import httpx
+import pandas as pd
+
+from .config import (
+    LLAMA_MAX_TOKENS,
+    LLAMA_SERVER_URL,
+    LLAMA_TEMPERATURE,
+    PLACE_EXTRACTION_MODEL,
+    SQL_GENERATION_MODEL,
+)
+from .schemas import Place, PlacesResult
+
+logger = logging.getLogger(__name__)
 
 
 class ExtractPlaces(dspy.Signature):
@@ -19,6 +32,13 @@ class ExtractPlaces(dspy.Signature):
     - If the user mentions a place name that is not in the overture divisions or natural earth physical features, return the place name as is.
 
     Where possible and relevant, also extract the ISO country code for each place.
+
+    Only extract place names that are explicitly mentioned in the query.
+    Do NOT generate or infer place names from your own knowledge.
+    For example:
+    - "north half of India" -> extract "India", NOT individual state names
+    - "coastal cities of France" -> extract "France", NOT city names
+    - "neighbouring states of Odisha" -> extract "Odisha", NOT neighbouring state names
 
     Do not repeat the same place name in the result.
 
@@ -103,10 +123,213 @@ class WriteGeoSQL(dspy.Signature):
     )
 
 
-lm = dspy.LM(
-    f"ollama_chat/{MODEL}", api_base="http://localhost:11434", api_key="", temperature=0.1, cache=False,
+place_extraction_lm = dspy.LM(
+    f"ollama_chat/{PLACE_EXTRACTION_MODEL}", 
+    api_base="http://localhost:11434", 
+    api_key="", 
+    temperature=0.1, 
+    cache=False,
 )
-dspy.configure(lm=lm)
 
-extract = dspy.Predict(ExtractPlaces)
-write_sql = dspy.Predict(WriteGeoSQL)
+sql_generation_lm = dspy.LM(
+    f"ollama_chat/{SQL_GENERATION_MODEL}", 
+    api_base="http://localhost:11434", 
+    api_key="", 
+    temperature=0.1, 
+    cache=False,
+    think=False
+)
+
+
+class PlaceExtractor(dspy.Module):
+    def __init__(self, lm):
+        super().__init__()
+        self.lm = lm
+        self.predictor = dspy.Predict(ExtractPlaces)
+    
+    def forward(self, query: str):
+        with dspy.context(lm=self.lm):
+            return self.predictor(query=query)
+
+
+class SQLWriter(dspy.Module):
+    def __init__(self, lm):
+        super().__init__()
+        self.lm = lm
+        self.predictor = dspy.Predict(WriteGeoSQL)
+    
+    def forward(self, user_query: str, schema: str, candidates: str, 
+                previous_sql: str = "", execution_error: str = ""):
+        with dspy.context(lm=self.lm):
+            return self.predictor(
+                user_query=user_query,
+                schema=schema,
+                candidates=candidates,
+                previous_sql=previous_sql,
+                execution_error=execution_error
+            )
+
+
+extract = PlaceExtractor(lm=place_extraction_lm)
+write_sql = SQLWriter(lm=sql_generation_lm)
+
+
+# ── GGUF SQL generation via llama-server ──────────────────────────────────────
+
+_SYSTEM_PROMPT = """You are a text to SQL query translator that helps in natural language geocoding.
+
+You have access to two DuckDB parquet tables. Given a set of candidate entities and a user query, generate the SQL to retrieve the desired geometry.
+
+<SCHEMA>
+1. divisions_area  -- Overture polygon/multipolygon admin boundaries
+   query: read_parquet('divisions_area')
+   columns:
+     id VARCHAR              -- unique feature id
+     names STRUCT("primary" VARCHAR, ...)
+     country VARCHAR         -- ISO 3166-1 alpha-2
+     subtype VARCHAR         -- country | region | dependency | county | localadmin |
+                               locality | macrohood | neighborhood | microhood
+     class VARCHAR
+     region VARCHAR
+     admin_level INTEGER
+     division_id VARCHAR
+     is_land BOOLEAN
+     is_territorial BOOLEAN
+     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
+
+2. natural_earth  -- Natural Earth geography polygons (oceans, seas, rivers, terrain)
+   query: read_parquet('natural_earth')
+   columns:
+     id VARCHAR              -- unique feature id prefixed 'ne_'
+     names STRUCT("primary" VARCHAR, ...)
+     country VARCHAR
+     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'Terrain area', 'Island group'
+     class VARCHAR
+     region VARCHAR
+     admin_level INTEGER
+     is_land BOOLEAN
+     is_territorial BOOLEAN
+     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
+</SCHEMA>
+
+The candidates table has a 'source' column: 'divisions_area' or 'natural_earth'.
+Use read_parquet('divisions_area') or read_parquet('natural_earth') accordingly.
+Use ST_AsGeoJSON(geometry) for all geometry outputs."""
+
+_USER_PROMPT_TEMPLATE = """<CANDIDATES>
+{candidates_csv}
+</CANDIDATES>
+
+<USER_QUERY>
+{question}
+</USER_QUERY>
+"""
+
+
+def _postprocess_sql(text: str) -> str:
+    """Strip markdown fences and whitespace from generated SQL."""
+    cleaned = text.strip()
+    if "```sql" in cleaned:
+        cleaned = cleaned.split("```sql", 1)[1]
+    if cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if "```" in cleaned:
+        cleaned = cleaned.split("```", 1)[0]
+    return cleaned.strip()
+
+
+def is_llama_server_available() -> bool:
+    """Check if the llama-server is running and healthy."""
+    try:
+        resp = httpx.get(f"{LLAMA_SERVER_URL}/health", timeout=2)
+        return resp.status_code == 200
+    except (httpx.ConnectError, httpx.TimeoutException):
+        return False
+
+
+def _llama_chat_complete(messages: list[dict]) -> str:
+    """Call llama-server /v1/chat/completions with a messages list."""
+    resp = httpx.post(
+        f"{LLAMA_SERVER_URL}/v1/chat/completions",
+        json={
+            "messages": messages,
+            "n_predict": LLAMA_MAX_TOKENS,
+            "temperature": LLAMA_TEMPERATURE,
+            "chat_template_kwargs": {"enable_thinking": False},
+        },
+        timeout=60,
+    )
+    if resp.status_code != 200:
+        logger.error("llama-server %s: %s", resp.status_code, resp.text[:500])
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
+
+
+_PLACES_SYSTEM_PROMPT = """You are a geographic entity extractor. Extract place names from the user query and return valid JSON only.
+
+OUTPUT FORMAT:
+{"places": [{"place": "<name>", "country": "<ISO-2>", "subtype": "<subtype>"}]}
+"country" and "subtype" are optional; omit if not applicable.
+
+RULES:
+- Only extract places explicitly mentioned. Never infer or expand (e.g. "states of India" -> extract "India" only).
+- No duplicate place names.
+- "country": ISO 3166-1 alpha-2. Include only if explicitly mentioned or unambiguous.
+- "subtype": include only when the geographic level is clear from the query.
+
+SUBTYPES:
+country, dependency, region, county, localadmin, locality, macrohood, neighborhood, microhood
+- Default to locality for cities/towns; omit for physical features (oceans, rivers, mountains)."""
+
+
+def generate_places(user_query: str) -> PlacesResult:
+    """Extract place names from a query using the finetuned GGUF model.
+
+    Uses the same prompt format the model was trained on.
+    Returns a PlacesResult; falls back to an empty result on parse failure.
+    """
+    messages = [
+        {"role": "system", "content": _PLACES_SYSTEM_PROMPT},
+        {"role": "user", "content": user_query},
+    ]
+    raw_output = _llama_chat_complete(messages).strip()
+
+    # Strip markdown fences if the model wrapped the JSON
+    if raw_output.startswith("```"):
+        raw_output = raw_output.split("```")[1]
+        if raw_output.startswith("json"):
+            raw_output = raw_output[4:]
+        raw_output = raw_output.strip()
+
+    try:
+        data = json.loads(raw_output)
+        return PlacesResult.model_validate(data)
+    except Exception as exc:
+        logger.warning("generate_places: failed to parse output %r: %s", raw_output, exc)
+        # Best-effort: treat entire query as a single unnamed place
+        return PlacesResult(places=[Place(place=user_query)])
+
+
+def generate_sql(user_query: str, candidates_df: pd.DataFrame) -> str:
+    """Generate SQL from a natural language query using the finetuned GGUF model.
+
+    Uses the same prompt format the model was trained on:
+    SYSTEM_PROMPT (includes schema) + USER_PROMPT_TEMPLATE with candidates CSV and question.
+    Single-shot — no retry loop (the finetuned model can't improve from error feedback).
+    """
+    # Keep only columns the model was trained on
+    keep_cols = ["source", "id", "name", "subtype", "country", "region", "admin_level", "similarity"]
+    cols = [c for c in keep_cols if c in candidates_df.columns]
+    candidates_csv = candidates_df[cols].to_csv(index=False)
+
+    user_prompt = _USER_PROMPT_TEMPLATE.format(
+        candidates_csv=candidates_csv.strip(),
+        question=user_query.strip(),
+    )
+
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ]
+    raw_output = _llama_chat_complete(messages)
+    return _postprocess_sql(raw_output)

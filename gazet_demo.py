@@ -2,6 +2,7 @@
 
 import json
 import math
+import os
 
 import pandas as pd
 import requests
@@ -100,7 +101,7 @@ def _render_map(geojson, placeholder):
             st.json(geojson)
 
 
-API = "http://127.0.0.1:8000"
+API = os.environ.get("GAZET_API_URL", "http://127.0.0.1:8000")
 EXAMPLES = [
     "Angola and Mozambique",
     "Mediterranean Sea",
@@ -113,6 +114,17 @@ st.set_page_config(page_title="Gazet", page_icon="🌍", layout="wide")
 
 st.title("Gazet")
 st.caption("Natural-language geo search · click an example or type your own")
+
+backend = st.sidebar.radio(
+    "SQL Backend",
+    ["gguf", "dspy"],
+    index=0,
+    format_func=lambda x: "⚡ GGUF (llama-server)" if x == "gguf" else "🧠 DSPy (cloud LM)",
+)
+st.sidebar.caption(
+    "**gguf** → finetuned Qwen3.5 via llama-server\n\n"
+    "**dspy** → Ollama / cloud LM with retry loop"
+)
 
 if "run_q" not in st.session_state:
     st.session_state.run_q = None
@@ -149,7 +161,7 @@ with col2:
 
         try:
             with requests.get(
-                f"{API}/search/stream", params={"q": to_run}, stream=True, timeout=120
+                f"{API}/search/stream", params={"q": to_run, "backend": backend}, stream=True, timeout=120
             ) as r:
                 r.raise_for_status()
 

@@ -1,0 +1,12 @@
+.git
+.venv
+__pycache__
+data/
+finetune/models/
+dataset/output/
+dataset/intermediate/
+results/
+*.gguf
+*.safetensors
+.windsurf/
+.claude/
