@@ -8,6 +8,10 @@ Lean natural-language geocoder with GIS operations over Overture and Natural Ear
 
 Gazet  is built to be easily packagable and minimal in setup, trying to push the boundaries on how small we can go in setup for LLM driven data applications. It is built for working with small language models and parquet files.
 
+[![Model on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/model-on-hf-sm.svg)](https://huggingface.co/developmentseed/gazet-model)
+
+[![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-sm.svg)](https://huggingface.co/datasets/developmentseed/gazet-dataset)
+
 The name inspired by [Gazetteer](https://en.wikipedia.org/wiki/Gazetteer). A gazetteer is a geographical dictionary or directory used in conjunction with a map or atlas.
 
 ## Local setup
