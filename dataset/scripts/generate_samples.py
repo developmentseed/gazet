@@ -1378,18 +1378,26 @@ def prepare_work_items(
     """
     work_items = []
     sample_counter = start_counter
-    
+
     for family, target_count in target_counts.items():
         if target_count == 0:
             continue
-        
+
         family_templates = [t for t in TEMPLATES if t.family == family]
         if not family_templates:
             print(f"No templates found for {family}, skipping...")
             continue
-        
-        for _ in range(target_count * retry_multiplier):
-            template = random.choice(family_templates)
+
+        # Distribute target evenly across templates so every template_id gets
+        # a guaranteed share. Uniform random choice previously let rare
+        # variants like partial_05 / diff_02 get under-represented or dropped
+        # entirely when their mixed-source branch hit transient failures.
+        n_tpl = len(family_templates)
+        per_tpl = target_count // n_tpl
+        remainder = target_count % n_tpl
+
+        for i, template in enumerate(family_templates):
+            count = per_tpl + (1 if i < remainder else 0)
             template_dict = {
                 'template_id': template.template_id,
                 'family': template.family,
@@ -1402,14 +1410,15 @@ def prepare_work_items(
                 'requires_buffer': template.requires_buffer,
                 'requires_aggregation': template.requires_aggregation
             }
-            work_items.append((
-                family,
-                template_dict,
-                f"sample_{sample_counter:06d}",
-                intermediate_dir_str,
-            ))
-            sample_counter += 1
-    
+            for _ in range(count * retry_multiplier):
+                work_items.append((
+                    family,
+                    template_dict,
+                    f"sample_{sample_counter:06d}",
+                    intermediate_dir_str,
+                ))
+                sample_counter += 1
+
     random.shuffle(work_items)
     return work_items
 

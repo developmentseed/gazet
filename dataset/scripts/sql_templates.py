@@ -81,19 +81,19 @@ TEMPLATES = [
             " WHERE id = '{anchor_id}'"
         ),
         question_hints=[
-            "Show me {anchor_name}",
-            "Get the boundary of {anchor_name}",
-            "Find {anchor_name}",
-            "Where is {anchor_name}?",
-            "Give me the outline of {anchor_name}",
-            "Display {anchor_name} on a map",
-            "What does {anchor_name} look like?",
-            "I need the shape of {anchor_name}",
-            "Pull up {anchor_name}",
-            "Can you show {anchor_name}?",
-            "Map of {anchor_name}",
+            "show me {anchor_name}",
+            "get the boundary of {anchor_name}",
+            "find {anchor_name}",
+            "where is {anchor_name}?",
+            "outline of {anchor_name}",
+            "map {anchor_name}",
+            "what does {anchor_name} look like",
+            "i need the shape of {anchor_name}",
+            "pull up {anchor_name}",
+            "can you show {anchor_name}",
+            "map of {anchor_name}",
             "{anchor_name} boundary",
-            "Locate {anchor_name} for me",
+            "locate {anchor_name}",
         ],
     ),
 
@@ -110,18 +110,18 @@ TEMPLATES = [
             " WHERE id = '{anchor_id}'"
         ),
         question_hints=[
-            "Show me the {anchor_name}",
-            "Get {anchor_name}",
-            "Find the {anchor_name}",
-            "Where is the {anchor_name}?",
-            "Show the extent of the {anchor_name}",
-            "Give me the geometry of the {anchor_name}",
-            "Display the {anchor_name}",
-            "Pull up the {anchor_name}",
-            "I want to see the {anchor_name}",
-            "Map the {anchor_name}",
-            "How big is the {anchor_name}?",
-            "Outline of the {anchor_name}",
+            "show me the {anchor_name}",
+            "get the {anchor_name}",
+            "find the {anchor_name}",
+            "where is the {anchor_name}?",
+            "extent of the {anchor_name}",
+            "geometry of the {anchor_name}",
+            "display the {anchor_name}",
+            "pull up the {anchor_name}",
+            "i want to see the {anchor_name}",
+            "map the {anchor_name}",
+            "how big is the {anchor_name}?",
+            "outline of the {anchor_name}",
         ],
     ),
 
@@ -144,15 +144,15 @@ TEMPLATES = [
             "   AND ST_Touches(a.geometry, b.geometry)"
         ),
         question_hints=[
-            "Which regions border {anchor_name}?",
-            "What administrative units touch {anchor_name}?",
-            "List all places adjacent to {anchor_name}",
-            "What shares a border with {anchor_name}?",
-            "Neighbours of {anchor_name}",
-            "What is adjacent to {anchor_name}?",
-            "What surrounds {anchor_name}?",
-            "Places next to {anchor_name}",
-            "Everything bordering {anchor_name}",
+            "which regions border {anchor_name}?",
+            "what places touch {anchor_name}",
+            "list everything adjacent to {anchor_name}",
+            "what shares a border with {anchor_name}",
+            "neighbours of {anchor_name}",
+            "what's next to {anchor_name}",
+            "what surrounds {anchor_name}?",
+            "places next to {anchor_name}",
+            "everything bordering {anchor_name}",
         ],
     ),
 
@@ -175,13 +175,13 @@ TEMPLATES = [
             "   AND ST_Touches(a.geometry, b.geometry)"
         ),
         question_hints=[
-            "Which {target_subtype}s border {anchor_name}?",
-            "What {target_subtype}s share a border with {anchor_name}?",
+            "which {target_subtype}s border {anchor_name}?",
+            "what {target_subtype}s share a border with {anchor_name}",
             "{target_subtype}s that touch {anchor_name}",
-            "Neighbouring {target_subtype}s of {anchor_name}",
-            "Which {target_subtype}s are adjacent to {anchor_name}?",
+            "neighbouring {target_subtype}s of {anchor_name}",
+            "which {target_subtype}s are adjacent to {anchor_name}?",
             "{target_subtype}s along the {anchor_name} border",
-            "Find {target_subtype}s next to {anchor_name}",
+            "find {target_subtype}s next to {anchor_name}",
         ],
     ),
 
@@ -203,15 +203,15 @@ TEMPLATES = [
             "   AND ST_Touches(a.geometry, n.geometry)"
         ),
         question_hints=[
-            "Which seas touch {anchor_name}?",
-            "What seas border {anchor_name}?",
-            "Which bodies of water is {anchor_name} adjacent to?",
-            "What ocean or sea borders {anchor_name}?",
-            "Which oceans touch {anchor_name}?",
-            "What coastline does {anchor_name} have?",
-            "Which water bodies does {anchor_name} border?",
-            "Does {anchor_name} have access to the sea?",
-            "What ocean is {anchor_name} on?",
+            "which seas touch {anchor_name}?",
+            "what seas border {anchor_name}?",
+            "which bodies of water is {anchor_name} next to?",
+            "what ocean or sea borders {anchor_name}",
+            "which oceans touch {anchor_name}?",
+            "what coastline does {anchor_name} have?",
+            "which water bodies does {anchor_name} border?",
+            "does {anchor_name} have sea access?",
+            "what ocean is {anchor_name} on?",
         ],
     ),
 
@@ -238,11 +238,11 @@ TEMPLATES = [
             "   AND ST_Touches(c.geometry, b.geometry)"
         ),
         question_hints=[
-            "Which regions border both {anchor_1_name} and {anchor_2_name}?",
-            "What places touch both {anchor_1_name} and {anchor_2_name}?",
-            "Regions adjacent to both {anchor_1_name} and {anchor_2_name}",
-            "What lies between {anchor_1_name} and {anchor_2_name}?",
-            "Common neighbours of {anchor_1_name} and {anchor_2_name}",
+            "which regions border both {anchor_1_name} and {anchor_2_name}?",
+            "what places touch both {anchor_1_name} and {anchor_2_name}?",
+            "regions adjacent to both {anchor_1_name} and {anchor_2_name}",
+            "what lies between {anchor_1_name} and {anchor_2_name}?",
+            "common neighbours of {anchor_1_name} and {anchor_2_name}",
         ],
     ),
 
@@ -267,13 +267,13 @@ TEMPLATES = [
             "   AND ST_Within(b.geometry, a.geometry)"
         ),
         question_hints=[
-            "What {target_subtype}s are in {anchor_name}?",
-            "Which {target_subtype}s fall within {anchor_name}?",
-            "List all {target_subtype}s inside {anchor_name}",
+            "what {target_subtype}s are in {anchor_name}?",
+            "which {target_subtype}s fall within {anchor_name}?",
+            "list all {target_subtype}s inside {anchor_name}",
             "{target_subtype}s contained by {anchor_name}",
-            "All {target_subtype}s within the boundaries of {anchor_name}",
+            "all {target_subtype}s within {anchor_name}",
             "{target_subtype}s of {anchor_name}",
-            "Show every {target_subtype} in {anchor_name}",
+            "show every {target_subtype} in {anchor_name}",
         ],
     ),
 
@@ -296,13 +296,13 @@ TEMPLATES = [
             "   AND ST_Contains(b.geometry, a.geometry)"
         ),
         question_hints=[
-            "What country contains {anchor_name}?",
-            "Which country is {anchor_name} in?",
-            "What country does {anchor_name} belong to?",
-            "Which nation contains {anchor_name}?",
+            "what country contains {anchor_name}?",
+            "which country is {anchor_name} in?",
+            "what country does {anchor_name} belong to?",
+            "which nation contains {anchor_name}?",
             "{anchor_name} is part of which country?",
-            "Where does {anchor_name} fall geographically?",
-            "What country is {anchor_name} located in?",
+            "where is {anchor_name}",
+            "what country is {anchor_name} in",
         ],
     ),
 
@@ -324,12 +324,12 @@ TEMPLATES = [
             "   AND ST_Within(b.geometry, a.geometry)"
         ),
         question_hints=[
-            "Which {target_subtype}s are in the {anchor_name}?",
-            "What {target_subtype}s fall within the {anchor_name}?",
+            "which {target_subtype}s are in the {anchor_name}?",
+            "what {target_subtype}s fall within the {anchor_name}?",
             "{target_subtype}s inside the {anchor_name}",
-            "Administrative {target_subtype}s within the {anchor_name}",
-            "All regions contained by the {anchor_name}",
-            "What {target_subtype}s does the {anchor_name} contain?",
+            "admin {target_subtype}s within the {anchor_name}",
+            "all regions inside the {anchor_name}",
+            "what {target_subtype}s does the {anchor_name} contain?",
             "{target_subtype}s covered by the {anchor_name}",
         ],
     ),
@@ -355,12 +355,12 @@ TEMPLATES = [
             "   AND ST_Intersects(b.geometry, a.geometry)"
         ),
         question_hints=[
-            "Which {target_subtype}s intersect {anchor_name}?",
-            "What {target_subtype}s overlap with {anchor_name}?",
+            "which {target_subtype}s intersect {anchor_name}?",
+            "what {target_subtype}s overlap with {anchor_name}?",
             "{target_subtype}s that cross into {anchor_name}",
-            "Which {target_subtype}s overlap {anchor_name}?",
+            "which {target_subtype}s overlap {anchor_name}?",
             "{target_subtype}s partially inside {anchor_name}",
-            "What {target_subtype}s extend into {anchor_name}?",
+            "what {target_subtype}s extend into {anchor_name}?",
         ],
     ),
 
@@ -382,15 +382,15 @@ TEMPLATES = [
             "   AND ST_Intersects(b.geometry, a.geometry)"
         ),
         question_hints=[
-            "Which countries intersect the {anchor_name}?",
-            "What countries does the {anchor_name} pass through?",
-            "Countries that overlap with the {anchor_name}",
-            "Which countries touch the {anchor_name}?",
-            "Nations intersected by the {anchor_name}",
-            "Which nations does the {anchor_name} cross?",
-            "Countries along the {anchor_name}",
-            "What countries does the {anchor_name} cover?",
-            "Countries that the {anchor_name} spans across",
+            "which countries does the {anchor_name} pass through?",
+            "what countries does the {anchor_name} cross?",
+            "countries that overlap the {anchor_name}",
+            "which countries touch the {anchor_name}?",
+            "nations intersected by the {anchor_name}",
+            "which nations does the {anchor_name} cross?",
+            "countries along the {anchor_name}",
+            "what countries does the {anchor_name} cover?",
+            "countries the {anchor_name} spans across",
         ],
     ),
 
@@ -418,13 +418,13 @@ TEMPLATES = [
             "   AND ST_Intersects(b.geometry, a.geom)"
         ),
         question_hints=[
-            "What is within {buffer_km} km of {anchor_name}?",
-            "Administrative units within {buffer_km} km of {anchor_name}",
-            "Features within a {buffer_km} km radius of {anchor_name}",
-            "Places within {buffer_km} kilometers of {anchor_name}",
+            "what's within {buffer_km} km of {anchor_name}?",
+            "admin units within {buffer_km} km of {anchor_name}",
+            "features within a {buffer_km} km radius of {anchor_name}",
+            "places within {buffer_km} kilometers of {anchor_name}",
             "{buffer_km} km buffer around {anchor_name}",
-            "What falls within {buffer_km} km of {anchor_name}?",
-            "Everything within {buffer_km} km of {anchor_name}",
+            "what falls within {buffer_km} km of {anchor_name}?",
+            "everything within {buffer_km} km of {anchor_name}",
         ],
     ),
 
@@ -448,12 +448,12 @@ TEMPLATES = [
             "   AND ST_Intersects(b.geometry, a.geom)"
         ),
         question_hints=[
-            "What is within {buffer_m} meters of {anchor_name}?",
-            "Features within {buffer_m} m of {anchor_name}",
-            "Places within {buffer_m} metres of {anchor_name}",
+            "what's within {buffer_m} meters of {anchor_name}?",
+            "features within {buffer_m} m of {anchor_name}",
+            "places within {buffer_m} metres of {anchor_name}",
             "{buffer_m} meter buffer around {anchor_name}",
-            "What falls within {buffer_m} m of {anchor_name}?",
-            "Administrative units within {buffer_m} metres of {anchor_name}",
+            "what falls within {buffer_m} m of {anchor_name}?",
+            "admin units within {buffer_m} metres of {anchor_name}",
         ],
     ),
 
@@ -476,12 +476,12 @@ TEMPLATES = [
             " WHERE ST_Intersects(b.geometry, a.geom)"
         ),
         question_hints=[
-            "What administrative units are within {buffer_km} km of the {anchor_name}?",
-            "Countries within {buffer_km} km of the {anchor_name}",
-            "Regions within {buffer_km} km of the {anchor_name}",
-            "What falls within {buffer_km} km of the {anchor_name}?",
-            "Administrative divisions within a {buffer_km} km radius of the {anchor_name}",
-            "Places within {buffer_km} kilometers of the {anchor_name}",
+            "what admin units are within {buffer_km} km of the {anchor_name}?",
+            "countries within {buffer_km} km of the {anchor_name}",
+            "regions within {buffer_km} km of the {anchor_name}",
+            "what falls within {buffer_km} km of the {anchor_name}?",
+            "admin divisions within a {buffer_km} km radius of the {anchor_name}",
+            "places within {buffer_km} kilometers of the {anchor_name}",
         ],
     ),
 
@@ -504,9 +504,9 @@ TEMPLATES = [
             " WHERE ST_Intersects(b.geometry, a.geom)"
         ),
         question_hints=[
-            "What is within {buffer_m} meters of the {anchor_name}?",
-            "Administrative units within {buffer_m} m of the {anchor_name}",
-            "Places within {buffer_m} metres of the {anchor_name}",
+            "what's within {buffer_m} meters of the {anchor_name}?",
+            "admin units within {buffer_m} m of the {anchor_name}",
+            "places within {buffer_m} metres of the {anchor_name}",
             "{buffer_m} meter buffer around the {anchor_name}",
         ],
     ),
@@ -538,13 +538,13 @@ TEMPLATES = [
             "   )"
         ),
         question_hints=[
-            "Coastal {target_subtype}s of {anchor_name}",
+            "coastal {target_subtype}s of {anchor_name}",
             "{target_subtype}s in {anchor_name} with sea access",
-            "Which {target_subtype}s in {anchor_name} are on the coast?",
-            "Seaside {target_subtype}s within {anchor_name}",
+            "which {target_subtype}s in {anchor_name} are on the coast?",
+            "seaside {target_subtype}s within {anchor_name}",
             "{target_subtype}s in {anchor_name} bordering the sea",
-            "Oceanfront {target_subtype}s in {anchor_name}",
-            "Which {target_subtype}s in {anchor_name} have a coastline?",
+            "oceanfront {target_subtype}s in {anchor_name}",
+            "which {target_subtype}s in {anchor_name} have a coastline?",
         ],
     ),
 
@@ -571,12 +571,12 @@ TEMPLATES = [
             "   )"
         ),
         question_hints=[
-            "Landlocked {target_subtype}s in {anchor_name}",
-            "Which {target_subtype}s in {anchor_name} have no sea access?",
+            "landlocked {target_subtype}s in {anchor_name}",
+            "which {target_subtype}s in {anchor_name} have no sea access?",
             "{target_subtype}s in {anchor_name} that are landlocked",
             "{target_subtype}s in {anchor_name} with no coastline",
-            "Which {target_subtype}s within {anchor_name} are landlocked?",
-            "Interior {target_subtype}s of {anchor_name} with no ocean border",
+            "which {target_subtype}s within {anchor_name} are landlocked?",
+            "interior {target_subtype}s of {anchor_name} with no ocean border",
         ],
     ),
 
@@ -606,7 +606,7 @@ TEMPLATES = [
             "{target_subtype}s in {anchor_name} on a terrain feature or island",
             "{target_subtype}s of {anchor_name} on a peninsula or island group",
             "{target_subtype}s within {anchor_name} on notable landforms",
-            "Island and peninsula {target_subtype}s of {anchor_name}",
+            "island and peninsula {target_subtype}s of {anchor_name}",
         ],
     ),
 
@@ -633,12 +633,12 @@ TEMPLATES = [
         question_hints=[
             "{anchor_1_name} excluding {anchor_2_name}",
             "{anchor_1_name} minus {anchor_2_name}",
-            "The part of {anchor_1_name} that is not in {anchor_2_name}",
+            "the part of {anchor_1_name} that is not in {anchor_2_name}",
             "{anchor_1_name} without the {anchor_2_name} area",
-            "Remove {anchor_2_name} from {anchor_1_name}",
+            "remove {anchor_2_name} from {anchor_1_name}",
             "{anchor_1_name} with {anchor_2_name} cut out",
-            "Subtract {anchor_2_name} from {anchor_1_name}",
-            "What is left of {anchor_1_name} after removing {anchor_2_name}?",
+            "subtract {anchor_2_name} from {anchor_1_name}",
+            "what's left of {anchor_1_name} after removing {anchor_2_name}?",
         ],
     ),
 
@@ -660,12 +660,13 @@ TEMPLATES = [
             " WHERE ST_Intersects(a.geometry, b.geometry)"
         ),
         question_hints=[
-            "The part of {anchor_name} outside the {clip_feature_name}",
+            "the part of {anchor_name} outside the {clip_feature_name}",
             "{anchor_name} excluding the {clip_feature_name}",
             "{anchor_name} minus the {clip_feature_name}",
-            "The land area of {anchor_name} not covered by the {clip_feature_name}",
+            "parts of {anchor_name} not covered by the {clip_feature_name}",
             "{anchor_name} with the {clip_feature_name} removed",
-            "What remains of {anchor_name} after removing the {clip_feature_name}?",
+            "what's left of {anchor_name} after removing the {clip_feature_name}?",
+            "show me {anchor_name} excluding the {clip_feature_name}",
         ],
     ),
 
@@ -697,11 +698,11 @@ TEMPLATES = [
         ),
         question_hints=[
             "{buffer_km} km zone along the border between {anchor_1_name} and {anchor_2_name}",
-            "The {buffer_km} km border corridor between {anchor_1_name} and {anchor_2_name}",
-            "Area within {buffer_km} km of the {anchor_1_name}-{anchor_2_name} border",
-            "The region straddling the border of {anchor_1_name} and {anchor_2_name} within {buffer_km} km",
+            "the {buffer_km} km border corridor between {anchor_1_name} and {anchor_2_name}",
+            "area within {buffer_km} km of the {anchor_1_name}-{anchor_2_name} border",
+            "the region straddling the border of {anchor_1_name} and {anchor_2_name} within {buffer_km} km",
             "{buffer_km} km on either side of the {anchor_1_name} and {anchor_2_name} border",
-            "Buffer the {anchor_1_name}-{anchor_2_name} boundary by {buffer_km} km",
+            "buffer the {anchor_1_name}-{anchor_2_name} boundary by {buffer_km} km",
         ],
     ),
 
@@ -723,11 +724,11 @@ TEMPLATES = [
             " WHERE id IN ('{anchor_id_1}', '{anchor_id_2}')"
         ),
         question_hints=[
-            "The combined area of {anchor_1_name} and {anchor_2_name}",
-            "Union of {anchor_1_name} and {anchor_2_name}",
-            "Merge {anchor_1_name} and {anchor_2_name}",
+            "the combined area of {anchor_1_name} and {anchor_2_name}",
+            "union of {anchor_1_name} and {anchor_2_name}",
+            "merge {anchor_1_name} and {anchor_2_name}",
             "{anchor_1_name} and {anchor_2_name} together",
-            "Combined geometry of {anchor_1_name} and {anchor_2_name}",
+            "combined geometry of {anchor_1_name} and {anchor_2_name}",
         ],
     ),
 
@@ -744,12 +745,12 @@ TEMPLATES = [
             " WHERE id IN ('{anchor_id_1}', '{anchor_id_2}', '{anchor_id_3}')"
         ),
         question_hints=[
-            "Show me {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
-            "The combined area of {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
-            "Union of {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
-            "Merge {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
+            "show me {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
+            "the combined area of {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
+            "union of {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
+            "merge {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
             "{anchor_1_name}, {anchor_2_name} and {anchor_3_name} together",
-            "Display {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
+            "display {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
         ],
     ),
 
@@ -769,10 +770,10 @@ TEMPLATES = [
         ),
         question_hints=[
             "{target_subtype}s of {anchor_1_name} and {anchor_2_name}",
-            "All {target_subtype}s in {anchor_1_name} and {anchor_2_name}",
-            "Show {target_subtype}s across {anchor_1_name} and {anchor_2_name}",
+            "all {target_subtype}s in {anchor_1_name} and {anchor_2_name}",
+            "show {target_subtype}s across {anchor_1_name} and {anchor_2_name}",
             "{target_subtype}s belonging to {anchor_1_name} and {anchor_2_name}",
-            "List {target_subtype}s in both {anchor_1_name} and {anchor_2_name}",
+            "list {target_subtype}s in both {anchor_1_name} and {anchor_2_name}",
         ],
     ),
 
@@ -792,9 +793,9 @@ TEMPLATES = [
         ),
         question_hints=[
             "{target_subtype}s of {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
-            "All {target_subtype}s in {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
-            "Show {target_subtype}s across {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
-            "List {target_subtype}s in {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
+            "all {target_subtype}s in {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
+            "show {target_subtype}s across {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
+            "list {target_subtype}s in {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
         ],
     ),
 
@@ -816,11 +817,11 @@ TEMPLATES = [
             "   AND ST_Within(b.geometry, a.geometry)"
         ),
         question_hints=[
-            "Merge all {target_subtype}s in {anchor_name} into one geometry",
-            "Combined geometry of all {target_subtype}s in {anchor_name}",
-            "Union of all {target_subtype}s within {anchor_name}",
-            "All {target_subtype}s of {anchor_name} merged together",
-            "The overall extent of {target_subtype}s in {anchor_name}",
+            "merge all {target_subtype}s in {anchor_name} into one geometry",
+            "combined geometry of all {target_subtype}s in {anchor_name}",
+            "union of all {target_subtype}s within {anchor_name}",
+            "all {target_subtype}s of {anchor_name} merged together",
+            "the overall extent of {target_subtype}s in {anchor_name}",
         ],
     ),
 
@@ -848,10 +849,11 @@ TEMPLATES = [
             " FROM a, clip"
         ),
         question_hints=[
-            "The northern half of {anchor_name}",
-            "Northern part of {anchor_name}",
-            "The top half of {anchor_name}",
-            "Northern portion of {anchor_name}",
+            "the northern half of {anchor_name}",
+            "northern part of {anchor_name}",
+            "the top half of {anchor_name}",
+            "northern portion of {anchor_name}",
+            "upper half of {anchor_name}",
         ],
     ),
 
@@ -876,10 +878,11 @@ TEMPLATES = [
             " FROM a, clip"
         ),
         question_hints=[
-            "The southern half of {anchor_name}",
-            "Southern part of {anchor_name}",
-            "The bottom half of {anchor_name}",
-            "Southern portion of {anchor_name}",
+            "the southern half of {anchor_name}",
+            "southern part of {anchor_name}",
+            "the bottom half of {anchor_name}",
+            "southern portion of {anchor_name}",
+            "lower half of {anchor_name}",
         ],
     ),
 
@@ -904,10 +907,10 @@ TEMPLATES = [
             " FROM a, clip"
         ),
         question_hints=[
-            "The eastern half of {anchor_name}",
-            "Eastern part of {anchor_name}",
-            "The right half of {anchor_name}",
-            "Eastern portion of {anchor_name}",
+            "the eastern half of {anchor_name}",
+            "eastern part of {anchor_name}",
+            "the right half of {anchor_name}",
+            "eastern portion of {anchor_name}",
         ],
     ),
 
@@ -932,10 +935,10 @@ TEMPLATES = [
             " FROM a, clip"
         ),
         question_hints=[
-            "The western half of {anchor_name}",
-            "Western part of {anchor_name}",
-            "The left half of {anchor_name}",
-            "Western portion of {anchor_name}",
+            "the western half of {anchor_name}",
+            "western part of {anchor_name}",
+            "the left half of {anchor_name}",
+            "western portion of {anchor_name}",
         ],
     ),
 
@@ -957,10 +960,16 @@ TEMPLATES = [
             " WHERE ST_Intersects(a.g1, b.g2)"
         ),
         question_hints=[
-            "The part of {anchor_name} that overlaps the {clip_feature_name}",
+            "the part of {anchor_name} that overlaps the {clip_feature_name}",
             "{anchor_name} within the {clip_feature_name}",
-            "The portion of {anchor_name} inside the {clip_feature_name}",
-            "Clip {anchor_name} to the {clip_feature_name}",
+            "the portion of {anchor_name} inside the {clip_feature_name}",
+            "part of the {clip_feature_name} in {anchor_name}",
+            "part of {anchor_name} in the {clip_feature_name}",
+            "clip {anchor_name} to the {clip_feature_name}",
+            "{anchor_name} clipped to the {clip_feature_name}",
+            "{clip_feature_name} inside {anchor_name}",
+            "parts of {anchor_name} covered by the {clip_feature_name}",
+            "show me where {anchor_name} and the {clip_feature_name} overlap",
         ],
     ),
 
@@ -989,12 +998,12 @@ TEMPLATES = [
             " LIMIT {top_n}"
         ),
         question_hints=[
-            "Top {top_n} largest {target_subtype}s in {anchor_name}",
-            "Biggest {top_n} {target_subtype}s in {anchor_name}",
+            "top {top_n} largest {target_subtype}s in {anchor_name}",
+            "biggest {top_n} {target_subtype}s in {anchor_name}",
             "{top_n} largest {target_subtype}s inside {anchor_name}",
-            "The {top_n} biggest {target_subtype}s within {anchor_name}",
-            "Largest {target_subtype} in {anchor_name}",
-            "Which {target_subtype} in {anchor_name} has the most area?",
+            "the {top_n} biggest {target_subtype}s within {anchor_name}",
+            "largest {target_subtype} in {anchor_name}",
+            "which {target_subtype} in {anchor_name} has the most area?",
         ],
     ),
 
@@ -1020,12 +1029,12 @@ TEMPLATES = [
             " LIMIT {top_n}"
         ),
         question_hints=[
-            "Top {top_n} smallest {target_subtype}s in {anchor_name}",
-            "Smallest {top_n} {target_subtype}s in {anchor_name}",
+            "top {top_n} smallest {target_subtype}s in {anchor_name}",
+            "smallest {top_n} {target_subtype}s in {anchor_name}",
             "{top_n} smallest {target_subtype}s inside {anchor_name}",
-            "The {top_n} tiniest {target_subtype}s within {anchor_name}",
-            "Smallest {target_subtype} in {anchor_name}",
-            "Which {target_subtype} in {anchor_name} has the least area?",
+            "the {top_n} tiniest {target_subtype}s within {anchor_name}",
+            "smallest {target_subtype} in {anchor_name}",
+            "which {target_subtype} in {anchor_name} has the least area?",
         ],
     ),
 
@@ -1048,12 +1057,12 @@ TEMPLATES = [
             " LIMIT {top_n}"
         ),
         question_hints=[
-            "Top {top_n} largest {target_subtype}s in {anchor_name}",
+            "top {top_n} largest {target_subtype}s in {anchor_name}",
             "{top_n} biggest {target_subtype}s in {anchor_name}",
-            "Largest {top_n} {target_subtype}s in {anchor_name}",
-            "The {top_n} largest {target_subtype}s in {anchor_name}",
-            "Biggest {target_subtype} in {anchor_name}",
-            "Which {target_subtype} in {anchor_name} is the largest?",
+            "largest {top_n} {target_subtype}s in {anchor_name}",
+            "the {top_n} largest {target_subtype}s in {anchor_name}",
+            "biggest {target_subtype} in {anchor_name}",
+            "which {target_subtype} in {anchor_name} is the largest?",
         ],
     ),
 
@@ -1076,12 +1085,12 @@ TEMPLATES = [
             " LIMIT {top_n}"
         ),
         question_hints=[
-            "Top {top_n} smallest {target_subtype}s in {anchor_name}",
+            "top {top_n} smallest {target_subtype}s in {anchor_name}",
             "{top_n} smallest {target_subtype}s in {anchor_name}",
-            "Smallest {top_n} {target_subtype}s in {anchor_name}",
-            "The {top_n} smallest {target_subtype}s in {anchor_name}",
-            "Smallest {target_subtype} in {anchor_name}",
-            "Which {target_subtype} in {anchor_name} is the smallest?",
+            "smallest {top_n} {target_subtype}s in {anchor_name}",
+            "the {top_n} smallest {target_subtype}s in {anchor_name}",
+            "smallest {target_subtype} in {anchor_name}",
+            "which {target_subtype} in {anchor_name} is the smallest?",
         ],
     ),
 
@@ -1111,10 +1120,10 @@ TEMPLATES = [
             " WHERE rn = 1"
         ),
         question_hints=[
-            "The largest {target_subtype} in each region of {anchor_name}",
-            "Biggest {target_subtype} per region in {anchor_name}",
-            "Largest {target_subtype} for every region of {anchor_name}",
-            "The biggest {target_subtype} in each province of {anchor_name}",
+            "the largest {target_subtype} in each region of {anchor_name}",
+            "biggest {target_subtype} per region in {anchor_name}",
+            "largest {target_subtype} for every region of {anchor_name}",
+            "the biggest {target_subtype} in each province of {anchor_name}",
         ],
     ),
 
@@ -1141,10 +1150,10 @@ TEMPLATES = [
             " WHERE rn = 1"
         ),
         question_hints=[
-            "The smallest {target_subtype} in each region of {anchor_name}",
-            "Smallest {target_subtype} per region in {anchor_name}",
-            "Tiniest {target_subtype} for every region of {anchor_name}",
-            "The smallest {target_subtype} in each province of {anchor_name}",
+            "the smallest {target_subtype} in each region of {anchor_name}",
+            "smallest {target_subtype} per region in {anchor_name}",
+            "tiniest {target_subtype} for every region of {anchor_name}",
+            "the smallest {target_subtype} in each province of {anchor_name}",
         ],
     ),
 
@@ -1167,11 +1176,11 @@ TEMPLATES = [
             "   AND subtype = '{target_subtype}'"
         ),
         question_hints=[
-            "Island territories of {anchor_name}",
-            "Overseas island {target_subtype}s belonging to {anchor_name}",
-            "Which islands are part of {anchor_name}?",
-            "Land territories of {anchor_name}",
-            "Island possessions of {anchor_name}",
+            "island territories of {anchor_name}",
+            "overseas island {target_subtype}s belonging to {anchor_name}",
+            "which islands are part of {anchor_name}?",
+            "land territories of {anchor_name}",
+            "island possessions of {anchor_name}",
             "{anchor_name}'s island {target_subtype}s",
         ],
     ),
@@ -1192,10 +1201,10 @@ TEMPLATES = [
             "   AND subtype = '{target_subtype}'"
         ),
         question_hints=[
-            "Territorial {target_subtype}s of {anchor_name}",
-            "Official territorial divisions of {anchor_name}",
-            "Recognised territorial {target_subtype}s belonging to {anchor_name}",
-            "Which territorial regions does {anchor_name} have?",
+            "territorial {target_subtype}s of {anchor_name}",
+            "official territorial divisions of {anchor_name}",
+            "recognised territorial {target_subtype}s belonging to {anchor_name}",
+            "which territorial regions does {anchor_name} have?",
         ],
     ),
 
@@ -1215,10 +1224,10 @@ TEMPLATES = [
             "   AND is_land = TRUE"
         ),
         question_hints=[
-            "Land-based {target_subtype}s of {anchor_name}",
+            "land-based {target_subtype}s of {anchor_name}",
             "{target_subtype}s on the mainland of {anchor_name}",
-            "All {target_subtype}s on land in {anchor_name}",
-            "Non-island {target_subtype}s of {anchor_name}",
+            "all {target_subtype}s on land in {anchor_name}",
+            "non-island {target_subtype}s of {anchor_name}",
         ],
     ),
 
@@ -1244,14 +1253,14 @@ TEMPLATES = [
             "   AND ST_Intersects(a.geometry, n.geometry)"
         ),
         question_hints=[
-            "What rivers or lakes are in {anchor_name}?",
-            "Natural water features of {anchor_name}",
-            "Which rivers flow through {anchor_name}?",
-            "Lakes and rivers within {anchor_name}",
-            "Water features inside {anchor_name}",
-            "What bodies of water cross {anchor_name}?",
-            "Rivers of {anchor_name}",
-            "Show me the lakes in {anchor_name}",
+            "what rivers or lakes are in {anchor_name}?",
+            "natural water features of {anchor_name}",
+            "which rivers flow through {anchor_name}?",
+            "lakes and rivers within {anchor_name}",
+            "water features inside {anchor_name}",
+            "what bodies of water cross {anchor_name}?",
+            "rivers of {anchor_name}",
+            "show me the lakes in {anchor_name}",
         ],
     ),
 
@@ -1273,14 +1282,14 @@ TEMPLATES = [
             "   AND ST_Intersects(a.geometry, n.geometry)"
         ),
         question_hints=[
-            "What mountain ranges are in {anchor_name}?",
-            "Terrain features of {anchor_name}",
-            "Which mountain ranges cross {anchor_name}?",
-            "Landforms inside {anchor_name}",
-            "Peninsulas and ranges in {anchor_name}",
-            "Geographic features within {anchor_name}",
-            "Mountains of {anchor_name}",
-            "What terrain does {anchor_name} contain?",
+            "what mountain ranges are in {anchor_name}?",
+            "terrain features of {anchor_name}",
+            "which mountain ranges cross {anchor_name}?",
+            "landforms inside {anchor_name}",
+            "peninsulas and ranges in {anchor_name}",
+            "geographic features within {anchor_name}",
+            "mountains of {anchor_name}",
+            "what terrain does {anchor_name} contain?",
         ],
     ),
 
@@ -1308,13 +1317,13 @@ TEMPLATES = [
             "   AND ST_Intersects(b.geometry, a.geometry)"
         ),
         question_hints=[
-            "Which regions does the {anchor_name} pass through?",
-            "What administrative regions overlap with the {anchor_name}?",
-            "Regions that the {anchor_name} crosses",
-            "Administrative areas intersected by the {anchor_name}",
-            "What provinces does the {anchor_name} span?",
-            "Regions along the {anchor_name}",
-            "Which provinces overlap the {anchor_name}?",
+            "which regions does the {anchor_name} pass through?",
+            "what admin regions overlap with the {anchor_name}?",
+            "regions that the {anchor_name} crosses",
+            "admin areas intersected by the {anchor_name}",
+            "what provinces does the {anchor_name} span?",
+            "regions along the {anchor_name}",
+            "which provinces overlap the {anchor_name}?",
         ],
     ),
 
@@ -1335,12 +1344,12 @@ TEMPLATES = [
             " WHERE ST_Intersects(n.geometry, a.geometry)"
         ),
         question_hints=[
-            "What natural features intersect {anchor_name}?",
-            "Natural earth features that overlap {anchor_name}",
-            "Which geographic features cross {anchor_name}?",
-            "Everything from natural earth that touches {anchor_name}",
-            "What geographic features does {anchor_name} contain?",
-            "Natural features within or crossing {anchor_name}",
+            "what natural features intersect {anchor_name}?",
+            "natural features that overlap {anchor_name}",
+            "which geographic features cross {anchor_name}?",
+            "everything natural that touches {anchor_name}",
+            "what geographic features does {anchor_name} contain?",
+            "natural features within or crossing {anchor_name}",
         ],
     ),
 
@@ -1371,13 +1380,13 @@ TEMPLATES = [
             "   )"
         ),
         question_hints=[
-            "Riverside {target_subtype}s in {anchor_name}",
+            "riverside {target_subtype}s in {anchor_name}",
             "{target_subtype}s in {anchor_name} near a river or lake",
-            "Which {target_subtype}s in {anchor_name} are on a waterway?",
-            "Lakeside or riverside {target_subtype}s within {anchor_name}",
+            "which {target_subtype}s in {anchor_name} are on a waterway?",
+            "lakeside or riverside {target_subtype}s within {anchor_name}",
             "{target_subtype}s in {anchor_name} that touch a river",
-            "Which {target_subtype}s in {anchor_name} are on a lake?",
-            "Waterfront {target_subtype}s of {anchor_name}",
+            "which {target_subtype}s in {anchor_name} are on a lake?",
+            "waterfront {target_subtype}s of {anchor_name}",
         ],
     ),
 
@@ -1404,10 +1413,10 @@ TEMPLATES = [
             "   )"
         ),
         question_hints=[
-            "Mountain {target_subtype}s in {anchor_name}",
+            "mountain {target_subtype}s in {anchor_name}",
             "{target_subtype}s in {anchor_name} on a mountain range",
-            "Which {target_subtype}s in {anchor_name} are in the mountains?",
-            "Highland {target_subtype}s within {anchor_name}",
+            "which {target_subtype}s in {anchor_name} are in the mountains?",
+            "highland {target_subtype}s within {anchor_name}",
             "{target_subtype}s of {anchor_name} in mountainous terrain",
             "{target_subtype}s in {anchor_name} near a mountain range",
         ],
@@ -1440,13 +1449,13 @@ TEMPLATES = [
             "   )"
         ),
         question_hints=[
-            "Coastal {target_subtype}s of {anchor_name}",
-            "Which districts of {anchor_name} are on the coast?",
+            "coastal {target_subtype}s of {anchor_name}",
+            "which districts of {anchor_name} are on the coast?",
             "{target_subtype}s in {anchor_name} that border the sea",
-            "Seaside {target_subtype}s within {anchor_name}",
+            "seaside {target_subtype}s within {anchor_name}",
             "{target_subtype}s of {anchor_name} with ocean access",
-            "Which {target_subtype}s in {anchor_name} touch the sea?",
-            "Maritime {target_subtype}s of {anchor_name}",
+            "which {target_subtype}s in {anchor_name} touch the sea?",
+            "maritime {target_subtype}s of {anchor_name}",
         ],
     ),
 
@@ -1473,12 +1482,12 @@ TEMPLATES = [
             "   )"
         ),
         question_hints=[
-            "Landlocked {target_subtype}s of {anchor_name}",
-            "Which districts of {anchor_name} have no coastline?",
-            "Interior {target_subtype}s within {anchor_name}",
+            "landlocked {target_subtype}s of {anchor_name}",
+            "which districts of {anchor_name} have no coastline?",
+            "interior {target_subtype}s within {anchor_name}",
             "{target_subtype}s in {anchor_name} with no sea access",
-            "Non-coastal {target_subtype}s of {anchor_name}",
-            "Inland {target_subtype}s of {anchor_name}",
+            "non-coastal {target_subtype}s of {anchor_name}",
+            "inland {target_subtype}s of {anchor_name}",
         ],
     ),
 
@@ -1505,12 +1514,12 @@ TEMPLATES = [
             "   )"
         ),
         question_hints=[
-            "Riverside {target_subtype}s of {anchor_name}",
-            "Which districts of {anchor_name} have a river or lake?",
+            "riverside {target_subtype}s of {anchor_name}",
+            "which districts of {anchor_name} have a river or lake?",
             "{target_subtype}s in {anchor_name} on a waterway",
-            "Lakeside {target_subtype}s within {anchor_name}",
+            "lakeside {target_subtype}s within {anchor_name}",
             "{target_subtype}s of {anchor_name} along a river",
-            "Which {target_subtype}s in {anchor_name} border a lake?",
+            "which {target_subtype}s in {anchor_name} border a lake?",
         ],
     ),
 
@@ -1537,12 +1546,12 @@ TEMPLATES = [
             "   )"
         ),
         question_hints=[
-            "Mountain {target_subtype}s of {anchor_name}",
-            "Which districts of {anchor_name} are in the mountains?",
+            "mountain {target_subtype}s of {anchor_name}",
+            "which districts of {anchor_name} are in the mountains?",
             "{target_subtype}s in {anchor_name} on a mountain range",
-            "Highland {target_subtype}s within {anchor_name}",
+            "highland {target_subtype}s within {anchor_name}",
             "{target_subtype}s of {anchor_name} in mountainous terrain",
-            "Which {target_subtype}s in {anchor_name} have mountain ranges?",
+            "which {target_subtype}s in {anchor_name} have mountain ranges?",
         ],
     ),
 
@@ -1568,13 +1577,13 @@ TEMPLATES = [
             "   AND ST_Intersects(b.geometry, a.geometry)"
         ),
         question_hints=[
-            "Which countries border the {anchor_name}?",
-            "What countries are along the {anchor_name}?",
-            "Countries surrounding the {anchor_name}",
-            "Nations on the {anchor_name}",
-            "Which countries touch the {anchor_name}?",
-            "Countries with coastline on the {anchor_name}",
-            "What nations lie on the {anchor_name}?",
+            "which countries border the {anchor_name}?",
+            "what countries are along the {anchor_name}?",
+            "countries surrounding the {anchor_name}",
+            "nations on the {anchor_name}",
+            "which countries touch the {anchor_name}?",
+            "countries with coastline on the {anchor_name}",
+            "what nations lie on the {anchor_name}?",
         ],
     ),
 
@@ -1601,11 +1610,11 @@ TEMPLATES = [
             " WHERE ST_Intersects(n.geometry, a.geom)"
         ),
         question_hints=[
-            "Natural features within {buffer_km} km of the {anchor_name}",
-            "What is within {buffer_km} km of the {anchor_name}?",
-            "Geographic features near the {anchor_name} within {buffer_km} km",
-            "Everything within {buffer_km} km of the {anchor_name}",
-            "What natural features are close to the {anchor_name}?",
+            "natural features within {buffer_km} km of the {anchor_name}",
+            "what's within {buffer_km} km of the {anchor_name}?",
+            "geographic features near the {anchor_name} within {buffer_km} km",
+            "everything within {buffer_km} km of the {anchor_name}",
+            "what natural features are close to the {anchor_name}?",
             "{buffer_km} km radius around the {anchor_name}",
         ],
     ),

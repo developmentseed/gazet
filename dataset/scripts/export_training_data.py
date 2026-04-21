@@ -65,21 +65,26 @@ def stratified_split(
     val_ratio: float = 0.1,
     seed: int = 42,
 ) -> Tuple[List[Dict], List[Dict], List[Dict]]:
-    """Split stratified by task_family so every family is represented in each split."""
+    """Split stratified by template_id so every template is represented in each split.
+
+    Stratifying by task_family let rare template variants (e.g. partial_05,
+    diff_02) land entirely in train and never appear in val/test.
+    """
     random.seed(seed)
-    by_family: Dict[str, List] = defaultdict(list)
+    by_tpl: Dict[str, List] = defaultdict(list)
     for s in samples:
-        by_family[s["metadata"]["task_family"]].append(s)
+        key = s["metadata"].get("template_id") or s["metadata"].get("task_family", "unknown")
+        by_tpl[key].append(s)
 
     train, val, test = [], [], []
-    for family_samples in by_family.values():
-        random.shuffle(family_samples)
-        n = len(family_samples)
+    for tpl_samples in by_tpl.values():
+        random.shuffle(tpl_samples)
+        n = len(tpl_samples)
         n_train = int(n * train_ratio)
         n_val = int(n * val_ratio)
-        train.extend(family_samples[:n_train])
-        val.extend(family_samples[n_train : n_train + n_val])
-        test.extend(family_samples[n_train + n_val :])
+        train.extend(tpl_samples[:n_train])
+        val.extend(tpl_samples[n_train : n_train + n_val])
+        test.extend(tpl_samples[n_train + n_val :])
 
     random.shuffle(train)
     random.shuffle(val)

@@ -229,7 +229,6 @@ def compute_cross_source_relations(
             'Terrain area', 'Island group', 'Peninsula', 'Strait',
             'Reef', 'Range/Mts', 'Depression'
         )
-        LIMIT 500
     )
     SELECT
         d.id AS division_id,
@@ -464,6 +463,19 @@ RELATION_FUNCTIONS = {
     "common_neighbor":        compute_common_neighbor_pairs,
 }
 
+# Single source of truth for the on-disk filename for each relation.
+# Both local and Modal paths must use this so the sample generator loads
+# the same file regardless of where the pipeline ran.
+RELATION_FILENAMES = {
+    "adjacency":              "adjacency_pairs.parquet",
+    "containment":            "containment_pairs.parquet",
+    "intersection":           "intersection_pairs.parquet",
+    "cross_source":           "cross_source_relations.parquet",
+    "coastal_containment":    "coastal_containment_pairs.parquet",
+    "landlocked_containment": "landlocked_containment_pairs.parquet",
+    "common_neighbor":        "common_neighbor_pairs.parquet",
+}
+
 
 def compute_single_relation(
     relation_type: str,
@@ -482,7 +494,7 @@ def compute_single_relation(
             f"Expected one of {list(RELATION_FUNCTIONS)}"
         )
     output_dir.mkdir(exist_ok=True, parents=True)
-    output_path = output_dir / f"{relation_type}_pairs.parquet"
+    output_path = output_dir / RELATION_FILENAMES[relation_type]
     df = _compute_and_save(compute_fn, countries, limit, output_path)
     return len(df)
 
@@ -511,16 +523,15 @@ def main(countries: list = None, relation_limits: dict = None):
     output_dir = Path(__file__).parent.parent / "intermediate"
     output_dir.mkdir(exist_ok=True, parents=True)
 
-    # Define all relation tasks.
+    # Define all relation tasks. Filenames come from RELATION_FILENAMES so
+    # local and Modal pipelines produce identically-named parquet files.
     # common_neighbor depends on adjacency_pairs so it runs after adjacency.
     tasks = [
-        ("adjacency",              compute_adjacency_pairs,              relation_limits['adjacency'],              output_dir / "adjacency_pairs.parquet"),
-        ("containment",            compute_containment_pairs,            relation_limits['containment'],            output_dir / "containment_pairs.parquet"),
-        ("intersection",           compute_intersection_pairs,           relation_limits['intersection'],           output_dir / "intersection_pairs.parquet"),
-        ("cross_source",           compute_cross_source_relations,       relation_limits['cross_source'],           output_dir / "cross_source_relations.parquet"),
-        ("coastal_containment",    compute_coastal_containment_pairs,    relation_limits['coastal_containment'],    output_dir / "coastal_containment_pairs.parquet"),
-        ("landlocked_containment", compute_landlocked_containment_pairs, relation_limits['landlocked_containment'], output_dir / "landlocked_containment_pairs.parquet"),
-        ("common_neighbor",        compute_common_neighbor_pairs,        relation_limits['common_neighbor'],        output_dir / "common_neighbor_pairs.parquet"),
+        (rel_type, RELATION_FUNCTIONS[rel_type], relation_limits[rel_type], output_dir / RELATION_FILENAMES[rel_type])
+        for rel_type in (
+            "adjacency", "containment", "intersection", "cross_source",
+            "coastal_containment", "landlocked_containment", "common_neighbor",
+        )
     ]
     
     # common_neighbor reads adjacency_pairs.parquet so it must run after
