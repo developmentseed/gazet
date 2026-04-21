@@ -206,21 +206,47 @@ def sample_to_sql_pair(sample: Dict[str, Any]) -> Optional[Dict]:
 # Derived from the same SQL samples: selected_candidates → PlacesResult JSON.
 # ---------------------------------------------------------------------------
 
-_PLACE_SYSTEM = """You are a geographic entity extractor. Extract place names from the user query and return valid JSON only.
+_PLACE_SYSTEM = """You are a geographic entity extractor. Extract every place name mentioned in the user query and return valid JSON only.
 
 OUTPUT FORMAT:
 {"places": [{"place": "<name>", "country": "<ISO-2>", "subtype": "<subtype>"}]}
 "country" and "subtype" are optional; omit if not applicable.
 
 RULES:
-- Only extract places explicitly mentioned. Never infer or expand (e.g. "states of India" -> extract "India" only).
+- Extract ALL named places. If the query mentions two or more places (e.g. one admin area and one physical feature, or two countries), return every one of them in the order they appear.
+- Only extract places explicitly named. Do not infer or expand category nouns such as "regions", "districts", "counties", "rivers", "mountains" when they refer to a type rather than a specific place (e.g. "regions of India" -> extract "India" only).
 - No duplicate place names.
-- "country": ISO 3166-1 alpha-2. Include only if explicitly mentioned or unambiguous.
+- "country": ISO 3166-1 alpha-2. Include only if explicitly mentioned or unambiguous from the name.
 - "subtype": include only when the geographic level is clear from the query.
 
 SUBTYPES:
 country, dependency, region, county, localadmin, locality, macrohood, neighborhood, microhood
-- Default to locality for cities/towns; omit for physical features (oceans, rivers, mountains)."""
+- Default to locality for cities/towns; omit for physical features (oceans, seas, rivers, lakes, basins, mountains, ranges, peninsulas, islands, terrain areas).
+
+EXAMPLES:
+Query: "coastal districts of Brazil"
+-> {"places": [{"place": "Brazil", "subtype": "country"}]}
+
+Query: "part of Ecuador in the Amazon basin"
+-> {"places": [{"place": "Ecuador", "subtype": "country"}, {"place": "Amazon basin"}]}
+
+Query: "Amazon basin inside Ecuador"
+-> {"places": [{"place": "Amazon basin"}, {"place": "Ecuador", "subtype": "country"}]}
+
+Query: "which regions border both France and Germany?"
+-> {"places": [{"place": "France", "subtype": "country"}, {"place": "Germany", "subtype": "country"}]}
+
+Query: "northern half of India"
+-> {"places": [{"place": "India", "subtype": "country"}]}
+
+Query: "what's within 50 km of Paris?"
+-> {"places": [{"place": "Paris", "subtype": "locality"}]}
+
+Query: "countries the Nile crosses"
+-> {"places": [{"place": "Nile"}]}
+
+Query: "merge Nairobi and Mombasa"
+-> {"places": [{"place": "Nairobi", "subtype": "locality"}, {"place": "Mombasa", "subtype": "locality"}]}"""
 
 # Overture division subtypes — used to filter out natural_earth candidates
 # from the place extraction output (NE features don't have these subtypes).
