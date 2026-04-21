@@ -1,11 +1,45 @@
+import json
 import re
 from typing import Any, Generator, Optional
 
 import duckdb
 import pandas as pd
+from shapely import wkb
+from shapely.geometry import mapping
 
 from .config import DIVISIONS_AREA_PATH, MAX_SQL_ITERATIONS, NATURAL_EARTH_PATH, SCHEMA_INFO
 from .lm import generate_sql, write_sql
+
+
+def _needs_geometry_normalization(result_df: pd.DataFrame) -> bool:
+    """Return True when `geometry` is a binary blob likely from DuckDB GEOMETRY."""
+    if "geometry" not in result_df.columns or result_df.empty:
+        return False
+    sample = result_df["geometry"].dropna().head(5)
+    if sample.empty:
+        return False
+    return sample.apply(lambda v: isinstance(v, (bytes, bytearray, memoryview))).all()
+
+
+def _normalize_geometry_to_geojson(
+    result_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """If result has binary geometry, convert it to GeoJSON text in Python."""
+    if not _needs_geometry_normalization(result_df):
+        return result_df
+
+    def _blob_to_geojson_text(val: Any) -> Optional[str]:
+        if not isinstance(val, (bytes, bytearray, memoryview)):
+            return val
+        try:
+            geom = wkb.loads(bytes(val))
+            return json.dumps(mapping(geom))
+        except Exception:
+            return None
+
+    normalized_df = result_df.copy()
+    normalized_df["geometry"] = normalized_df["geometry"].apply(_blob_to_geojson_text)
+    return normalized_df
 
 
 def _rewrite_data_paths(sql: str) -> str:
@@ -58,6 +92,7 @@ def _execute_sql(
     """Execute SQL and yield result/error events. Shared by both paths."""
     try:
         result_df = con.execute(sql).fetchdf()
+        result_df = _normalize_geometry_to_geojson(result_df)
         if result_df.empty:
             print(f"[{label}] Query returned no rows.")
             yield {"type": "sql_error", "error": "Query returned no rows", "iteration": iteration}
@@ -165,6 +200,7 @@ def run_geo_sql_dspy(
 
         try:
             result_df = con.execute(sql).fetchdf()
+            result_df = _normalize_geometry_to_geojson(result_df)
             if result_df.empty:
                 error = "The query executed successfully but returned no rows. Revise the query to return at least one result."
                 previous_sql = sql
