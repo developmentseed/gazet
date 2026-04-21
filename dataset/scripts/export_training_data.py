@@ -206,17 +206,19 @@ def sample_to_sql_pair(sample: Dict[str, Any]) -> Optional[Dict]:
 # Derived from the same SQL samples: selected_candidates → PlacesResult JSON.
 # ---------------------------------------------------------------------------
 
-_PLACE_SYSTEM = """You are a geographic entity extractor. Extract every place name mentioned in the user query and return valid JSON only.
+_PLACE_SYSTEM = """You are a geographic entity extractor. Extract the place names the user is asking about and return valid JSON only.
 
 OUTPUT FORMAT:
 {"places": [{"place": "<name>", "country": "<ISO-2>", "subtype": "<subtype>"}]}
 "country" and "subtype" are optional; omit if not applicable.
 
 RULES:
-- Extract ALL named places. If the query mentions two or more places (e.g. one admin area and one physical feature, or two countries), return every one of them in the order they appear.
-- Only extract places explicitly named. Do not infer or expand category nouns such as "regions", "districts", "counties", "rivers", "mountains" when they refer to a type rather than a specific place (e.g. "regions of India" -> extract "India" only).
+- Extract the place(s) that are the target of the query.
+- When a place is followed by its containing region, state, or country as disambiguation context ("Puri, Odisha", "Lisboa, Portugal", "Goa, India", "Manchester in US"), extract ONLY the specific place. Do not return the container as a separate place — record its info on the target using `country` (ISO-2) when unambiguous.
+- When a query names two or more distinct anchors joined by words like "and", "both", "between", "or" ("France and Germany", "between Nairobi and Mombasa"), or mixes an admin area with a physical feature as independent anchors ("part of Ecuador in the Amazon basin"), extract every anchor in the order they appear.
+- Do not infer or expand category nouns like "regions", "districts", "counties", "rivers", "mountains" when they refer to a type rather than a specific place ("regions of India" -> extract "India" only).
 - No duplicate place names.
-- "country": ISO 3166-1 alpha-2. Include only if explicitly mentioned or unambiguous from the name.
+- "country": ISO 3166-1 alpha-2. Include only if explicitly mentioned or unambiguous.
 - "subtype": include only when the geographic level is clear from the query.
 
 SUBTYPES:
@@ -224,17 +226,23 @@ country, dependency, region, county, localadmin, locality, macrohood, neighborho
 - Default to locality for cities/towns; omit for physical features (oceans, seas, rivers, lakes, basins, mountains, ranges, peninsulas, islands, terrain areas).
 
 EXAMPLES:
+Query: "Puri, Odisha"
+-> {"places": [{"place": "Puri", "subtype": "locality", "country": "IN"}]}
+
+Query: "Lisboa, Portugal"
+-> {"places": [{"place": "Lisboa", "subtype": "locality", "country": "PT"}]}
+
+Query: "Goa, India"
+-> {"places": [{"place": "Goa", "subtype": "region", "country": "IN"}]}
+
+Query: "Manchester in US"
+-> {"places": [{"place": "Manchester", "subtype": "locality", "country": "US"}]}
+
+Query: "Springfield, Illinois"
+-> {"places": [{"place": "Springfield", "subtype": "locality", "country": "US"}]}
+
 Query: "coastal districts of Brazil"
 -> {"places": [{"place": "Brazil", "subtype": "country"}]}
-
-Query: "part of Ecuador in the Amazon basin"
--> {"places": [{"place": "Ecuador", "subtype": "country"}, {"place": "Amazon basin"}]}
-
-Query: "Amazon basin inside Ecuador"
--> {"places": [{"place": "Amazon basin"}, {"place": "Ecuador", "subtype": "country"}]}
-
-Query: "which regions border both France and Germany?"
--> {"places": [{"place": "France", "subtype": "country"}, {"place": "Germany", "subtype": "country"}]}
 
 Query: "northern half of India"
 -> {"places": [{"place": "India", "subtype": "country"}]}
@@ -244,6 +252,15 @@ Query: "what's within 50 km of Paris?"
 
 Query: "countries the Nile crosses"
 -> {"places": [{"place": "Nile"}]}
+
+Query: "part of Ecuador in the Amazon basin"
+-> {"places": [{"place": "Ecuador", "subtype": "country"}, {"place": "Amazon basin"}]}
+
+Query: "Amazon basin inside Ecuador"
+-> {"places": [{"place": "Amazon basin"}, {"place": "Ecuador", "subtype": "country"}]}
+
+Query: "which regions border both France and Germany?"
+-> {"places": [{"place": "France", "subtype": "country"}, {"place": "Germany", "subtype": "country"}]}
 
 Query: "merge Nairobi and Mombasa"
 -> {"places": [{"place": "Nairobi", "subtype": "locality"}, {"place": "Mombasa", "subtype": "locality"}]}"""
@@ -281,7 +298,7 @@ def sample_to_place_pair(sample: Dict[str, Any]) -> Optional[Dict]:
     Uses selected_candidates to determine the correct PlacesResult output.
     Skips samples where no valid places can be derived.
     """
-    selected_ids = set(sample.get("target", {}).get("selected_candidates", []))
+    selected_ids = sample.get("target", {}).get("selected_candidates", [])
     if not selected_ids:
         return None
 

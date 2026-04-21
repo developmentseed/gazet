@@ -95,12 +95,27 @@ def load_relation_tables(intermediate_dir: Path, quiet: bool = False) -> Dict[st
     return tables
 
 
-def sample_adjacency_anchor(adjacency_df: pd.DataFrame) -> Optional[Dict[str, Any]]:
-    """Sample a random adjacency pair."""
+def sample_adjacency_anchor(
+    adjacency_df: pd.DataFrame,
+    target_subtype: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Sample a random adjacency pair, optionally filtered by target_subtype.
+
+    When ``target_subtype`` is provided, only rows whose neighbouring feature
+    matches that subtype are considered. This lets subtype-specific templates
+    (e.g. "neighbouring counties of X") guarantee coverage instead of relying
+    on whatever subtype the random draw happens to produce.
+    """
     if adjacency_df.empty:
         return None
-    
-    row = adjacency_df.sample(n=1).iloc[0]
+
+    df = adjacency_df
+    if target_subtype is not None:
+        df = df[df['target_subtype'] == target_subtype]
+        if df.empty:
+            return None
+
+    row = df.sample(n=1).iloc[0]
     return {
         'anchor_id': row['anchor_id'],
         'anchor_name': row['anchor_name'],
@@ -137,6 +152,37 @@ def sample_containment_anchor(containment_df: pd.DataFrame) -> Optional[Dict[str
         'container_name': row['container_name'],
         'container_subtype': row['container_subtype'],
         'contained_subtype': row['contained_subtype']
+    }
+
+
+def sample_disambiguation_anchor(
+    containment_df: pd.DataFrame,
+    contained_subtypes: List[str],
+    container_subtypes: List[str],
+) -> Optional[Dict[str, Any]]:
+    """Sample a (contained, container) pair from containment_pairs.
+
+    Used by disambiguation templates like "Puri, Odisha" where the contained
+    entity is the target and the container provides disambiguation context.
+    """
+    if containment_df.empty:
+        return None
+
+    df = containment_df[
+        containment_df['contained_subtype'].isin(contained_subtypes)
+        & containment_df['container_subtype'].isin(container_subtypes)
+    ]
+    if df.empty:
+        return None
+
+    row = df.sample(n=1).iloc[0]
+    return {
+        'contained_id': row['contained_id'],
+        'contained_name': row['contained_name'],
+        'contained_subtype': row['contained_subtype'],
+        'container_id': row['container_id'],
+        'container_name': row['container_name'],
+        'container_subtype': row['container_subtype'],
     }
 
 
@@ -517,12 +563,89 @@ def generate_template_based_sample(
         
         # Question
         question = random.choice(template.question_hints).format(anchor_name=anchor['name'])
-        
+
+    elif template.family == "disambiguation":
+        # "Puri, Odisha" style: pick a (contained, container) pair whose
+        # subtypes match the template, build candidates that include the
+        # container + same-name distractors so the model must read the CSV
+        # to pick the right entry.
+        _disambig_subtypes = {
+            "disambiguate_01": (["locality"], ["region", "county", "localadmin"]),
+            "disambiguate_02": (["locality"], ["country"]),
+            "disambiguate_03": (["region", "dependency"], ["country"]),
+        }
+        contained_sts, container_sts = _disambig_subtypes.get(
+            template.template_id, (["locality"], ["country"])
+        )
+
+        pair = sample_disambiguation_anchor(
+            tables["containment_pairs"], contained_sts, container_sts
+        )
+        if not pair:
+            return None
+
+        candidates = build_candidate_list(
+            con, pair["contained_id"], pair["contained_name"], "divisions_area",
+            num_candidates=10, difficulty="hard"
+        )
+
+        # Ensure the container is among the candidates so the model can
+        # ground the disambiguation context (e.g. "Odisha").
+        if not any(c.id == pair["container_id"] for c in candidates):
+            container_rows = con.execute(
+                'SELECT id, names."primary" AS name, subtype, country, region, admin_level '
+                'FROM read_parquet(?) WHERE id = ? LIMIT 1',
+                [DIVISIONS_AREA_PATH, pair["container_id"]]
+            ).fetchdf()
+            if container_rows.empty:
+                return None
+            crow = container_rows.iloc[0]
+
+            def _nn(v):
+                return None if pd.isna(v) else v
+
+            container_cand = Candidate(
+                candidate_id="temp",
+                source="divisions_area",
+                id=pair["container_id"],
+                name=_nn(crow["name"]),
+                subtype=_nn(crow["subtype"]),
+                country=_nn(crow["country"]),
+                region=_nn(crow["region"]),
+                admin_level=_nn(crow["admin_level"]),
+                similarity=0.95,
+            )
+            # Insert the container right after the true target and drop the
+            # last filler distractor so the total stays at 10.
+            candidates = [candidates[0], container_cand] + candidates[1:-1]
+            for i, c in enumerate(candidates, 1):
+                c.candidate_id = f"c{i}"
+
+        sql = template.sql_template.format(anchor_id=pair["contained_id"])
+
+        question = random.choice(template.question_hints).format(
+            anchor_name=pair["contained_name"],
+            container_name=pair["container_name"],
+        )
+
+        # Only the contained entity is the query target — the container is
+        # disambiguation context and stays in candidates but NOT in
+        # selected_candidates. The model learns to use the container row of
+        # the CSV (via country/region columns) to pick the right same-name
+        # locality.
+        anchor = {"id": pair["contained_id"], "name": pair["contained_name"]}
+
     elif template.family == "adjacency":
-        anchor = sample_adjacency_anchor(tables['adjacency_pairs'])
+        # If the template pins a target_subtype (e.g. adj_02='region',
+        # adj_06='county'), honour it so the sampled pair is guaranteed to
+        # match the question phrasing ("neighbouring counties of X").
+        anchor = sample_adjacency_anchor(
+            tables['adjacency_pairs'],
+            target_subtype=template.target_subtype,
+        )
         if not anchor:
             return None
-        
+
         sql = template.sql_template.format(
             anchor_id=anchor['anchor_id'],
             target_subtype=anchor['target_subtype']
@@ -918,11 +1041,30 @@ def generate_template_based_sample(
             table_key = 'landlocked_containment_pairs'
         else:
             table_key = 'containment_pairs'
-        anchor = sample_containment_anchor(tables.get(table_key, tables['containment_pairs']))
+
+        # chained_10/11 need a country-level anchor ("coastal states of
+        # India") and region-level targets, so filter the containment pairs
+        # to (container=country, contained=region) before sampling.
+        _chained_subtype_filter = {
+            "chained_10": ("country", "region"),
+            "chained_11": ("country", "region"),
+        }
+        df = tables.get(table_key, tables['containment_pairs'])
+        filt = _chained_subtype_filter.get(template.template_id)
+        if filt:
+            df = df[
+                (df['container_subtype'] == filt[0])
+                & (df['contained_subtype'] == filt[1])
+            ]
+
+        anchor = sample_containment_anchor(df)
         if not anchor:
             return None
 
-        target_subtype = anchor.get('contained_subtype', 'locality')
+        # Prefer the template-pinned target_subtype when set (e.g. chained_10
+        # always wants 'region') so the SQL filter and question phrasing stay
+        # in sync regardless of what the sampled pair happens to contain.
+        target_subtype = template.target_subtype or anchor.get('contained_subtype', 'locality')
 
         sql = template.sql_template.format(
             anchor_id=anchor['container_id'],
@@ -1182,14 +1324,14 @@ def generate_template_based_sample(
             or anchor.get('id')
         )
         selected_candidate_ids = [c.candidate_id for c in candidates if c.id == anchor_id_to_find]
-    
+
     return TrainingSample(
         id=sample_id,
         question=question,
         candidates=candidates,
         target={
             "selected_candidates": selected_candidate_ids,
-            "sql": sql
+            "sql": sql,
         },
         metadata={
             "task_family": template.family,

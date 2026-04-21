@@ -25,6 +25,9 @@ correct parquet path from the candidates table.
 Template families
 -----------------
 direct_lookup      Simple single-feature fetch by ID.
+disambiguation     "Place, Container" queries like "Puri, Odisha" — lookup by
+                   ID after resolving an ambiguous name via containing region
+                   or country mentioned in the query.
 adjacency          ST_Touches — features sharing a border.
 multi_adjacency    Features that simultaneously touch TWO anchors.
 containment        ST_Within / ST_Contains — hierarchical nesting.
@@ -125,6 +128,96 @@ TEMPLATES = [
         ],
     ),
 
+    # ── DISAMBIGUATION ──────────────────────────────────────────────────────
+    # "Puri, Odisha", "Lisbon, Portugal", "Goa, India" — a common real-world
+    # query pattern where users give a place plus its containing region or
+    # country to disambiguate same-name localities.
+    # SQL is a plain lookup by id (disambiguation happens at candidate-pick
+    # time). Candidates include same-name localities in other regions plus
+    # the container, so the model must read the CSV to choose correctly.
+    #
+    # disambiguate_01: locality scoped by its region / county
+    # disambiguate_02: locality scoped by its country
+    # disambiguate_03: region / dependency scoped by its country
+
+    SQLTemplate(
+        template_id="disambiguate_01",
+        family="disambiguation",
+        sql_difficulty="easy",
+        anchor_source="divisions_area",
+        num_anchors=1,
+        sql_template=(
+            "SELECT ST_AsGeoJSON(geometry) AS geometry,"
+            " names.\"primary\" AS name, id, subtype, country, region"
+            " FROM read_parquet('divisions_area')"
+            " WHERE id = '{anchor_id}'"
+        ),
+        question_hints=[
+            "{anchor_name}, {container_name}",
+            "{anchor_name} in {container_name}",
+            "the {anchor_name} that's in {container_name}",
+            "show me {anchor_name}, {container_name}",
+            "where is {anchor_name}, {container_name}?",
+            "map of {anchor_name} ({container_name})",
+            "{anchor_name} ({container_name})",
+            "{anchor_name} {container_name}",
+            "pull up {anchor_name} in {container_name}",
+            "find {anchor_name} in {container_name}",
+        ],
+    ),
+
+    SQLTemplate(
+        template_id="disambiguate_02",
+        family="disambiguation",
+        sql_difficulty="easy",
+        anchor_source="divisions_area",
+        num_anchors=1,
+        sql_template=(
+            "SELECT ST_AsGeoJSON(geometry) AS geometry,"
+            " names.\"primary\" AS name, id, subtype, country"
+            " FROM read_parquet('divisions_area')"
+            " WHERE id = '{anchor_id}'"
+        ),
+        question_hints=[
+            "{anchor_name}, {container_name}",
+            "{anchor_name} in {container_name}",
+            "{anchor_name}, {container_name}.",
+            "show me {anchor_name}, {container_name}",
+            "where is {anchor_name} in {container_name}?",
+            "the {anchor_name} that's in {container_name}",
+            "map of {anchor_name}, {container_name}",
+            "pull up {anchor_name} ({container_name})",
+            "find {anchor_name} in {container_name}",
+            "{anchor_name} {container_name}",
+        ],
+    ),
+
+    SQLTemplate(
+        template_id="disambiguate_03",
+        family="disambiguation",
+        sql_difficulty="easy",
+        anchor_source="divisions_area",
+        num_anchors=1,
+        sql_template=(
+            "SELECT ST_AsGeoJSON(geometry) AS geometry,"
+            " names.\"primary\" AS name, id, subtype, country"
+            " FROM read_parquet('divisions_area')"
+            " WHERE id = '{anchor_id}'"
+        ),
+        question_hints=[
+            "{anchor_name}, {container_name}",
+            "{anchor_name} state of {container_name}",
+            "the {anchor_name} region in {container_name}",
+            "show me {anchor_name}, {container_name}",
+            "where is {anchor_name} in {container_name}?",
+            "map of {anchor_name}, {container_name}",
+            "{anchor_name} ({container_name})",
+            "{anchor_name} province of {container_name}",
+            "pull up {anchor_name} in {container_name}",
+            "find {anchor_name} {container_name}",
+        ],
+    ),
+
     # ── ADJACENCY ────────────────────────────────────────────────────────────
 
     SQLTemplate(
@@ -212,6 +305,38 @@ TEMPLATES = [
             "which water bodies does {anchor_name} border?",
             "does {anchor_name} have sea access?",
             "what ocean is {anchor_name} on?",
+        ],
+    ),
+
+    SQLTemplate(
+        template_id="adj_06",
+        family="adjacency",
+        sql_difficulty="medium",
+        anchor_source="divisions_area",
+        num_anchors=1,
+        target_subtype="county",
+        sql_template=(
+            "WITH a AS ("
+            "  SELECT geometry FROM read_parquet('divisions_area') WHERE id = '{anchor_id}'"
+            ")"
+            " SELECT b.id, b.names.\"primary\" AS name, b.subtype, b.country,"
+            "        ST_AsGeoJSON(b.geometry) AS geometry"
+            " FROM read_parquet('divisions_area') AS b, a"
+            " WHERE b.id != '{anchor_id}'"
+            "   AND b.subtype = '{target_subtype}'"
+            "   AND ST_Touches(a.geometry, b.geometry)"
+        ),
+        question_hints=[
+            "neighbouring counties of {anchor_name}",
+            "neighbouring districts of {anchor_name}",
+            "which counties border {anchor_name}?",
+            "which districts border {anchor_name}?",
+            "counties adjacent to {anchor_name}",
+            "districts next to {anchor_name}",
+            "counties sharing a border with {anchor_name}",
+            "what counties touch {anchor_name}?",
+            "nearby counties of {anchor_name}",
+            "counties along the {anchor_name} boundary",
         ],
     ),
 
@@ -1552,6 +1677,81 @@ TEMPLATES = [
             "highland {target_subtype}s within {anchor_name}",
             "{target_subtype}s of {anchor_name} in mountainous terrain",
             "which {target_subtype}s in {anchor_name} have mountain ranges?",
+        ],
+    ),
+
+    # chained_10 / chained_11: coastal and inland REGIONS of a country.
+    # Same pattern as chained_06/07 but with target_subtype='region' and
+    # container forced to a country so phrasings like "coastal states of
+    # India" / "inland provinces of Kenya" work correctly.
+
+    SQLTemplate(
+        template_id="chained_10",
+        family="chained",
+        sql_difficulty="hard",
+        anchor_source="divisions_area",
+        num_anchors=1,
+        target_subtype="region",
+        sql_template=(
+            "WITH country AS ("
+            "  SELECT geometry FROM read_parquet('divisions_area') WHERE id = '{anchor_id}'"
+            ")"
+            " SELECT b.id, b.names.\"primary\" AS name, b.subtype, b.country,"
+            "        ST_AsGeoJSON(b.geometry) AS geometry"
+            " FROM read_parquet('divisions_area') AS b, country"
+            " WHERE b.subtype = '{target_subtype}'"
+            "   AND ST_Within(b.geometry, country.geometry)"
+            "   AND EXISTS ("
+            "     SELECT 1 FROM read_parquet('natural_earth') AS n"
+            "     WHERE n.subtype IN ('ocean', 'sea')"
+            "       AND ST_Intersects(b.geometry, n.geometry)"
+            "   )"
+        ),
+        question_hints=[
+            "coastal states of {anchor_name}",
+            "coastal regions of {anchor_name}",
+            "coastal provinces of {anchor_name}",
+            "which states of {anchor_name} are on the coast?",
+            "regions of {anchor_name} with sea access",
+            "states of {anchor_name} that border the ocean",
+            "maritime states of {anchor_name}",
+            "seaside regions of {anchor_name}",
+            "which provinces of {anchor_name} touch the sea?",
+            "states of {anchor_name} along the coast",
+        ],
+    ),
+
+    SQLTemplate(
+        template_id="chained_11",
+        family="chained",
+        sql_difficulty="hard",
+        anchor_source="divisions_area",
+        num_anchors=1,
+        target_subtype="region",
+        sql_template=(
+            "WITH country AS ("
+            "  SELECT geometry FROM read_parquet('divisions_area') WHERE id = '{anchor_id}'"
+            ")"
+            " SELECT b.id, b.names.\"primary\" AS name, b.subtype, b.country,"
+            "        ST_AsGeoJSON(b.geometry) AS geometry"
+            " FROM read_parquet('divisions_area') AS b, country"
+            " WHERE b.subtype = '{target_subtype}'"
+            "   AND ST_Within(b.geometry, country.geometry)"
+            "   AND NOT EXISTS ("
+            "     SELECT 1 FROM read_parquet('natural_earth') AS n"
+            "     WHERE n.subtype IN ('ocean', 'sea')"
+            "       AND ST_Intersects(b.geometry, n.geometry)"
+            "   )"
+        ),
+        question_hints=[
+            "landlocked states of {anchor_name}",
+            "inland regions of {anchor_name}",
+            "non-coastal states of {anchor_name}",
+            "which states of {anchor_name} have no coast?",
+            "inland provinces of {anchor_name}",
+            "regions of {anchor_name} without sea access",
+            "interior states of {anchor_name}",
+            "states of {anchor_name} that don't border the ocean",
         ],
     ),
 
