@@ -63,4 +63,4 @@ modal:
 # Run name — used to version exported splits so re-runs never overwrite previous data.
 # Change this whenever you regenerate from scratch (e.g. after template changes).
 # Exported files land in: output/runs/{run_name}/
-run_name: "v2"
+run_name: "v3"
