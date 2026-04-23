@@ -125,6 +125,10 @@ TEMPLATES = [
             "map the {anchor_name}",
             "how big is the {anchor_name}?",
             "outline of the {anchor_name}",
+            "show the shape of the {anchor_name}",
+            "trace the {anchor_name}",
+            "map out the {anchor_name}",
+            "where exactly is the {anchor_name}",
         ],
     ),
 
@@ -163,6 +167,10 @@ TEMPLATES = [
             "{anchor_name} {container_name}",
             "pull up {anchor_name} in {container_name}",
             "find {anchor_name} in {container_name}",
+            "locate {anchor_name} in {container_name}",
+            "need {anchor_name} from {container_name}",
+            "show {anchor_name} under {container_name}",
+            "{anchor_name} near {container_name}",
         ],
     ),
 
@@ -189,6 +197,10 @@ TEMPLATES = [
             "pull up {anchor_name} ({container_name})",
             "find {anchor_name} in {container_name}",
             "{anchor_name} {container_name}",
+            "locate {anchor_name} in {container_name}",
+            "need the {anchor_name} in {container_name}",
+            "show {anchor_name} from {container_name}",
+            "bring up {anchor_name}, {container_name}",
         ],
     ),
 
@@ -215,6 +227,10 @@ TEMPLATES = [
             "{anchor_name} province of {container_name}",
             "pull up {anchor_name} in {container_name}",
             "find {anchor_name} {container_name}",
+            "locate {anchor_name} within {container_name}",
+            "show the {anchor_name} part of {container_name}",
+            "need {anchor_name} from {container_name}",
+            "bring up {anchor_name} in {container_name}",
         ],
     ),
 
@@ -246,6 +262,11 @@ TEMPLATES = [
             "what surrounds {anchor_name}?",
             "places next to {anchor_name}",
             "everything bordering {anchor_name}",
+            "show adjacent places to {anchor_name}",
+            "areas touching {anchor_name}",
+            "find the neighbours of {anchor_name}",
+            "bordering places for {anchor_name}",
+            "places that meet {anchor_name}",
         ],
     ),
 
@@ -275,6 +296,10 @@ TEMPLATES = [
             "which {target_subtype}s are adjacent to {anchor_name}?",
             "{target_subtype}s along the {anchor_name} border",
             "find {target_subtype}s next to {anchor_name}",
+            "show {target_subtype}s bordering {anchor_name}",
+            "{target_subtype}s beside {anchor_name}",
+            "all {target_subtype}s touching {anchor_name}",
+            "{target_subtype}s meeting {anchor_name}",
         ],
     ),
 
@@ -305,6 +330,11 @@ TEMPLATES = [
             "which water bodies does {anchor_name} border?",
             "does {anchor_name} have sea access?",
             "what ocean is {anchor_name} on?",
+            "is {anchor_name} on the coast?",
+            "what sea is off the coast of {anchor_name}?",
+            "which ocean lies off {anchor_name}?",
+            "what water is {anchor_name} on the shore of?",
+            "which sea or ocean is {anchor_name} along?",
         ],
     ),
 
@@ -368,6 +398,12 @@ TEMPLATES = [
             "regions adjacent to both {anchor_1_name} and {anchor_2_name}",
             "what lies between {anchor_1_name} and {anchor_2_name}?",
             "common neighbours of {anchor_1_name} and {anchor_2_name}",
+            "show places touching both {anchor_1_name} and {anchor_2_name}",
+            "areas bordering both {anchor_1_name} and {anchor_2_name}",
+            "shared neighbours of {anchor_1_name} and {anchor_2_name}",
+            "find places adjacent to both {anchor_1_name} and {anchor_2_name}",
+            "places meeting both {anchor_1_name} and {anchor_2_name}",
+            "places on the border of both {anchor_1_name} and {anchor_2_name}",
         ],
     ),
 
@@ -399,6 +435,13 @@ TEMPLATES = [
             "all {target_subtype}s within {anchor_name}",
             "{target_subtype}s of {anchor_name}",
             "show every {target_subtype} in {anchor_name}",
+            "show {target_subtype}s inside {anchor_name}",
+            "find {target_subtype}s in {anchor_name}",
+            "give me the {target_subtype}s in {anchor_name}",
+            "{anchor_name} {target_subtype}s",
+            "which {target_subtype}s does {anchor_name} contain?",
+            "what all {target_subtype}s are there in {anchor_name}?",
+            "{target_subtype}s under {anchor_name}",
         ],
     ),
 
@@ -428,6 +471,12 @@ TEMPLATES = [
             "{anchor_name} is part of which country?",
             "where is {anchor_name}",
             "what country is {anchor_name} in",
+            "{anchor_name} belongs to which country?",
+            "show country for {anchor_name}",
+            "find the country of {anchor_name}",
+            "which country does {anchor_name} fall in?",
+            "{anchor_name} under which country",
+            "tell me the country for {anchor_name}",
         ],
     ),
 
@@ -456,6 +505,14 @@ TEMPLATES = [
             "all regions inside the {anchor_name}",
             "what {target_subtype}s does the {anchor_name} contain?",
             "{target_subtype}s covered by the {anchor_name}",
+            "which regions are in the {anchor_name} basin?",
+            "what admin regions lie within the {anchor_name}?",
+            "which provinces are inside the {anchor_name}?",
+            "show the regions in the {anchor_name}",
+            "find provinces inside the {anchor_name}",
+            "give me admin regions within the {anchor_name}",
+            "regions belonging to the {anchor_name}",
+            "areas contained in the {anchor_name}",
         ],
     ),
 
@@ -486,6 +543,12 @@ TEMPLATES = [
             "which {target_subtype}s overlap {anchor_name}?",
             "{target_subtype}s partially inside {anchor_name}",
             "what {target_subtype}s extend into {anchor_name}?",
+            "show {target_subtype}s overlapping {anchor_name}",
+            "find {target_subtype}s crossing {anchor_name}",
+            "{target_subtype}s meeting {anchor_name}",
+            "areas intersecting {anchor_name}",
+            "{anchor_name} overlapping {target_subtype}s",
+            "which {target_subtype}s are partly in {anchor_name}?",
         ],
     ),
 
@@ -516,6 +579,10 @@ TEMPLATES = [
             "countries along the {anchor_name}",
             "what countries does the {anchor_name} cover?",
             "countries the {anchor_name} spans across",
+            "what countries is the {anchor_name} in?",
+            "which countries lie along the {anchor_name}?",
+            "what countries does the {anchor_name} run through?",
+            "which countries border the {anchor_name}?",
         ],
     ),
 
@@ -607,6 +674,15 @@ TEMPLATES = [
             "what falls within {buffer_km} km of the {anchor_name}?",
             "admin divisions within a {buffer_km} km radius of the {anchor_name}",
             "places within {buffer_km} kilometers of the {anchor_name}",
+            "what places are near the {anchor_name}?",
+            "what admin areas are close to the {anchor_name}?",
+            "which regions are around the {anchor_name}?",
+            "what lies within {buffer_km} km of the shoreline of the {anchor_name}?",
+            "show places around the {anchor_name}",
+            "find areas near the {anchor_name}",
+            "admin units close to the {anchor_name}",
+            "what is around the {anchor_name} within {buffer_km} km",
+            "give me nearby admin regions for the {anchor_name}",
         ],
     ),
 
@@ -633,6 +709,40 @@ TEMPLATES = [
             "admin units within {buffer_m} m of the {anchor_name}",
             "places within {buffer_m} metres of the {anchor_name}",
             "{buffer_m} meter buffer around the {anchor_name}",
+            "what places are right next to the {anchor_name}?",
+            "what lies close to the {anchor_name}?",
+            "which admin units are near the edge of the {anchor_name}?",
+            "show places very near the {anchor_name}",
+            "find admin areas next to the {anchor_name}",
+            "what is just around the {anchor_name}",
+            "give me places within {buffer_m} m of the {anchor_name}",
+        ],
+    ),
+
+    SQLTemplate(
+        template_id="buffer_06",
+        family="buffer",
+        sql_difficulty="medium",
+        anchor_source="divisions_area",
+        num_anchors=1,
+        requires_buffer=True,
+        sql_template=(
+            "SELECT ST_AsGeoJSON(ST_Buffer(geometry, {buffer_km} * 1000.0 / 111320.0)) AS geometry"
+            " FROM read_parquet('divisions_area')"
+            " WHERE id = '{anchor_id}'"
+        ),
+        question_hints=[
+            "{buffer_km} km buffer around {anchor_name}",
+            "draw a {buffer_km} km buffer around {anchor_name}",
+            "show the {buffer_km} km buffer around {anchor_name}",
+            "create a {buffer_km} kilometer buffer around {anchor_name}",
+            "map a {buffer_km} km radius around {anchor_name}",
+            "outline the {buffer_km} km buffer around {anchor_name}",
+            "make a {buffer_km} km zone around {anchor_name}",
+            "generate a {buffer_km} km radius for {anchor_name}",
+            "buffer {anchor_name} by {buffer_km} km",
+            "show radius {buffer_km} km from {anchor_name}",
+            "{anchor_name} with a {buffer_km} km buffer",
         ],
     ),
 
@@ -670,6 +780,11 @@ TEMPLATES = [
             "{target_subtype}s in {anchor_name} bordering the sea",
             "oceanfront {target_subtype}s in {anchor_name}",
             "which {target_subtype}s in {anchor_name} have a coastline?",
+            "show coastal {target_subtype}s in {anchor_name}",
+            "find {target_subtype}s of {anchor_name} on the shore",
+            "{target_subtype}s of {anchor_name} by the sea",
+            "which {target_subtype}s of {anchor_name} touch the ocean?",
+            "coastline {target_subtype}s in {anchor_name}",
         ],
     ),
 
@@ -702,6 +817,11 @@ TEMPLATES = [
             "{target_subtype}s in {anchor_name} with no coastline",
             "which {target_subtype}s within {anchor_name} are landlocked?",
             "interior {target_subtype}s of {anchor_name} with no ocean border",
+            "show inland {target_subtype}s in {anchor_name}",
+            "find non-coastal {target_subtype}s of {anchor_name}",
+            "{target_subtype}s of {anchor_name} away from the sea",
+            "which {target_subtype}s in {anchor_name} are not coastal?",
+            "inner {target_subtype}s of {anchor_name}",
         ],
     ),
 
@@ -723,7 +843,7 @@ TEMPLATES = [
             "   AND ST_Within(b.geometry, region.geometry)"
             "   AND EXISTS ("
             "     SELECT 1 FROM read_parquet('natural_earth') AS n"
-            "     WHERE n.subtype IN ('Range/mtn', 'Island group', 'Peninsula', 'Depression')"
+            "     WHERE n.subtype IN ('range/mtn', 'island group', 'peninsula', 'depression')"
             "       AND ST_Intersects(b.geometry, n.geometry)"
             "   )"
         ),
@@ -732,6 +852,10 @@ TEMPLATES = [
             "{target_subtype}s of {anchor_name} on a peninsula or island group",
             "{target_subtype}s within {anchor_name} on notable landforms",
             "island and peninsula {target_subtype}s of {anchor_name}",
+            "show {target_subtype}s in {anchor_name} on major landforms",
+            "find {target_subtype}s of {anchor_name} on islands or peninsulas",
+            "{target_subtype}s in {anchor_name} on terrain regions",
+            "places in {anchor_name} associated with islands or peninsulas",
         ],
     ),
 
@@ -764,6 +888,10 @@ TEMPLATES = [
             "{anchor_1_name} with {anchor_2_name} cut out",
             "subtract {anchor_2_name} from {anchor_1_name}",
             "what's left of {anchor_1_name} after removing {anchor_2_name}?",
+            "difference between {anchor_1_name} and {anchor_2_name}",
+            "keep only {anchor_1_name} outside {anchor_2_name}",
+            "cut {anchor_2_name} out of {anchor_1_name}",
+            "show {anchor_1_name} without {anchor_2_name}",
         ],
     ),
 
@@ -792,6 +920,10 @@ TEMPLATES = [
             "{anchor_name} with the {clip_feature_name} removed",
             "what's left of {anchor_name} after removing the {clip_feature_name}?",
             "show me {anchor_name} excluding the {clip_feature_name}",
+            "keep only the part of {anchor_name} outside the {clip_feature_name}",
+            "cut the {clip_feature_name} out of {anchor_name}",
+            "difference of {anchor_name} and the {clip_feature_name}",
+            "{anchor_name} after subtracting the {clip_feature_name}",
         ],
     ),
 
@@ -828,6 +960,11 @@ TEMPLATES = [
             "the region straddling the border of {anchor_1_name} and {anchor_2_name} within {buffer_km} km",
             "{buffer_km} km on either side of the {anchor_1_name} and {anchor_2_name} border",
             "buffer the {anchor_1_name}-{anchor_2_name} boundary by {buffer_km} km",
+            "show the border zone between {anchor_1_name} and {anchor_2_name}",
+            "map the corridor along the {anchor_1_name}-{anchor_2_name} border",
+            "find the area near the border of {anchor_1_name} and {anchor_2_name}",
+            "give me the border buffer for {anchor_1_name} and {anchor_2_name}",
+            "border area of {anchor_1_name} and {anchor_2_name} within {buffer_km} km",
         ],
     ),
 
@@ -899,6 +1036,10 @@ TEMPLATES = [
             "show {target_subtype}s across {anchor_1_name} and {anchor_2_name}",
             "{target_subtype}s belonging to {anchor_1_name} and {anchor_2_name}",
             "list {target_subtype}s in both {anchor_1_name} and {anchor_2_name}",
+            "give me {target_subtype}s from {anchor_1_name} and {anchor_2_name}",
+            "{anchor_1_name} and {anchor_2_name} {target_subtype}s",
+            "show all {target_subtype}s for {anchor_1_name} plus {anchor_2_name}",
+            "find {target_subtype}s across both {anchor_1_name} and {anchor_2_name}",
         ],
     ),
 
@@ -921,6 +1062,10 @@ TEMPLATES = [
             "all {target_subtype}s in {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
             "show {target_subtype}s across {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
             "list {target_subtype}s in {anchor_1_name}, {anchor_2_name} and {anchor_3_name}",
+            "give me {target_subtype}s from {anchor_1_name}, {anchor_2_name}, and {anchor_3_name}",
+            "{anchor_1_name}, {anchor_2_name}, and {anchor_3_name} {target_subtype}s",
+            "show all {target_subtype}s for these three: {anchor_1_name}, {anchor_2_name}, {anchor_3_name}",
+            "find {target_subtype}s across {anchor_1_name}, {anchor_2_name}, and {anchor_3_name}",
         ],
     ),
 
@@ -947,6 +1092,11 @@ TEMPLATES = [
             "union of all {target_subtype}s within {anchor_name}",
             "all {target_subtype}s of {anchor_name} merged together",
             "the overall extent of {target_subtype}s in {anchor_name}",
+            "show one merged shape for all {target_subtype}s in {anchor_name}",
+            "dissolve all {target_subtype}s in {anchor_name}",
+            "make one geometry from all {target_subtype}s in {anchor_name}",
+            "single outline of all {target_subtype}s in {anchor_name}",
+            "combine the {target_subtype}s of {anchor_name} into one area",
         ],
     ),
 
@@ -979,6 +1129,11 @@ TEMPLATES = [
             "the top half of {anchor_name}",
             "northern portion of {anchor_name}",
             "upper half of {anchor_name}",
+            "top side of {anchor_name}",
+            "show north half of {anchor_name}",
+            "cut {anchor_name} to the north half",
+            "only the northern side of {anchor_name}",
+            "north part of {anchor_name}",
         ],
     ),
 
@@ -1008,6 +1163,11 @@ TEMPLATES = [
             "the bottom half of {anchor_name}",
             "southern portion of {anchor_name}",
             "lower half of {anchor_name}",
+            "bottom side of {anchor_name}",
+            "show south half of {anchor_name}",
+            "cut {anchor_name} to the south half",
+            "only the southern side of {anchor_name}",
+            "south part of {anchor_name}",
         ],
     ),
 
@@ -1036,6 +1196,11 @@ TEMPLATES = [
             "eastern part of {anchor_name}",
             "the right half of {anchor_name}",
             "eastern portion of {anchor_name}",
+            "east side of {anchor_name}",
+            "show east half of {anchor_name}",
+            "cut {anchor_name} to the east half",
+            "only the eastern side of {anchor_name}",
+            "right side of {anchor_name}",
         ],
     ),
 
@@ -1064,6 +1229,11 @@ TEMPLATES = [
             "western part of {anchor_name}",
             "the left half of {anchor_name}",
             "western portion of {anchor_name}",
+            "west side of {anchor_name}",
+            "show west half of {anchor_name}",
+            "cut {anchor_name} to the west half",
+            "only the western side of {anchor_name}",
+            "left side of {anchor_name}",
         ],
     ),
 
@@ -1095,6 +1265,10 @@ TEMPLATES = [
             "{clip_feature_name} inside {anchor_name}",
             "parts of {anchor_name} covered by the {clip_feature_name}",
             "show me where {anchor_name} and the {clip_feature_name} overlap",
+            "keep only the part of {anchor_name} in the {clip_feature_name}",
+            "intersection of {anchor_name} and the {clip_feature_name}",
+            "give me the overlap between {anchor_name} and the {clip_feature_name}",
+            "only the shared area of {anchor_name} and the {clip_feature_name}",
         ],
     ),
 
@@ -1129,6 +1303,10 @@ TEMPLATES = [
             "the {top_n} biggest {target_subtype}s within {anchor_name}",
             "largest {target_subtype} in {anchor_name}",
             "which {target_subtype} in {anchor_name} has the most area?",
+            "show the biggest {target_subtype}s in {anchor_name}",
+            "list the largest {target_subtype}s for {anchor_name}",
+            "give me the biggest {target_subtype}s in {anchor_name}",
+            "{anchor_name} largest {target_subtype}s",
         ],
     ),
 
@@ -1160,6 +1338,10 @@ TEMPLATES = [
             "the {top_n} tiniest {target_subtype}s within {anchor_name}",
             "smallest {target_subtype} in {anchor_name}",
             "which {target_subtype} in {anchor_name} has the least area?",
+            "show the smallest {target_subtype}s in {anchor_name}",
+            "list the smallest {target_subtype}s for {anchor_name}",
+            "give me the tiniest {target_subtype}s in {anchor_name}",
+            "{anchor_name} smallest {target_subtype}s",
         ],
     ),
 
@@ -1188,6 +1370,10 @@ TEMPLATES = [
             "the {top_n} largest {target_subtype}s in {anchor_name}",
             "biggest {target_subtype} in {anchor_name}",
             "which {target_subtype} in {anchor_name} is the largest?",
+            "show the largest {target_subtype}s in {anchor_name}",
+            "list the biggest {target_subtype}s in {anchor_name}",
+            "give me the largest {target_subtype}s for {anchor_name}",
+            "{anchor_name} biggest {target_subtype}s",
         ],
     ),
 
@@ -1216,6 +1402,10 @@ TEMPLATES = [
             "the {top_n} smallest {target_subtype}s in {anchor_name}",
             "smallest {target_subtype} in {anchor_name}",
             "which {target_subtype} in {anchor_name} is the smallest?",
+            "show the smallest {target_subtype}s in {anchor_name}",
+            "list the smallest {target_subtype}s in {anchor_name}",
+            "give me the smallest {target_subtype}s for {anchor_name}",
+            "{anchor_name} tiniest {target_subtype}s",
         ],
     ),
 
@@ -1249,6 +1439,11 @@ TEMPLATES = [
             "biggest {target_subtype} per region in {anchor_name}",
             "largest {target_subtype} for every region of {anchor_name}",
             "the biggest {target_subtype} in each province of {anchor_name}",
+            "show the largest {target_subtype} in every region of {anchor_name}",
+            "list biggest {target_subtype} by region in {anchor_name}",
+            "for each region in {anchor_name}, give the largest {target_subtype}",
+            "largest {target_subtype}s grouped by region in {anchor_name}",
+            "one biggest {target_subtype} for each region of {anchor_name}",
         ],
     ),
 
@@ -1279,6 +1474,11 @@ TEMPLATES = [
             "smallest {target_subtype} per region in {anchor_name}",
             "tiniest {target_subtype} for every region of {anchor_name}",
             "the smallest {target_subtype} in each province of {anchor_name}",
+            "show the smallest {target_subtype} in every region of {anchor_name}",
+            "list smallest {target_subtype} by region in {anchor_name}",
+            "for each region in {anchor_name}, give the smallest {target_subtype}",
+            "smallest {target_subtype}s grouped by region in {anchor_name}",
+            "one tiniest {target_subtype} for each region of {anchor_name}",
         ],
     ),
 
@@ -1307,6 +1507,10 @@ TEMPLATES = [
             "{anchor_name}'s land {target_subtype}s",
             "dependencies of {anchor_name} with land area",
             "show the land dependencies of {anchor_name}",
+            "find land dependencies of {anchor_name}",
+            "give me {anchor_name} dependencies on land",
+            "which dependencies of {anchor_name} are land-based?",
+            "non-island {target_subtype}s of {anchor_name}",
         ],
     ),
 
@@ -1330,6 +1534,11 @@ TEMPLATES = [
             "official territorial divisions of {anchor_name}",
             "recognised territorial {target_subtype}s belonging to {anchor_name}",
             "which territorial regions does {anchor_name} have?",
+            "show territorial {target_subtype}s of {anchor_name}",
+            "find official territorial regions of {anchor_name}",
+            "give me recognised territorial {target_subtype}s of {anchor_name}",
+            "territorial regions under {anchor_name}",
+            "{anchor_name} official territorial {target_subtype}s",
         ],
     ),
 
@@ -1353,6 +1562,11 @@ TEMPLATES = [
             "{target_subtype}s of {anchor_name} that are not on land",
             "water-associated {target_subtype}s of {anchor_name}",
             "marine or offshore {target_subtype}s of {anchor_name}",
+            "show offshore {target_subtype}s of {anchor_name}",
+            "find {target_subtype}s of {anchor_name} in water",
+            "give me non-land {target_subtype}s of {anchor_name}",
+            "water-side {target_subtype}s of {anchor_name}",
+            "{anchor_name} {target_subtype}s not on land",
         ],
     ),
 
@@ -1374,7 +1588,7 @@ TEMPLATES = [
             " SELECT n.id, n.names.\"primary\" AS name, n.subtype,"
             "        ST_AsGeoJSON(n.geometry) AS geometry"
             " FROM read_parquet('natural_earth') AS n, a"
-            " WHERE n.subtype IN ('River', 'Lake', 'Basin')"
+            " WHERE n.subtype IN ('river', 'lake', 'basin')"
             "   AND ST_Intersects(a.geometry, n.geometry)"
         ),
         question_hints=[
@@ -1386,6 +1600,10 @@ TEMPLATES = [
             "what bodies of water cross {anchor_name}?",
             "rivers of {anchor_name}",
             "show me the lakes in {anchor_name}",
+            "what rivers run through {anchor_name}?",
+            "which lakes lie in {anchor_name}?",
+            "what waterways are in {anchor_name}?",
+            "which basins, lakes, or rivers are in {anchor_name}?",
         ],
     ),
 
@@ -1395,7 +1613,7 @@ TEMPLATES = [
         sql_difficulty="medium",
         anchor_source="divisions_area",
         num_anchors=1,
-        target_subtype="range",
+        target_subtype="range/mtn",
         sql_template=(
             "WITH a AS ("
             "  SELECT geometry FROM read_parquet('divisions_area') WHERE id = '{anchor_id}'"
@@ -1403,18 +1621,84 @@ TEMPLATES = [
             " SELECT n.id, n.names.\"primary\" AS name, n.subtype,"
             "        ST_AsGeoJSON(n.geometry) AS geometry"
             " FROM read_parquet('natural_earth') AS n, a"
-            " WHERE n.subtype IN ('Range/mtn', 'Peninsula', 'Depression')"
+            " WHERE n.subtype = 'range/mtn'"
             "   AND ST_Intersects(a.geometry, n.geometry)"
         ),
         question_hints=[
             "what mountain ranges are in {anchor_name}?",
-            "terrain features of {anchor_name}",
             "which mountain ranges cross {anchor_name}?",
-            "landforms inside {anchor_name}",
-            "peninsulas and ranges in {anchor_name}",
-            "geographic features within {anchor_name}",
             "mountains of {anchor_name}",
-            "what terrain does {anchor_name} contain?",
+            "mountain regions in {anchor_name}",
+            "what hills are in {anchor_name}?",
+            "which hills cross {anchor_name}?",
+            "ghats of {anchor_name}",
+            "what ghats are in {anchor_name}?",
+            "highlands in {anchor_name}",
+            "mountain belts within {anchor_name}",
+        ],
+    ),
+
+    SQLTemplate(
+        template_id="adj_07",
+        family="adjacency",
+        sql_difficulty="medium",
+        anchor_source="divisions_area",
+        num_anchors=1,
+        target_subtype="plateau",
+        sql_template=(
+            "WITH a AS ("
+            "  SELECT geometry FROM read_parquet('divisions_area') WHERE id = '{anchor_id}'"
+            ")"
+            " SELECT n.id, n.names.\"primary\" AS name, n.subtype,"
+            "        ST_AsGeoJSON(n.geometry) AS geometry"
+            " FROM read_parquet('natural_earth') AS n, a"
+            " WHERE n.subtype = 'plateau'"
+            "   AND ST_Intersects(a.geometry, n.geometry)"
+        ),
+        question_hints=[
+            "what plateaus are in {anchor_name}?",
+            "which plateaus cross {anchor_name}?",
+            "uplands in {anchor_name}",
+            "what uplands are in {anchor_name}?",
+            "tablelands of {anchor_name}",
+            "plateau regions within {anchor_name}",
+            "show plateaus in {anchor_name}",
+            "find uplands of {anchor_name}",
+            "give me plateau areas in {anchor_name}",
+            "{anchor_name} plateaus and uplands",
+            "what tablelands are there in {anchor_name}?",
+        ],
+    ),
+
+    SQLTemplate(
+        template_id="adj_08",
+        family="adjacency",
+        sql_difficulty="medium",
+        anchor_source="divisions_area",
+        num_anchors=1,
+        target_subtype="landform",
+        sql_template=(
+            "WITH a AS ("
+            "  SELECT geometry FROM read_parquet('divisions_area') WHERE id = '{anchor_id}'"
+            ")"
+            " SELECT n.id, n.names.\"primary\" AS name, n.subtype,"
+            "        ST_AsGeoJSON(n.geometry) AS geometry"
+            " FROM read_parquet('natural_earth') AS n, a"
+            " WHERE n.subtype IN ('plain', 'lowland', 'basin', 'valley', 'depression', 'gorge')"
+            "   AND ST_Intersects(a.geometry, n.geometry)"
+        ),
+        question_hints=[
+            "what plains are in {anchor_name}?",
+            "basins and valleys of {anchor_name}",
+            "which basins are in {anchor_name}?",
+            "what valleys cross {anchor_name}?",
+            "lowlands in {anchor_name}",
+            "major landforms in {anchor_name}",
+            "plains, basins, and valleys within {anchor_name}",
+            "show me the main landforms in {anchor_name}",
+            "landforms of {anchor_name}",
+            "find plains and basins in {anchor_name}",
+            "{anchor_name} valleys and lowlands",
         ],
     ),
 
@@ -1449,6 +1733,13 @@ TEMPLATES = [
             "what provinces does the {anchor_name} span?",
             "regions along the {anchor_name}",
             "which provinces overlap the {anchor_name}?",
+            "which regions is the {anchor_name} in?",
+            "what states does the {anchor_name} run through?",
+            "which provinces lie along the {anchor_name}?",
+            "show regions crossed by the {anchor_name}",
+            "find administrative regions along the {anchor_name}",
+            "give me the regions touched by the {anchor_name}",
+            "regions of the {anchor_name}",
         ],
     ),
 
@@ -1475,6 +1766,45 @@ TEMPLATES = [
             "everything natural that touches {anchor_name}",
             "what geographic features does {anchor_name} contain?",
             "natural features within or crossing {anchor_name}",
+            "show natural features overlapping {anchor_name}",
+            "find the natural features in or across {anchor_name}",
+            "{anchor_name} intersecting natural features",
+            "what physical features are associated with {anchor_name}?",
+        ],
+    ),
+
+    SQLTemplate(
+        template_id="intersect_05",
+        family="intersection",
+        sql_difficulty="medium-hard",
+        anchor_source="natural_earth",
+        num_anchors=1,
+        target_subtype="county",
+        sql_template=(
+            "WITH a AS ("
+            "  SELECT geometry FROM read_parquet('natural_earth') WHERE id = '{anchor_id}'"
+            ")"
+            " SELECT b.id, b.names.\"primary\" AS name, b.subtype, b.country,"
+            "        ST_AsGeoJSON(b.geometry) AS geometry"
+            " FROM read_parquet('divisions_area') AS b, a"
+            " WHERE b.subtype = '{target_subtype}'"
+            "   AND ST_Intersects(b.geometry, a.geometry)"
+        ),
+        question_hints=[
+            "which districts does the {anchor_name} pass through?",
+            "what districts does the {anchor_name} cross?",
+            "districts intersected by the {anchor_name}",
+            "which counties does the {anchor_name} flow through?",
+            "what counties overlap the {anchor_name}?",
+            "districts along the {anchor_name}",
+            "which districts are crossed by the {anchor_name}?",
+            "what districts is the {anchor_name} in?",
+            "which counties lie along the {anchor_name}?",
+            "what districts does the {anchor_name} run through?",
+            "show districts crossed by the {anchor_name}",
+            "find counties along the {anchor_name}",
+            "give me the districts touched by the {anchor_name}",
+            "districts of the {anchor_name}",
         ],
     ),
 
@@ -1500,7 +1830,7 @@ TEMPLATES = [
             "   AND ST_Within(b.geometry, region.geometry)"
             "   AND EXISTS ("
             "     SELECT 1 FROM read_parquet('natural_earth') AS n"
-            "     WHERE n.subtype IN ('River', 'Lake', 'Basin')"
+            "     WHERE n.subtype IN ('river', 'lake', 'basin')"
             "       AND ST_Intersects(b.geometry, n.geometry)"
             "   )"
         ),
@@ -1512,6 +1842,10 @@ TEMPLATES = [
             "{target_subtype}s in {anchor_name} that touch a river",
             "which {target_subtype}s in {anchor_name} are on a lake?",
             "waterfront {target_subtype}s of {anchor_name}",
+            "show water-side {target_subtype}s in {anchor_name}",
+            "find {target_subtype}s of {anchor_name} by rivers or lakes",
+            "give me riverside places in {anchor_name}",
+            "{target_subtype}s of {anchor_name} on the water",
         ],
     ),
 
@@ -1533,7 +1867,7 @@ TEMPLATES = [
             "   AND ST_Within(b.geometry, region.geometry)"
             "   AND EXISTS ("
             "     SELECT 1 FROM read_parquet('natural_earth') AS n"
-            "     WHERE n.subtype IN ('Range/mtn', 'Depression')"
+            "     WHERE n.subtype IN ('range/mtn', 'depression')"
             "       AND ST_Intersects(b.geometry, n.geometry)"
             "   )"
         ),
@@ -1544,6 +1878,10 @@ TEMPLATES = [
             "highland {target_subtype}s within {anchor_name}",
             "{target_subtype}s of {anchor_name} in mountainous terrain",
             "{target_subtype}s in {anchor_name} near a mountain range",
+            "show mountain {target_subtype}s in {anchor_name}",
+            "find {target_subtype}s of {anchor_name} in hilly terrain",
+            "give me highland {target_subtype}s of {anchor_name}",
+            "{target_subtype}s of {anchor_name} by the mountains",
         ],
     ),
 
@@ -1581,6 +1919,10 @@ TEMPLATES = [
             "{target_subtype}s of {anchor_name} with ocean access",
             "which {target_subtype}s in {anchor_name} touch the sea?",
             "maritime {target_subtype}s of {anchor_name}",
+            "show coastal districts of {anchor_name}",
+            "find {target_subtype}s of {anchor_name} by the sea",
+            "give me shoreline {target_subtype}s in {anchor_name}",
+            "{target_subtype}s of {anchor_name} on the coast",
         ],
     ),
 
@@ -1613,6 +1955,10 @@ TEMPLATES = [
             "{target_subtype}s in {anchor_name} with no sea access",
             "non-coastal {target_subtype}s of {anchor_name}",
             "inland {target_subtype}s of {anchor_name}",
+            "show inland districts of {anchor_name}",
+            "find non-coastal {target_subtype}s in {anchor_name}",
+            "give me inner {target_subtype}s of {anchor_name}",
+            "{target_subtype}s of {anchor_name} away from the coast",
         ],
     ),
 
@@ -1634,7 +1980,7 @@ TEMPLATES = [
             "   AND ST_Within(b.geometry, region.geometry)"
             "   AND EXISTS ("
             "     SELECT 1 FROM read_parquet('natural_earth') AS n"
-            "     WHERE n.subtype IN ('River', 'Lake', 'Basin')"
+            "     WHERE n.subtype IN ('river', 'lake', 'basin')"
             "       AND ST_Intersects(b.geometry, n.geometry)"
             "   )"
         ),
@@ -1645,6 +1991,10 @@ TEMPLATES = [
             "lakeside {target_subtype}s within {anchor_name}",
             "{target_subtype}s of {anchor_name} along a river",
             "which {target_subtype}s in {anchor_name} border a lake?",
+            "show water-side {target_subtype}s of {anchor_name}",
+            "find {target_subtype}s in {anchor_name} near rivers and lakes",
+            "give me riverside districts of {anchor_name}",
+            "{target_subtype}s of {anchor_name} by the water",
         ],
     ),
 
@@ -1666,7 +2016,7 @@ TEMPLATES = [
             "   AND ST_Within(b.geometry, region.geometry)"
             "   AND EXISTS ("
             "     SELECT 1 FROM read_parquet('natural_earth') AS n"
-            "     WHERE n.subtype IN ('Range/mtn', 'Depression')"
+            "     WHERE n.subtype IN ('range/mtn', 'depression')"
             "       AND ST_Intersects(b.geometry, n.geometry)"
             "   )"
         ),
@@ -1677,6 +2027,10 @@ TEMPLATES = [
             "highland {target_subtype}s within {anchor_name}",
             "{target_subtype}s of {anchor_name} in mountainous terrain",
             "which {target_subtype}s in {anchor_name} have mountain ranges?",
+            "show mountain districts of {anchor_name}",
+            "find {target_subtype}s of {anchor_name} in hilly areas",
+            "give me highland {target_subtype}s in {anchor_name}",
+            "{target_subtype}s of {anchor_name} by the mountains",
         ],
     ),
 
@@ -1718,6 +2072,10 @@ TEMPLATES = [
             "seaside regions of {anchor_name}",
             "which provinces of {anchor_name} touch the sea?",
             "states of {anchor_name} along the coast",
+            "show coastal regions of {anchor_name}",
+            "find seaside states of {anchor_name}",
+            "give me provinces of {anchor_name} on the coast",
+            "{anchor_name} regions by the sea",
         ],
     ),
 
@@ -1752,6 +2110,10 @@ TEMPLATES = [
             "regions of {anchor_name} without sea access",
             "interior states of {anchor_name}",
             "states of {anchor_name} that don't border the ocean",
+            "show inland regions of {anchor_name}",
+            "find non-coastal states of {anchor_name}",
+            "give me inner provinces of {anchor_name}",
+            "{anchor_name} regions away from the sea",
         ],
     ),
 
@@ -1784,6 +2146,10 @@ TEMPLATES = [
             "which countries touch the {anchor_name}?",
             "countries with coastline on the {anchor_name}",
             "what nations lie on the {anchor_name}?",
+            "which countries are on the coast of the {anchor_name}?",
+            "what countries lie around the {anchor_name}?",
+            "which nations have shores on the {anchor_name}?",
+            "what countries front the {anchor_name}?",
         ],
     ),
 
@@ -1816,6 +2182,15 @@ TEMPLATES = [
             "everything within {buffer_km} km of the {anchor_name}",
             "what natural features are close to the {anchor_name}?",
             "{buffer_km} km radius around the {anchor_name}",
+            "what natural features are around the {anchor_name}?",
+            "what lies near the {anchor_name}?",
+            "which features are close to the {anchor_name}?",
+            "what natural features are near the shoreline of the {anchor_name}?",
+            "show nearby natural features for the {anchor_name}",
+            "find features around the {anchor_name}",
+            "give me natural features near the {anchor_name}",
+            "features around the {anchor_name}",
+            "what is close to the {anchor_name} within {buffer_km} km",
         ],
     ),
 

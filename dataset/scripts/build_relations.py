@@ -52,16 +52,19 @@ _CONTAINMENT_SUBTYPE_PAIRS = (
 _NE_CROSS_SOURCE_SUBTYPES = (
     "sea",
     "ocean",
-    "Lake",
-    "River",
-    "Basin",
+    "lake",
+    "river",
+    "basin",
     "gulf",
     "bay",
-    "Island group",
-    "Peninsula",
     "strait",
-    "Range/mtn",
-    "Depression",
+    "range/mtn",
+    "plateau",
+    "plain",
+    "lowland",
+    "valley",
+    "depression",
+    "gorge",
 )
 
 

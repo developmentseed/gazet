@@ -2,6 +2,17 @@ import json
 import re
 from typing import Any, Generator, Optional
 
+
+_CANDIDATE_PROMPT_COLS = [
+    "source",
+    "id",
+    "name",
+    "subtype",
+    "country",
+    "region",
+    "admin_level",
+]
+
 import duckdb
 import pandas as pd
 from shapely import wkb
@@ -88,11 +99,21 @@ _NE_SUBTYPE_FIXES = {
     "'Sea'": "'sea'",
 }
 
+_TERRAIN_AREA_PATTERN = re.compile(
+    r"n\.subtype\s*(=|IN\s*\()\s*'Terrain area'\s*\)?",
+    flags=re.IGNORECASE,
+)
+
 
 def _normalize_ne_subtypes(sql: str) -> str:
-    """Lowercase known NE subtype literals so they match the normalised data."""
+    """Lowercase known NE subtype literals and fix common terrain hallucinations."""
     for old, new in _NE_SUBTYPE_FIXES.items():
         sql = sql.replace(old, new)
+
+    sql = _TERRAIN_AREA_PATTERN.sub(
+        "n.subtype IN ('range/mtn', 'peninsula', 'depression')",
+        sql,
+    )
     return sql
 
 
@@ -189,7 +210,8 @@ def run_geo_sql_dspy(
         yield {"type": "result", "df": None, "sql": ""}
         return
 
-    candidates_str = candidates_df.to_string(index=False)
+    cols = [c for c in _CANDIDATE_PROMPT_COLS if c in candidates_df.columns]
+    candidates_str = candidates_df[cols].to_string(index=False)
     previous_sql = ""
     error = ""
 

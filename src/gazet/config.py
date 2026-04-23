@@ -80,7 +80,7 @@ Available DuckDB datasets (read via read_parquet):
    columns:
      id VARCHAR              -- unique feature id prefixed 'ne_'
      names STRUCT("primary" VARCHAR, ...)
-     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'Terrain area', 'Island group'
+     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'range/mtn', 'island group'
      class VARCHAR
      country VARCHAR
      region VARCHAR

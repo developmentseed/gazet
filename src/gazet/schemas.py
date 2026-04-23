@@ -292,10 +292,7 @@ COUNTRIES = Literal[
 
 class Place(BaseModel):
     place: str
-    country: Optional[COUNTRIES] = None
-    subtype: Optional[SUBTYPES] = None
 
 
 class PlacesResult(BaseModel):
     places: List[Place]
-    subtype: Optional[SUBTYPES] = None

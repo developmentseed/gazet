@@ -61,29 +61,30 @@ get_templates_by_family = sql_templates.get_templates_by_family
 
 
 _NE_NAMED_LOOKUP_SUBTYPES = {
-    'sea', 'ocean', 'Lake', 'River', 'Basin', 'gulf', 'bay',
-    'Island group', 'Peninsula', 'strait', 'Range/mtn', 'Depression',
+    'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay',
+    'island group', 'peninsula', 'strait', 'range/mtn', 'depression',
 }
 
 _NE_TEMPLATE_SUBTYPES = {
-    'lookup_02': {'sea', 'ocean', 'Lake', 'River', 'Basin', 'gulf', 'bay', 'Island group', 'Peninsula', 'strait', 'Range/mtn', 'Depression'},
+    'lookup_02': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'island group', 'peninsula', 'strait', 'range/mtn', 'depression'},
     'adj_03': {'sea', 'ocean'},
-    'adj_04': {'River', 'Lake', 'Basin'},
-    'adj_05': {'Range/mtn', 'Peninsula', 'Depression'},
-    'contain_03': {'sea', 'ocean', 'gulf', 'bay', 'Basin', 'Island group', 'Peninsula', 'Range/mtn', 'Depression'},
+    'adj_04': {'river', 'lake', 'basin'},
+    'adj_05': {'range/mtn', 'peninsula', 'depression'},
+    'contain_03': {'sea', 'ocean', 'gulf', 'bay', 'basin', 'island group', 'peninsula', 'range/mtn', 'depression'},
     'contain_04': {'sea', 'ocean', 'gulf', 'bay', 'strait'},
-    'intersect_02': {'River', 'Lake', 'Basin', 'gulf', 'bay', 'strait', 'Range/mtn', 'Peninsula', 'Depression'},
-    'intersect_03': {'River', 'Lake', 'Basin', 'gulf', 'bay', 'strait', 'Range/mtn', 'Peninsula', 'Depression'},
-    'buffer_03': {'sea', 'ocean', 'Lake', 'River', 'Basin', 'gulf', 'bay', 'Island group', 'Peninsula', 'strait', 'Range/mtn', 'Depression'},
-    'buffer_04': {'sea', 'ocean', 'Lake', 'River', 'Basin', 'gulf', 'bay', 'Island group', 'Peninsula', 'strait', 'Range/mtn', 'Depression'},
-    'buffer_05': {'sea', 'ocean', 'Lake', 'River', 'Basin', 'gulf', 'bay', 'Island group', 'Peninsula', 'strait', 'Range/mtn', 'Depression'},
-    'chained_03': {'Island group', 'Peninsula', 'Range/mtn', 'Depression'},
-    'chained_04': {'River', 'Lake', 'Basin'},
-    'chained_05': {'Range/mtn', 'Depression'},
-    'chained_08': {'River', 'Lake', 'Basin'},
-    'chained_09': {'Range/mtn', 'Depression'},
-    'partial_05': {'sea', 'ocean', 'Lake', 'River', 'Basin', 'gulf', 'bay', 'Island group', 'Peninsula', 'strait', 'Range/mtn', 'Depression'},
-    'diff_02': {'sea', 'ocean', 'Lake', 'River', 'Basin', 'gulf', 'bay', 'Island group', 'Peninsula', 'strait', 'Range/mtn', 'Depression'},
+    'intersect_02': {'river', 'lake', 'basin', 'gulf', 'bay', 'strait', 'range/mtn', 'peninsula', 'depression'},
+    'intersect_03': {'river', 'lake', 'basin', 'gulf', 'bay', 'strait', 'range/mtn', 'peninsula', 'depression'},
+    'intersect_05': {'river', 'lake', 'basin', 'gulf', 'bay', 'strait', 'range/mtn', 'peninsula', 'depression'},
+    'buffer_03': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'island group', 'peninsula', 'strait', 'range/mtn', 'depression'},
+    'buffer_04': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'island group', 'peninsula', 'strait', 'range/mtn', 'depression'},
+    'buffer_05': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'island group', 'peninsula', 'strait', 'range/mtn', 'depression'},
+    'chained_03': {'island group', 'peninsula', 'range/mtn', 'depression'},
+    'chained_04': {'river', 'lake', 'basin'},
+    'chained_05': {'range/mtn', 'depression'},
+    'chained_08': {'river', 'lake', 'basin'},
+    'chained_09': {'range/mtn', 'depression'},
+    'partial_05': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'island group', 'peninsula', 'strait', 'range/mtn', 'depression'},
+    'diff_02': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'island group', 'peninsula', 'strait', 'range/mtn', 'depression'},
 }
 
 
@@ -722,14 +723,17 @@ def generate_template_based_sample(
         anchor = {"id": pair["contained_id"], "name": pair["contained_name"]}
 
     elif template.family == "adjacency":
-        # adj_03/04/05 target natural_earth features (seas, rivers, ranges).
+        # adj_03/04/05/07/08 target natural_earth features (marine, water,
+        # mountain, plateau, and broad landform regions).
         # Their SQL hardcodes NE subtypes and does not use {target_subtype}.
         # Sample from cross_source_relations so the anchor is a division
         # that actually intersects the right NE features.
         _NE_ADJ_SUBTYPES = {
             "adj_03": ("ocean", "sea"),
-            "adj_04": ("River", "Lake", "Basin"),
-            "adj_05": ("Range/mtn", "Peninsula", "Depression"),
+            "adj_04": ("river", "lake", "basin"),
+            "adj_05": ("range/mtn",),
+            "adj_07": ("plateau",),
+            "adj_08": ("plain", "lowland", "basin", "valley", "depression", "gorge"),
         }
         if template.template_id in _NE_ADJ_SUBTYPES:
             cs_df = tables.get('cross_source_relations', pd.DataFrame())
@@ -1019,8 +1023,10 @@ def generate_template_based_sample(
     
     elif template.family == "buffer":
         # Buffer operations
-        # Kilometre distances used by buffer_01 and buffer_03 templates.
-        # Metre distances used by buffer_02 and buffer_04 templates.
+        # Kilometre distances used by km-based buffer templates (for example
+        # buffer_01, buffer_03, buffer_05, and buffer_06).
+        # Metre distances used by metre-based buffer templates (buffer_02 and
+        # buffer_04).
         # The template SQL divides by 111 320 to convert to degrees.
         _buffer_km_choices = [1, 2, 5, 10, 25, 50, 100, 200]
         _buffer_m_choices = [100, 250, 500, 1000, 2000, 5000]
@@ -1166,8 +1172,13 @@ def generate_template_based_sample(
             candidates = _merge_candidate_lists(div_cands, ne_cands, max_total=10)
     
     elif template.family == "aggregation":
-        top_n = random.choice([3, 5, 10])
+        # Teach the model to distinguish singular superlatives ("the largest")
+        # from explicit top-N requests ("top 5 largest").
+        top_n = random.choice([1, 3, 5, 10])
         target_subtype = random.choice(['locality', 'region'])
+        singular_hints = [h for h in template.question_hints if '{top_n}' not in h]
+        plural_hints = [h for h in template.question_hints if '{top_n}' in h]
+        question_hint_pool = singular_hints if top_n == 1 and singular_hints else plural_hints or template.question_hints
 
         if template.template_id in ['agg_03', 'agg_04']:
             # Country-level aggregation: SQL uses country code, so the anchor
@@ -1194,7 +1205,7 @@ def generate_template_based_sample(
                 num_candidates=10, difficulty="hard"
             )
 
-            question = random.choice(template.question_hints).format(
+            question = random.choice(question_hint_pool).format(
                 top_n=top_n,
                 target_subtype=target_subtype,
                 anchor_name=anchor['name'],
@@ -1216,7 +1227,7 @@ def generate_template_based_sample(
                 num_candidates=10, difficulty="hard"
             )
 
-            question = random.choice(template.question_hints).format(
+            question = random.choice(question_hint_pool).format(
                 top_n=top_n,
                 target_subtype=target_subtype,
                 anchor_name=anchor['container_name'],

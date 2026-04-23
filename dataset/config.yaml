@@ -19,11 +19,11 @@ countries:
 sample_targets:
   direct_lookup:      1000
   disambiguation:     2000   # 3 templates (disambiguate_01..03) - "Puri, Odisha" pattern
-  adjacency:          2000   # 6 templates (adj_01..06) - adj_06 is counties
+  adjacency:          2000   # 8 templates (adj_01..08) - adj_05/07/08 cover terrain queries, adj_06 is counties
   multi_adjacency:    1000
   containment:        2000   # 4 templates (contain_01..04) - contain_02 reversed, contain_03/04 NE anchor
-  intersection:       2000   # 4 templates (intersect_01..04) - intersect_02/03 NE anchor
-  buffer:             2000   # 5 templates (buffer_01..05)
+  intersection:       2000   # 5 templates (intersect_01..05) - intersect_02/03/05 include NE anchor patterns
+  buffer:             2000   # 6 templates (buffer_01..06)
   chained:            2000   # 11 templates (chained_01..11) - 10/11 are coastal/inland regions
   difference:         2000   # 2 templates, one is mixed (diff_02)
   border_corridor:    1000
