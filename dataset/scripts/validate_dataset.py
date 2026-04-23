@@ -44,8 +44,8 @@ def _resolve_paths(sql: str) -> str:
         "read_parquet('natural_earth')", f"read_parquet('{NATURAL_EARTH_PATH}')"
     )
     # Legacy fixed Docker paths from earlier dataset versions
-    sql = sql.replace("/data/overture/division_area/*.parquet",          DIVISIONS_AREA_PATH)
-    sql = sql.replace("/data/overture/divisions_area/*.parquet",         DIVISIONS_AREA_PATH)
+    sql = sql.replace("/data/overture/division_area/*.parquet", DIVISIONS_AREA_PATH)
+    sql = sql.replace("/data/overture/divisions_area/*.parquet", DIVISIONS_AREA_PATH)
     sql = sql.replace("/data/natural_earth_geoparquet/ne_geography.parquet", NATURAL_EARTH_PATH)
     return sql
 

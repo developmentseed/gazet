@@ -20,6 +20,20 @@ uv sync
 You need the Overture and Natural Earth parquet files under `data/` locally,
 or on a Modal volume if running in the cloud.
 
+Before large runs, normalize them once so both datasets use harmonized
+geometry metadata and cross-source joins behave the same locally and on Modal:
+
+```bash
+gazet-dataset normalize-data --config dataset/config.yaml
+```
+
+This writes:
+
+- `data/overture_normalized/divisions_area/part-000.parquet`
+- `data/natural_earth_normalized/ne_geography.parquet`
+
+When those files exist, `gazet.config` will prefer them automatically.
+
 ---
 
 ## Option A — Run locally (small datasets, development)
@@ -72,6 +86,14 @@ Modal uses two volumes:
 
 **Step 1 — One-time setup (only first time, or when source parquets change)**
 
+First normalize the source geodata locally:
+
+```bash
+gazet-dataset normalize-data --config dataset/config.yaml
+```
+
+Then upload `data/` to Modal:
+
 ```bash
 modal setup                                                # authenticate
 gazet-dataset modal-upload --config dataset/config.yaml    # ~15 min, uploads data/ to gazet-data volume
@@ -81,7 +103,7 @@ Verify:
 
 ```bash
 modal volume ls gazet-data
-# should show: overture/, natural_earth/, natural_earth_geoparquet/
+# should show: overture/, overture_normalized/, natural_earth_geoparquet/, natural_earth_normalized/
 ```
 
 Skip this step on subsequent runs — the volume persists across runs.
@@ -204,6 +226,23 @@ Change `run_name` and regenerate from scratch whenever you:
 
 For local runs, the default is a clean run. For Modal, `modal-generate` appends
 by default; pass `--fresh` to overwrite existing samples.
+
+---
+
+## Data quality checks
+
+After a run, spot-check the output with the pytest suite:
+
+```bash
+uv run --extra dev pytest dataset/tests/ -v
+```
+
+The suite reads `dataset/output/dataset_validated.jsonl` plus the exported
+`runs/{run_name}/*.jsonl` and verifies: schema, no unresolved `{placeholders}`
+in questions, candidate refs resolve, SQL shape, template coverage,
+subtype-filtered templates match their phrasing, disambiguation samples have
+same-name distractors, and exported assistant payloads parse as valid
+JSON / SQL. Tests skip gracefully when outputs are missing.
 
 ---
 

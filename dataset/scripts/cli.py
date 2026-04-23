@@ -110,6 +110,19 @@ def calculate_relation_limits(config: dict) -> Dict[str, int]:
     return relation_needs
 
 
+def normalize_data():
+    """Build normalized source parquet copies with harmonized geometry metadata."""
+    print("=" * 60)
+    print("STEP 0: Normalizing Source Geodata")
+    print("=" * 60)
+    from dataset.scripts.normalize_geodata import normalize_geodata
+
+    result = normalize_geodata()
+    for name, path in result.items():
+        print(f"  {name}: {path}")
+
+
+
 def build_relations(config_path: Path):
     """Run relation building with config."""
     config = load_config(config_path)
@@ -269,6 +282,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Normalize source geodata first (recommended before Modal upload)
+  python cli.py normalize-data --config ../config.yaml
+
   # Build relation tables only
   python cli.py build-relations --config ../config.yaml
   
@@ -296,7 +312,7 @@ Examples:
     
     parser.add_argument(
         'command',
-        choices=['build-relations', 'generate-samples', 'validate', 'export',
+        choices=['normalize-data', 'build-relations', 'generate-samples', 'validate', 'export',
                  'full-pipeline', 'modal-upload', 'modal-generate'],
         help='Command to run'
     )
@@ -348,7 +364,9 @@ Examples:
     
     # Run the appropriate command
     try:
-        if args.command == 'build-relations':
+        if args.command == 'normalize-data':
+            normalize_data()
+        elif args.command == 'build-relations':
             build_relations(args.config)
         elif args.command == 'generate-samples':
             generate_samples(args.config, args.append)

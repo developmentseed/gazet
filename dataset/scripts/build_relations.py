@@ -14,16 +14,55 @@ Output:
 - intermediate/cross_source_relations.parquet
 """
 
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
 import duckdb
 import pandas as pd
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from gazet.config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
 
 
 # Subtypes too granular for spatial self-joins at global scale
 _EXCLUDED_SUBTYPES_FOR_GLOBAL = ("locality", "neighborhood", "microhood", "macrohood")
+
+
+# (container_subtype, contained_subtype) combos used by the chained,
+# containment, and disambiguation templates. A naive self-join with
+# LIMIT fills up with coarse pairs (country -> region / county) first and
+# never emits locality-level pairs; stratifying by combo ensures each
+# template has anchors to draw from.
+_CONTAINMENT_SUBTYPE_PAIRS = (
+    ("country",    "region"),
+    ("country",    "county"),
+    ("country",    "localadmin"),
+    ("country",    "locality"),
+    ("region",     "county"),
+    ("region",     "localadmin"),
+    ("region",     "locality"),
+    ("county",     "locality"),
+    ("localadmin", "locality"),
+)
+
+
+# Natural Earth subtype vocabulary in the current GeoParquet.
+# Keep these exact strings in one place so relation building and templates
+# stay aligned with the underlying dataset.
+_NE_CROSS_SOURCE_SUBTYPES = (
+    "sea",
+    "ocean",
+    "Lake",
+    "River",
+    "Basin",
+    "gulf",
+    "bay",
+    "Island group",
+    "Peninsula",
+    "strait",
+    "Range/mtn",
+    "Depression",
+)
 
 
 def _country_filter(countries: list) -> tuple[str, list]:
@@ -44,6 +83,29 @@ def _country_filter_for_join(countries: list) -> tuple[str, list]:
     if countries == ["all"]:
         return f"WHERE 1=1 {subtype_clause}", []
     return f"WHERE country IN (SELECT unnest(?)) {subtype_clause}", [countries]
+
+
+def _country_chunks(
+    con: duckdb.DuckDBPyConnection,
+    countries: list,
+    chunk_size: int = 40,
+) -> list[list[str]]:
+    """Return explicit country batches for safer global containment joins."""
+    if countries != ["all"]:
+        return [countries]
+
+    rows = con.execute(
+        """
+        SELECT DISTINCT country
+        FROM read_parquet(?)
+        WHERE country IS NOT NULL
+          AND trim(country) != ''
+        ORDER BY country
+        """,
+        [DIVISIONS_AREA_PATH],
+    ).fetchall()
+    codes = [row[0] for row in rows]
+    return [codes[i:i + chunk_size] for i in range(0, len(codes), chunk_size)]
 
 
 def compute_adjacency_pairs(
@@ -95,50 +157,100 @@ def compute_adjacency_pairs(
     return df
 
 
+def _stratified_containment(
+    con: duckdb.DuckDBPyConnection,
+    countries: list,
+    limit: int,
+    relation_type: str,
+    extra_where: str = "",
+    extra_params: list = None,
+) -> pd.DataFrame:
+    """Compute containment pairs stratified by (container_subtype, contained_subtype).
+
+    A single global self-join with LIMIT fills up with coarse country->region
+    pairs before emitting any locality-level pairs. We run one focused query
+    per subtype combo instead so every combo receives a fair share of the
+    overall limit.
+
+    ``extra_where`` / ``extra_params`` let the coastal and landlocked variants
+    inject their country-set filter without duplicating the whole body.
+    """
+    extra_params = extra_params or []
+    # Use a lower target per subtype combo for global runs; they are the most
+    # memory-intensive part of the pipeline and don't need huge anchor tables.
+    if countries == ["all"]:
+        per_combo = min(max(limit // len(_CONTAINMENT_SUBTYPE_PAIRS), 100), 1500)
+    else:
+        per_combo = max(limit // len(_CONTAINMENT_SUBTYPE_PAIRS), 100)
+
+    country_batches = _country_chunks(con, countries)
+    frames: list[pd.DataFrame] = []
+    for container_st, contained_st in _CONTAINMENT_SUBTYPE_PAIRS:
+        remaining = per_combo
+        combo_parts: list[pd.DataFrame] = []
+
+        for batch in country_batches:
+            if remaining <= 0:
+                break
+
+            cfilter, cparams = _country_filter(batch)
+            query = f"""
+            WITH a AS (
+                SELECT src.id, src.names."primary" AS name, src.subtype, src.country, src.admin_level,
+                       src.geometry, ST_Envelope(src.geometry) AS bbox
+                FROM read_parquet(?) AS src
+                WHERE src.subtype = '{container_st}'
+                  {cfilter.replace("WHERE", "AND") if cfilter else ""}
+                  {extra_where}
+            ),
+            b AS (
+                SELECT dst.id, dst.names."primary" AS name, dst.subtype, dst.country, dst.admin_level,
+                       dst.geometry, ST_Envelope(dst.geometry) AS bbox
+                FROM read_parquet(?) AS dst
+                WHERE dst.subtype = '{contained_st}'
+                  {cfilter.replace("WHERE", "AND") if cfilter else ""}
+            )
+            SELECT
+                a.id AS container_id,
+                a.name AS container_name,
+                a.subtype AS container_subtype,
+                b.id AS contained_id,
+                b.name AS contained_name,
+                b.subtype AS contained_subtype,
+                a.country AS container_country,
+                '{relation_type}' AS relation_type
+            FROM a JOIN b ON (
+                a.id != b.id
+                AND ST_Intersects(a.bbox, b.bbox)
+                AND ST_Within(b.geometry, a.geometry)
+            )
+            LIMIT {remaining}
+            """
+            params = [DIVISIONS_AREA_PATH] + extra_params + cparams + [DIVISIONS_AREA_PATH] + cparams
+            df_part = con.execute(query, params).fetchdf()
+            if not df_part.empty:
+                combo_parts.append(df_part)
+                remaining -= len(df_part)
+
+        df_combo = (
+            pd.concat(combo_parts, ignore_index=True)
+            if combo_parts else pd.DataFrame()
+        )
+        print(f"  {relation_type} {container_st:>10s} -> {contained_st:<10s}: {len(df_combo)} pairs")
+        frames.append(df_combo)
+
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
 def compute_containment_pairs(
     con: duckdb.DuckDBPyConnection,
     countries: list,
     limit: int
 ) -> pd.DataFrame:
-    """Find all pairs where one feature contains another."""
-    print("\nComputing containment pairs (optimized)...")
-    
-    cfilter, cparams = _country_filter(countries)
-    
-    query = f"""
-    WITH features AS (
-        SELECT 
-            id,
-            names."primary" AS name,
-            subtype,
-            country,
-            admin_level,
-            geometry,
-            ST_Envelope(geometry) AS bbox
-        FROM read_parquet(?)
-        {cfilter}
-    )
-    SELECT 
-        a.id AS container_id,
-        a.name AS container_name,
-        a.subtype AS container_subtype,
-        b.id AS contained_id,
-        b.name AS contained_name,
-        b.subtype AS contained_subtype,
-        'containment' AS relation_type
-    FROM features AS a
-    JOIN features AS b ON (
-        a.id != b.id
-        AND a.admin_level < b.admin_level
-        AND ST_Intersects(a.bbox, b.bbox)
-        AND ST_Within(b.geometry, a.geometry)
-    )
-    LIMIT ?
-    """
-    
-    df = con.execute(query, [DIVISIONS_AREA_PATH] + cparams + [limit]).fetchdf()
+    """Find containment pairs stratified across admin-level combinations."""
+    print("\nComputing containment pairs (stratified by subtype combo)...")
+    df = _stratified_containment(con, countries, limit, relation_type="containment")
     print(f"Found {len(df)} containment pairs")
-    
     return df
 
 
@@ -198,60 +310,71 @@ def compute_cross_source_relations(
 ) -> pd.DataFrame:
     """Find relations between divisions_area and natural_earth.
 
-    Covers all natural_earth subtypes that appear in SQL templates:
-    seas/oceans (adjacency, buffer, chained), terrain areas and island
-    groups (chained_03, intersect_02, buffer_03/04).
+    The join is heavily skewed by a few abundant Natural Earth subtypes
+    (especially rivers and mountain ranges). We therefore stratify by exact
+    natural subtype so seas/oceans, gulfs/bays, island groups, and rarer
+    landforms all make it into the anchor pool.
     """
-    print("\nComputing cross-source relations...")
+    print("\nComputing cross-source relations (stratified by NE subtype)...")
 
     cfilter, cparams = _country_filter(countries)
+    per_subtype = max(limit // len(_NE_CROSS_SOURCE_SUBTYPES), 50)
 
-    query = f"""
-    WITH divisions AS (
-        SELECT
-            id,
-            names."primary" AS name,
-            subtype,
-            country,
-            geometry
-        FROM read_parquet(?)
-        {cfilter}
-    ),
-    natural_features AS (
-        SELECT
-            id,
-            names."primary" AS name,
-            subtype,
-            ST_SetCRS(geometry, 'OGC:CRS84') AS geometry
-        FROM read_parquet(?)
-        WHERE subtype IN (
-            'sea', 'ocean', 'Lake', 'River', 'Basin', 'gulf', 'bay',
-            'Terrain area', 'Island group', 'Peninsula', 'Strait',
-            'Reef', 'Range/Mts', 'Depression'
+    frames: list[pd.DataFrame] = []
+    for natural_subtype in _NE_CROSS_SOURCE_SUBTYPES:
+        query = f"""
+        WITH divisions AS (
+            SELECT
+                id,
+                names."primary" AS name,
+                subtype,
+                country,
+                geometry
+            FROM read_parquet(?)
+            WHERE geometry IS NOT NULL
+              AND names."primary" IS NOT NULL
+              AND trim(names."primary") != ''
+              {cfilter.replace("WHERE", "AND") if cfilter else ''}
+        ),
+        natural_features AS (
+            SELECT
+                id,
+                names."primary" AS name,
+                subtype,
+                geometry
+            FROM read_parquet(?)
+            WHERE geometry IS NOT NULL
+              AND names."primary" IS NOT NULL
+              AND trim(names."primary") != ''
+              AND subtype = '{natural_subtype}'
         )
-    )
-    SELECT
-        d.id AS division_id,
-        d.name AS division_name,
-        d.subtype AS division_subtype,
-        d.country AS division_country,
-        n.id AS natural_id,
-        n.name AS natural_name,
-        n.subtype AS natural_subtype,
-        CASE
-            WHEN ST_Touches(d.geometry, n.geometry) THEN 'touches'
-            WHEN ST_Within(d.geometry, n.geometry) THEN 'within'
-            WHEN ST_Contains(d.geometry, n.geometry) THEN 'contains'
-            WHEN ST_Intersects(d.geometry, n.geometry) THEN 'intersects'
-        END AS relation_type
-    FROM divisions AS d
-    JOIN natural_features AS n ON ST_Intersects(d.geometry, n.geometry)
-    LIMIT ?
-    """
+        SELECT
+            d.id AS division_id,
+            d.name AS division_name,
+            d.subtype AS division_subtype,
+            d.country AS division_country,
+            n.id AS natural_id,
+            n.name AS natural_name,
+            n.subtype AS natural_subtype,
+            CASE
+                WHEN ST_Touches(d.geometry, n.geometry) THEN 'touches'
+                WHEN ST_Within(d.geometry, n.geometry) THEN 'within'
+                WHEN ST_Contains(d.geometry, n.geometry) THEN 'contains'
+                WHEN ST_Intersects(d.geometry, n.geometry) THEN 'intersects'
+            END AS relation_type
+        FROM divisions AS d
+        JOIN natural_features AS n
+          ON ST_Intersects(d.geometry, n.geometry)
+        LIMIT {per_subtype}
+        """
+        df_part = con.execute(
+            query,
+            [DIVISIONS_AREA_PATH] + cparams + [NATURAL_EARTH_PATH],
+        ).fetchdf()
+        print(f"  cross_source {natural_subtype:>12s}: {len(df_part)} rows")
+        frames.append(df_part)
 
-    df = con.execute(
-        query, [DIVISIONS_AREA_PATH] + cparams + [NATURAL_EARTH_PATH, limit]
-    ).fetchdf()
+    df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
     print(f"Found {len(df)} cross-source relations")
     return df
 
@@ -261,64 +384,29 @@ def compute_coastal_containment_pairs(
     countries: list,
     limit: int,
 ) -> pd.DataFrame:
-    """Containment pairs where the container is in a coastal country.
+    """Stratified containment pairs limited to coastal-country containers.
 
-    Used by chained_01 (coastal towns of X) to ensure sampled containment
-    anchors actually have sea-adjacent sub-features, keeping the SQL
-    verification step from constantly returning empty results.
-
-    Strategy: find countries whose geometry intersects any ocean/sea in
-    natural_earth, then filter containment_pairs to those countries.
+    Used by chained_01 (coastal towns of X) so sampled anchors actually have
+    sea-adjacent sub-features. Stratification guarantees coverage of every
+    admin-level combination (country->locality, region->locality, etc.).
     """
-    print("\nComputing coastal containment pairs...")
-
-    cfilter, cparams = _country_filter(countries)
-
-    query = f"""
-    WITH coastal_countries AS (
-        SELECT DISTINCT d.country
-        FROM read_parquet(?) AS d
-        JOIN read_parquet(?) AS n
-          ON ST_Intersects(d.geometry, ST_SetCRS(n.geometry, 'OGC:CRS84'))
-        WHERE d.subtype = 'country'
-          AND n.subtype IN ('sea', 'ocean')
-    ),
-    features AS (
-        SELECT
-            id,
-            names."primary" AS name,
-            subtype,
-            country,
-            admin_level,
-            geometry,
-            ST_Envelope(geometry) AS bbox
-        FROM read_parquet(?)
-        {cfilter}
-    )
-    SELECT
-        a.id AS container_id,
-        a.name AS container_name,
-        a.subtype AS container_subtype,
-        b.id AS contained_id,
-        b.name AS contained_name,
-        b.subtype AS contained_subtype,
-        a.country AS container_country,
-        'coastal_containment' AS relation_type
-    FROM features AS a
-    JOIN features AS b ON (
-        a.id != b.id
-        AND a.admin_level < b.admin_level
-        AND ST_Intersects(a.bbox, b.bbox)
-        AND ST_Within(b.geometry, a.geometry)
-    )
-    WHERE a.country IN (SELECT country FROM coastal_countries)
-    LIMIT ?
+    print("\nComputing coastal containment pairs (stratified)...")
+    extra_where = f"""
+              AND EXISTS (
+                  SELECT 1
+                  FROM read_parquet('{NATURAL_EARTH_PATH}') AS n
+                  WHERE n.geometry IS NOT NULL
+                    AND n.names."primary" IS NOT NULL
+                    AND trim(n.names."primary") != ''
+                    AND n.subtype IN ('sea', 'ocean')
+                    AND ST_Intersects(src.geometry, n.geometry)
+              )
     """
-
-    df = con.execute(
-        query,
-        [DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH] + cparams + [DIVISIONS_AREA_PATH, limit],
-    ).fetchdf()
+    df = _stratified_containment(
+        con, countries, limit,
+        relation_type="coastal_containment",
+        extra_where=extra_where,
+    )
     print(f"Found {len(df)} coastal containment pairs")
     return df
 
@@ -328,61 +416,29 @@ def compute_landlocked_containment_pairs(
     countries: list,
     limit: int,
 ) -> pd.DataFrame:
-    """Containment pairs where the container is in a landlocked country.
+    """Stratified containment pairs limited to landlocked-country containers.
 
-    Used by chained_02 (landlocked regions within X) to ensure sampled
-    anchors genuinely have no sea access, keeping SQL verification from
-    always returning empty.
+    Used by chained_02 (landlocked localities within X). Stratification by
+    subtype combo ensures locality-level pairs are actually present in the
+    output instead of being starved by coarse country->region pairs.
     """
-    print("\nComputing landlocked containment pairs...")
-
-    cfilter, cparams = _country_filter(countries)
-
-    query = f"""
-    WITH coastal_countries AS (
-        SELECT DISTINCT d.country
-        FROM read_parquet(?) AS d
-        JOIN read_parquet(?) AS n
-          ON ST_Intersects(d.geometry, ST_SetCRS(n.geometry, 'OGC:CRS84'))
-        WHERE d.subtype = 'country'
-          AND n.subtype IN ('sea', 'ocean')
-    ),
-    features AS (
-        SELECT
-            id,
-            names."primary" AS name,
-            subtype,
-            country,
-            admin_level,
-            geometry,
-            ST_Envelope(geometry) AS bbox
-        FROM read_parquet(?)
-        {cfilter}
-    )
-    SELECT
-        a.id AS container_id,
-        a.name AS container_name,
-        a.subtype AS container_subtype,
-        b.id AS contained_id,
-        b.name AS contained_name,
-        b.subtype AS contained_subtype,
-        a.country AS container_country,
-        'landlocked_containment' AS relation_type
-    FROM features AS a
-    JOIN features AS b ON (
-        a.id != b.id
-        AND a.admin_level < b.admin_level
-        AND ST_Intersects(a.bbox, b.bbox)
-        AND ST_Within(b.geometry, a.geometry)
-    )
-    WHERE a.country NOT IN (SELECT country FROM coastal_countries)
-    LIMIT ?
+    print("\nComputing landlocked containment pairs (stratified)...")
+    extra_where = f"""
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM read_parquet('{NATURAL_EARTH_PATH}') AS n
+                  WHERE n.geometry IS NOT NULL
+                    AND n.names."primary" IS NOT NULL
+                    AND trim(n.names."primary") != ''
+                    AND n.subtype IN ('sea', 'ocean')
+                    AND ST_Intersects(src.geometry, n.geometry)
+              )
     """
-
-    df = con.execute(
-        query,
-        [DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH] + cparams + [DIVISIONS_AREA_PATH, limit],
-    ).fetchdf()
+    df = _stratified_containment(
+        con, countries, limit,
+        relation_type="landlocked_containment",
+        extra_where=extra_where,
+    )
     print(f"Found {len(df)} landlocked containment pairs")
     return df
 
@@ -411,6 +467,21 @@ def compute_common_neighbor_pairs(
         ])
 
     query = """
+    WITH undirected AS (
+        SELECT
+            anchor_id,
+            anchor_name,
+            target_id,
+            target_name
+        FROM read_parquet(?)
+        UNION ALL
+        SELECT
+            target_id AS anchor_id,
+            target_name AS anchor_name,
+            anchor_id AS target_id,
+            anchor_name AS target_name
+        FROM read_parquet(?)
+    )
     SELECT DISTINCT
         a1.anchor_id   AS anchor_id_1,
         a1.anchor_name AS anchor_name_1,
@@ -418,8 +489,8 @@ def compute_common_neighbor_pairs(
         a2.anchor_name AS anchor_name_2,
         a1.target_id   AS shared_neighbor_id,
         a1.target_name AS shared_neighbor_name
-    FROM read_parquet(?) AS a1
-    JOIN read_parquet(?) AS a2
+    FROM undirected AS a1
+    JOIN undirected AS a2
       ON a1.target_id = a2.target_id
      AND a1.anchor_id < a2.anchor_id
     LIMIT ?
@@ -435,9 +506,11 @@ def _make_connection():
     con = duckdb.connect()
     con.execute("INSTALL spatial")
     con.execute("LOAD spatial")
-    con.execute("SET memory_limit='24GB'")
+    memory_limit = os.environ.get("GAZET_DUCKDB_MEMORY_LIMIT", "12GB")
+    threads = int(os.environ.get("GAZET_DUCKDB_THREADS", "1"))
+    con.execute(f"SET memory_limit='{memory_limit}'")
     con.execute("SET temp_directory='/tmp/duckdb_tmp'")
-    con.execute("SET threads=4")
+    con.execute(f"SET threads={threads}")
     return con
 
 

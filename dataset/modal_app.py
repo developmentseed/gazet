@@ -24,7 +24,16 @@ image = (
         "pyarrow>=17.0.0",
         "pyyaml>=6.0",
     )
-    .env({"GAZET_DATA_DIR": VOLUME_MOUNT, "PYTHONPATH": "/root"})
+    .env(
+        {
+            "GAZET_DATA_DIR": VOLUME_MOUNT,
+            "PYTHONPATH": "/root",
+            # Spatial self-joins are much more stable with conservative
+            # DuckDB settings inside Modal containers.
+            "GAZET_DUCKDB_THREADS": "1",
+            "GAZET_DUCKDB_MEMORY_LIMIT": "20GB",
+        }
+    )
     .add_local_dir("src/gazet", "/root/gazet")
     .add_local_dir("dataset", "/root/dataset")
 )
@@ -50,9 +59,9 @@ def build_inventory_remote():
 @app.function(
     image=image,
     volumes={VOLUME_MOUNT: volume, INTERMEDIATE_MOUNT: intermediate_volume},
-    timeout=3600,
-    cpu=4,
-    memory=32768,
+    timeout=7200,
+    cpu=2,
+    memory=65536,
 )
 def build_relation_remote(relation_type: str, countries: list, limit: int):
     """Compute one relation type and save to intermediate volume."""
@@ -72,7 +81,7 @@ def build_relation_remote(relation_type: str, countries: list, limit: int):
 @app.function(
     image=image,
     volumes={VOLUME_MOUNT: volume, INTERMEDIATE_MOUNT: intermediate_volume},
-    timeout=3600,
+    timeout=7200,
     cpu=2,
     memory=4096,
 )
@@ -126,13 +135,40 @@ def run_pipeline(
 
         relation_needs = calculate_relation_limits(config)
 
-        handles = []
-        for rel_type, limit in relation_needs.items():
-            h = build_relation_remote.spawn(rel_type, countries, max(limit, 500))
-            handles.append((rel_type, h))
+        # Global containment-style relations are the most expensive and don't
+        # need extremely large anchor tables to support sample generation.
+        if countries == ["all"]:
+            for rel_type, cap in {
+                "containment": 12000,
+                "coastal_containment": 8000,
+                "landlocked_containment": 8000,
+            }.items():
+                if rel_type in relation_needs:
+                    relation_needs[rel_type] = min(relation_needs[rel_type], cap)
 
-        for rel_type, h in handles:
-            result = h.get()
+        # Spatial relation builds are the most crash-prone part of the Modal
+        # pipeline. Run them sequentially with conservative DuckDB settings
+        # rather than fanning out several large native spatial joins at once.
+        # common_neighbor still runs after adjacency because it depends on the
+        # adjacency parquet being committed first.
+        ordered_relations = [
+            rel_type
+            for rel_type in (
+                "adjacency",
+                "containment",
+                "intersection",
+                "cross_source",
+                "coastal_containment",
+                "landlocked_containment",
+                "common_neighbor",
+            )
+            if rel_type in relation_needs
+        ]
+
+        for rel_type in ordered_relations:
+            limit = max(relation_needs[rel_type], 500)
+            print(f"  building {rel_type} (limit={limit})...")
+            result = build_relation_remote.remote(rel_type, countries, limit)
             print(f"  {rel_type}: {result['count']} pairs")
 
     print(f"Generating samples across {n_containers} containers...")

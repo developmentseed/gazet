@@ -17,21 +17,21 @@ countries:
 # Bumped families with many templates or mixed-source variants so each
 # template_id gets enough coverage after uniform sampling + stratified split.
 sample_targets:
-  direct_lookup:       500
-  disambiguation:     1500   # 3 templates (disambiguate_01..03) - "Puri, Odisha" pattern
-  adjacency:          1800   # 6 templates (adj_01..06) - adj_06 is counties
-  multi_adjacency:     300
-  containment:        1200   # 4 templates (contain_01..04)
-  intersection:       1200   # 4 templates (intersect_01..04)
-  buffer:             1200   # 5 templates (buffer_01..05)
-  chained:            3300   # 11 templates (chained_01..11) - 10/11 are coastal/inland regions
-  difference:          900   # 2 templates, one is mixed (diff_02)
-  border_corridor:     300
-  set_operations:      900
-  partial_selection:  1500   # 5 templates, one is mixed (partial_05)
-  aggregation:         750
-  window_function:     300
-  attribute_filter:    600   # 3 templates (attr_01..03)
+  direct_lookup:      1000
+  disambiguation:     2000   # 3 templates (disambiguate_01..03) - "Puri, Odisha" pattern
+  adjacency:          2000   # 6 templates (adj_01..06) - adj_06 is counties
+  multi_adjacency:    1000
+  containment:        2000   # 4 templates (contain_01..04) - contain_02 reversed, contain_03/04 NE anchor
+  intersection:       2000   # 4 templates (intersect_01..04) - intersect_02/03 NE anchor
+  buffer:             2000   # 5 templates (buffer_01..05)
+  chained:            2000   # 11 templates (chained_01..11) - 10/11 are coastal/inland regions
+  difference:         2000   # 2 templates, one is mixed (diff_02)
+  border_corridor:    1000
+  set_operations:     2000
+  partial_selection:  2000   # 5 templates, one is mixed (partial_05)
+  aggregation:        1500
+  window_function:    1000
+  attribute_filter:   1000   # 3 templates (attr_01..03)
 
 # Generation settings
 generation:
@@ -58,7 +58,7 @@ modal:
   num_containers: 100               # Number of parallel containers for sample generation
   container_cpu: 2                  # CPUs per container
   container_memory: 4096            # Memory (MB) per container
-  timeout: 3600                     # Per-container timeout in seconds
+  timeout: 7200                     # Per-container timeout in seconds
 
 # Run name — used to version exported splits so re-runs never overwrite previous data.
 # Change this whenever you regenerate from scratch (e.g. after template changes).

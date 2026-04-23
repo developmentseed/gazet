@@ -1,0 +1,40 @@
+countries:
+  - BE
+  - CH
+  - AE
+
+sample_targets:
+  direct_lookup:       4
+  disambiguation:      6
+  adjacency:          12
+  multi_adjacency:     2
+  containment:         8
+  intersection:        8
+  buffer:             10
+  chained:            22
+  difference:          4
+  border_corridor:     2
+  set_operations:     10
+  partial_selection:  10
+  aggregation:         8
+  window_function:     4
+  attribute_filter:    6
+
+generation:
+  max_workers: 4
+  retry_multiplier: 2
+  append_mode: false
+
+auto_scaling:
+  safety_factor: 1.25
+  manual_limits: {}
+
+modal:
+  volume_name: "gazet-data"
+  app_name: "gazet-dataset"
+  num_containers: 10
+  container_cpu: 2
+  container_memory: 4096
+  timeout: 7200
+
+run_name: "smalltest-v1"

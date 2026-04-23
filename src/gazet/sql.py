@@ -74,6 +74,28 @@ def _rewrite_data_paths(sql: str) -> str:
     return sql
 
 
+# Title-cased NE subtype literals the trained model may emit.
+# Data is now fully lowercased, so we normalise at query time.
+_NE_SUBTYPE_FIXES = {
+    "'River'": "'river'",
+    "'Lake'": "'lake'",
+    "'Basin'": "'basin'",
+    "'Range/mtn'": "'range/mtn'",
+    "'Peninsula'": "'peninsula'",
+    "'Depression'": "'depression'",
+    "'Island group'": "'island group'",
+    "'Ocean'": "'ocean'",
+    "'Sea'": "'sea'",
+}
+
+
+def _normalize_ne_subtypes(sql: str) -> str:
+    """Lowercase known NE subtype literals so they match the normalised data."""
+    for old, new in _NE_SUBTYPE_FIXES.items():
+        sql = sql.replace(old, new)
+    return sql
+
+
 def _strip_fences(sql: Optional[str]) -> str:
     """Remove markdown code fences that the LM may wrap the SQL in."""
     if not sql:
@@ -143,6 +165,7 @@ def run_geo_sql_gguf(
         return
 
     sql = _rewrite_data_paths(sql)
+    sql = _normalize_ne_subtypes(sql)
     print(f"\n[SQL·GGUF] Generated:\n{sql}\n")
     yield {"type": "sql_attempt", "sql": sql, "iteration": 1}
     yield from _execute_sql(con, sql, "SQL·GGUF", iteration=1)
@@ -183,6 +206,8 @@ def run_geo_sql_dspy(
                 execution_error=error,
             )
             sql = _strip_fences(pred.sql)
+            sql = _rewrite_data_paths(sql)
+            sql = _normalize_ne_subtypes(sql)
         except Exception as exc:
             error = f"LM generation failed: {exc}"
             print(f"Generation error: {error}")

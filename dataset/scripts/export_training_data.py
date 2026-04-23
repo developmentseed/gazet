@@ -124,7 +124,7 @@ You have access to two DuckDB parquet tables. Given a set of candidate entities 
      id VARCHAR              -- unique feature id prefixed 'ne_'
      names STRUCT("primary" VARCHAR, ...)
      country VARCHAR
-     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'Terrain area', 'Island group'
+     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'Range/mtn', 'Island group'
      class VARCHAR
      region VARCHAR
      admin_level INTEGER

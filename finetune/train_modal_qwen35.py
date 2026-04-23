@@ -101,7 +101,7 @@ class Qwen35Config:
     # Logging / saving
     logging_steps: int = 10
     save_strategy: str = "steps"
-    save_steps: int = 400
+    save_steps: int = 1000
     eval_strategy: str = "steps"
     eval_steps: int = 200
     report_to: str = "trackio"

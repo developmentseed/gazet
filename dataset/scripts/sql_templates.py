@@ -293,7 +293,7 @@ TEMPLATES = [
             "        ST_AsGeoJSON(n.geometry) AS geometry"
             " FROM read_parquet('natural_earth') AS n, a"
             " WHERE n.subtype IN ('ocean', 'sea')"
-            "   AND ST_Touches(a.geometry, n.geometry)"
+            "   AND ST_Intersects(a.geometry, n.geometry)"
         ),
         question_hints=[
             "which seas touch {anchor_name}?",
@@ -679,7 +679,7 @@ TEMPLATES = [
         sql_difficulty="hard",
         anchor_source="divisions_area",
         num_anchors=1,
-        target_subtype="country",
+        target_subtype="locality",
         sql_template=(
             "WITH region AS ("
             "  SELECT geometry FROM read_parquet('divisions_area') WHERE id = '{anchor_id}'"
@@ -723,7 +723,7 @@ TEMPLATES = [
             "   AND ST_Within(b.geometry, region.geometry)"
             "   AND EXISTS ("
             "     SELECT 1 FROM read_parquet('natural_earth') AS n"
-            "     WHERE n.subtype IN ('Terrain area', 'Island group', 'Peninsula')"
+            "     WHERE n.subtype IN ('Range/mtn', 'Island group', 'Peninsula', 'Depression')"
             "       AND ST_Intersects(b.geometry, n.geometry)"
             "   )"
         ),
@@ -1301,12 +1301,12 @@ TEMPLATES = [
             "   AND subtype = '{target_subtype}'"
         ),
         question_hints=[
-            "island territories of {anchor_name}",
-            "overseas island {target_subtype}s belonging to {anchor_name}",
-            "which islands are part of {anchor_name}?",
-            "land territories of {anchor_name}",
-            "island possessions of {anchor_name}",
-            "{anchor_name}'s island {target_subtype}s",
+            "land {target_subtype}s of {anchor_name}",
+            "dependencies of {anchor_name} that are on land",
+            "which land dependencies belong to {anchor_name}?",
+            "{anchor_name}'s land {target_subtype}s",
+            "dependencies of {anchor_name} with land area",
+            "show the land dependencies of {anchor_name}",
         ],
     ),
 
@@ -1339,20 +1339,20 @@ TEMPLATES = [
         sql_difficulty="medium",
         anchor_source="divisions_area",
         num_anchors=1,
-        target_subtype="locality",
+        target_subtype="region",
         sql_template=(
             "SELECT id, names.\"primary\" AS name, subtype, country,"
             "       ST_AsGeoJSON(geometry) AS geometry"
             " FROM read_parquet('divisions_area')"
             " WHERE country = '{country}'"
             "   AND subtype = '{target_subtype}'"
-            "   AND is_land = TRUE"
+            "   AND is_land = FALSE"
         ),
         question_hints=[
-            "land-based {target_subtype}s of {anchor_name}",
-            "{target_subtype}s on the mainland of {anchor_name}",
-            "all {target_subtype}s on land in {anchor_name}",
-            "non-island {target_subtype}s of {anchor_name}",
+            "offshore {target_subtype}s of {anchor_name}",
+            "{target_subtype}s of {anchor_name} that are not on land",
+            "water-associated {target_subtype}s of {anchor_name}",
+            "marine or offshore {target_subtype}s of {anchor_name}",
         ],
     ),
 
@@ -1403,7 +1403,7 @@ TEMPLATES = [
             " SELECT n.id, n.names.\"primary\" AS name, n.subtype,"
             "        ST_AsGeoJSON(n.geometry) AS geometry"
             " FROM read_parquet('natural_earth') AS n, a"
-            " WHERE n.subtype IN ('Range/Mts', 'Terrain area', 'Peninsula', 'Depression')"
+            " WHERE n.subtype IN ('Range/mtn', 'Peninsula', 'Depression')"
             "   AND ST_Intersects(a.geometry, n.geometry)"
         ),
         question_hints=[
@@ -1533,7 +1533,7 @@ TEMPLATES = [
             "   AND ST_Within(b.geometry, region.geometry)"
             "   AND EXISTS ("
             "     SELECT 1 FROM read_parquet('natural_earth') AS n"
-            "     WHERE n.subtype IN ('Range/Mts', 'Depression')"
+            "     WHERE n.subtype IN ('Range/mtn', 'Depression')"
             "       AND ST_Intersects(b.geometry, n.geometry)"
             "   )"
         ),
@@ -1666,7 +1666,7 @@ TEMPLATES = [
             "   AND ST_Within(b.geometry, region.geometry)"
             "   AND EXISTS ("
             "     SELECT 1 FROM read_parquet('natural_earth') AS n"
-            "     WHERE n.subtype IN ('Range/Mts', 'Depression')"
+            "     WHERE n.subtype IN ('Range/mtn', 'Depression')"
             "       AND ST_Intersects(b.geometry, n.geometry)"
             "   )"
         ),
