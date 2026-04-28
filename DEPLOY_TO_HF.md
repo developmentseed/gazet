@@ -5,7 +5,15 @@ This guide covers pushing the model and geodata to Hugging Face Hub and deployin
 ## Prerequisites
 
 - Hugging Face account with write access to `developmentseed` organization
+- HF CLI installed: `uvx hf` or `pip install hf` or `brew install hf`
 - HF access token: `hf auth login`
+
+```bash
+# Install HF CLI (choose one)
+pip install hf
+brew install hf
+uvx hf  # run without installing
+```
 
 ---
 
@@ -48,7 +56,9 @@ The HF Spaces Dockerfile expects the model at `models/ckpt-001.gguf`.
 
 ## 2. Push Geodata to Hugging Face
 
-Upload the normalized geodata copies to avoid downloading large files during HF Spaces build.
+Upload only the normalized geodata copies. The app uses `gazet.config` which automatically prefers normalized data when present.
+
+> **Important**: Only upload normalized data to HF. Don't upload the original `overture/` or `natural_earth_geoparquet/` directories. This keeps the HF repo small and reduces download time during Space builds.
 
 ### Prepare normalized data
 
@@ -57,6 +67,18 @@ Ensure normalized data exists locally:
 ```bash
 data/overture_normalized/divisions_area/*.parquet
 data/natural_earth_normalized/ne_geography.parquet
+```
+
+If not, create them from the original data:
+
+```bash
+# Create normalized directories
+mkdir -p data/overture_normalized/divisions_area
+mkdir -p data/natural_earth_normalized
+
+# Copy and normalize
+cp data/overture/divisions_area/*.parquet data/overture_normalized/divisions_area/
+cp data/natural_earth_geoparquet/ne_geography.parquet data/natural_earth_normalized/
 ```
 
 ### Upload dataset
@@ -77,7 +99,7 @@ hf upload developmentseed/gazet-geodata \
     --commit-message "Upload Natural Earth normalized data"
 ```
 
-The repo structure will match the app's expected layout:
+The HF repo will only contain:
 
 ```
 gazet-geodata/
@@ -87,6 +109,8 @@ gazet-geodata/
 └── natural_earth_normalized/
     └── ne_geography.parquet
 ```
+
+This keeps the repo size minimal - only what's needed for deployment.
 
 ---
 
@@ -192,7 +216,7 @@ hf download developmentseed/gazet-model \
     /models/ckpt-001.gguf \
     --local-dir models
 
-# Download geodata from HF
+# Download geodata from HF (only normalized data is downloaded)
 hf download developmentseed/gazet-geodata \
     --repo-type dataset \
     --local-dir data

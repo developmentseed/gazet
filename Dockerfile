@@ -35,7 +35,7 @@ RUN uv sync --frozen --extra demo
 # Download model from HF
 RUN uv run python -c "\
 from huggingface_hub import hf_hub_download; \
-hf_hub_download('developmentseed/gazet-model', 'ckpt-001.gguf', local_dir='models')"
+hf_hub_download('developmentseed/gazet-model', 'models/ckpt-001.gguf', local_dir='.')"
 
 # Download geodata from HF (repo structure matches app's expected layout)
 RUN uv run python -c "\
