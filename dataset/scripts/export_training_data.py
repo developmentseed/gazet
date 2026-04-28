@@ -7,8 +7,8 @@ Produces two task datasets from the same source samples:
 2. Place extraction (prompt = question only, completion = PlacesResult JSON)
 
 Place extraction pairs are derived automatically: for each SQL sample the
-selected_candidates give us the correct place names, subtypes, and country
-codes that the extractor should return.
+selected_candidates give us the correct place names that the extractor should
+return.
 
 Output layout (all paths relative to dataset/):
     output/runs/{run_name}/sql/train.jsonl
@@ -65,21 +65,26 @@ def stratified_split(
     val_ratio: float = 0.1,
     seed: int = 42,
 ) -> Tuple[List[Dict], List[Dict], List[Dict]]:
-    """Split stratified by task_family so every family is represented in each split."""
+    """Split stratified by template_id so every template is represented in each split.
+
+    Stratifying by task_family let rare template variants (e.g. partial_05,
+    diff_02) land entirely in train and never appear in val/test.
+    """
     random.seed(seed)
-    by_family: Dict[str, List] = defaultdict(list)
+    by_tpl: Dict[str, List] = defaultdict(list)
     for s in samples:
-        by_family[s["metadata"]["task_family"]].append(s)
+        key = s["metadata"].get("template_id") or s["metadata"].get("task_family", "unknown")
+        by_tpl[key].append(s)
 
     train, val, test = [], [], []
-    for family_samples in by_family.values():
-        random.shuffle(family_samples)
-        n = len(family_samples)
+    for tpl_samples in by_tpl.values():
+        random.shuffle(tpl_samples)
+        n = len(tpl_samples)
         n_train = int(n * train_ratio)
         n_val = int(n * val_ratio)
-        train.extend(family_samples[:n_train])
-        val.extend(family_samples[n_train : n_train + n_val])
-        test.extend(family_samples[n_train + n_val :])
+        train.extend(tpl_samples[:n_train])
+        val.extend(tpl_samples[n_train : n_train + n_val])
+        test.extend(tpl_samples[n_train + n_val :])
 
     random.shuffle(train)
     random.shuffle(val)
@@ -119,7 +124,7 @@ You have access to two DuckDB parquet tables. Given a set of candidate entities 
      id VARCHAR              -- unique feature id prefixed 'ne_'
      names STRUCT("primary" VARCHAR, ...)
      country VARCHAR
-     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'Terrain area', 'Island group'
+     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'range/mtn', 'island group'
      class VARCHAR
      region VARCHAR
      admin_level INTEGER
@@ -134,7 +139,7 @@ Use ST_AsGeoJSON(geometry) for all geometry outputs."""
 
 _CANDIDATES_COLS = [
     "source", "id", "name", "subtype", "country", "region",
-    "admin_level", "similarity",
+    "admin_level",
 ]
 
 
@@ -201,47 +206,77 @@ def sample_to_sql_pair(sample: Dict[str, Any]) -> Optional[Dict]:
 # Derived from the same SQL samples: selected_candidates → PlacesResult JSON.
 # ---------------------------------------------------------------------------
 
-_PLACE_SYSTEM = """You are a geographic entity extractor. Extract place names from the user query and return valid JSON only.
+_PLACE_SYSTEM = """You are a geographic entity extractor. Extract the place names the user is asking about and return valid JSON only.
 
 OUTPUT FORMAT:
-{"places": [{"place": "<name>", "country": "<ISO-2>", "subtype": "<subtype>"}]}
-"country" and "subtype" are optional; omit if not applicable.
+{"places": [{"place": "<name>"}]}
 
 RULES:
-- Only extract places explicitly mentioned. Never infer or expand (e.g. "states of India" -> extract "India" only).
+- Extract the place or places that are the actual anchors of the query.
+- Physical features are valid places: oceans, seas, gulfs, bays, straits, rivers, lakes, basins, mountain ranges, peninsulas, island groups, deserts, and terrain regions.
+- When a place is followed by its containing region, state, or country as disambiguation context ("Puri, Odisha", "Lisboa, Portugal", "Goa, India", "Manchester in US"), extract ONLY the specific place. Do not return the container as a separate place.
+- When a query names two or more distinct anchors joined by words like "and", "both", "between", or mixes an admin area with a physical feature as separate anchors, extract every anchor in the order they appear.
+- Do not infer or expand category nouns like "regions", "districts", "counties", "rivers", or "mountains" when they refer to a type rather than a specific named place ("regions of India" -> extract "India" only).
+- Only extract places explicitly mentioned.
 - No duplicate place names.
-- "country": ISO 3166-1 alpha-2. Include only if explicitly mentioned or unambiguous.
-- "subtype": include only when the geographic level is clear from the query.
 
-SUBTYPES:
-country, dependency, region, county, localadmin, locality, macrohood, neighborhood, microhood
-- Default to locality for cities/towns; omit for physical features (oceans, rivers, mountains)."""
+EXAMPLES:
+Query: "Puri, Odisha"
+-> {"places": [{"place": "Puri"}]}
 
-# Overture division subtypes — used to filter out natural_earth candidates
-# from the place extraction output (NE features don't have these subtypes).
-_DIVISION_SUBTYPES = {
-    "country", "region", "dependency", "county", "localadmin",
-    "locality", "macrohood", "neighborhood", "microhood",
-}
+Query: "Lisboa, Portugal"
+-> {"places": [{"place": "Lisboa"}]}
+
+Query: "Goa, India"
+-> {"places": [{"place": "Goa"}]}
+
+Query: "Manchester in US"
+-> {"places": [{"place": "Manchester"}]}
+
+Query: "Springfield, Illinois"
+-> {"places": [{"place": "Springfield"}]}
+
+Query: "coastal districts of Brazil"
+-> {"places": [{"place": "Brazil"}]}
+
+Query: "northern half of India"
+-> {"places": [{"place": "India"}]}
+
+Query: "what's within 50 km of Paris?"
+-> {"places": [{"place": "Paris"}]}
+
+Query: "countries the Nile crosses"
+-> {"places": [{"place": "Nile"}]}
+
+Query: "which countries touch the Gulf of Maine"
+-> {"places": [{"place": "Gulf of Maine"}]}
+
+Query: "10 km buffer around Odisha"
+-> {"places": [{"place": "Odisha"}]}
+
+Query: "part of Ecuador in the Amazon basin"
+-> {"places": [{"place": "Ecuador"}, {"place": "Amazon basin"}]}
+
+Query: "Amazon basin inside Ecuador"
+-> {"places": [{"place": "Amazon basin"}, {"place": "Ecuador"}]}
+
+Query: "the part of Chad in Lake Chad"
+-> {"places": [{"place": "Chad"}, {"place": "Lake Chad"}]}
+
+Query: "which regions border both France and Germany?"
+-> {"places": [{"place": "France"}, {"place": "Germany"}]}
+
+Query: "merge Nairobi and Mombasa"
+-> {"places": [{"place": "Nairobi"}, {"place": "Mombasa"}]}"""
 
 
 def _candidate_to_place(c: Dict) -> Optional[Dict]:
-    """Convert a selected candidate to a Place dict for PlacesResult."""
+    """Convert a selected candidate to a minimal Place dict for PlacesResult."""
     name = c.get("name", "").strip()
     if not name:
         return None
 
-    place: Dict[str, Any] = {"place": name}
-
-    subtype = c.get("subtype", "")
-    if subtype in _DIVISION_SUBTYPES:
-        place["subtype"] = subtype
-
-    country = c.get("country", "")
-    if country and len(country) == 2:
-        place["country"] = country
-
-    return place
+    return {"place": name}
 
 
 def sample_to_place_pair(sample: Dict[str, Any]) -> Optional[Dict]:
@@ -250,7 +285,7 @@ def sample_to_place_pair(sample: Dict[str, Any]) -> Optional[Dict]:
     Uses selected_candidates to determine the correct PlacesResult output.
     Skips samples where no valid places can be derived.
     """
-    selected_ids = set(sample.get("target", {}).get("selected_candidates", []))
+    selected_ids = sample.get("target", {}).get("selected_candidates", [])
     if not selected_ids:
         return None
 

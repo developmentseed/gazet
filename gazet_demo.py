@@ -68,24 +68,58 @@ def view_state_for_bbox(bbox, padding_zoom=0.8):
     return pdk.ViewState(latitude=lat, longitude=lng, zoom=zoom)
 
 
+def _has_line_geometries(features):
+    """Return True if features are predominantly line/point (non-polygon) geometries."""
+    line_types = {"LineString", "MultiLineString", "Point", "MultiPoint"}
+    count = sum(
+        1 for f in features
+        if f.get("geometry", {}).get("type") in line_types
+    )
+    return count > len(features) / 2
+
+
 def _render_map(geojson, placeholder):
-    n = len(geojson.get("features", []))
+    features = geojson.get("features", [])
+    n = len(features)
     if pdk and n:
+        is_linear = _has_line_geometries(features)
         layer = pdk.Layer(
             "GeoJsonLayer",
             data=geojson,
-            get_fill_color=[40, 180, 160, 200],
-            get_line_color=[125, 211, 192, 255],
-            get_line_width=2,
+            stroked=True,
+            filled=not is_linear,
+            get_fill_color=[40, 180, 160, 120],
+            get_line_color=[0, 140, 255, 255] if is_linear else [10, 50, 46, 255],
+            get_line_width=500 if is_linear else 80,
+            line_width_min_pixels=2 if is_linear else 1,
             pickable=True,
         )
-        bbox = bbox_from_geojson(geojson)
-        view = (
-            view_state_for_bbox(bbox)
-            if bbox
-            else pdk.ViewState(latitude=0, longitude=0, zoom=1)
-        )
         with placeholder.container():
+            selected_idx = None
+            if n > 1:
+                names = [
+                    f.get("properties", {}).get("name", f"Feature {i}")
+                    for i, f in enumerate(features)
+                ]
+                choice = st.selectbox(
+                    "Zoom to feature",
+                    ["All features"] + names,
+                    key="feature_zoom",
+                )
+                if choice != "All features":
+                    selected_idx = names.index(choice)
+
+            if selected_idx is not None:
+                single = {"type": "FeatureCollection", "features": [features[selected_idx]]}
+                bbox = bbox_from_geojson(single)
+            else:
+                bbox = bbox_from_geojson(geojson)
+
+            view = (
+                view_state_for_bbox(bbox)
+                if bbox
+                else pdk.ViewState(latitude=0, longitude=0, zoom=1)
+            )
             st.pydeck_chart(
                 pdk.Deck(
                     layers=[layer],
@@ -93,7 +127,7 @@ def _render_map(geojson, placeholder):
                     map_style=None,
                     tooltip={"text": "{name}"},
                 ),
-                use_container_width=True,
+                width="stretch",
                 height=500,
             )
     elif n:
@@ -103,31 +137,41 @@ def _render_map(geojson, placeholder):
 
 API = os.environ.get("GAZET_API_URL", "http://127.0.0.1:8000")
 EXAMPLES = [
-    "Angola and Mozambique",
-    "Mediterranean Sea",
-    "A 0.01 degree buffer around the border between Loja and Piura",
-    "The part of Ecuador that is in the Amazon Basin",
-    "The northern half of India",
+    "Odisha, India",
+    "Neighbouring states of Odisha",
+    "Odisha excluding Cuttack",
+    "Coastal districts of Odisha",
+    "1 km buffer along the border of Odisha and West Bengal",
+    "Western half of Odisha",
+    "Rivers flowing through Odisha",
+    "Districts along the Indravati river",
 ]
 
 st.set_page_config(page_title="Gazet", page_icon="🌍", layout="wide")
+st.markdown("""<style>
+[data-testid="stBaseButton-tertiary"] {
+    border: 1px dashed rgba(128,128,128,0.3) !important;
+    border-radius: 8px !important;
+    padding: 0.3rem 0.7rem !important;
+    transition: all 0.15s ease !important;
+}
+[data-testid="stBaseButton-tertiary"]:hover {
+    background: rgba(40,180,160,0.1) !important;
+    border: 1px solid rgb(40,180,160) !important;
+}
+</style>""", unsafe_allow_html=True)
 
 st.title("Gazet")
-st.caption("Natural-language geo search · click an example or type your own")
+st.caption(
+    "/ask plain english to geometry"
+)
 
-backend = st.sidebar.radio(
-    "SQL Backend",
-    ["gguf", "dspy"],
-    index=0,
-    format_func=lambda x: "⚡ GGUF (llama-server)" if x == "gguf" else "🧠 DSPy (cloud LM)",
-)
-st.sidebar.caption(
-    "**gguf** → finetuned Qwen3.5 via llama-server\n\n"
-    "**dspy** → Ollama / cloud LM with retry loop"
-)
+backend = "gguf"
 
 if "run_q" not in st.session_state:
     st.session_state.run_q = None
+if "last_result" not in st.session_state:
+    st.session_state.last_result = None
 
 col1, col2 = st.columns([1, 2])
 with col1:
@@ -142,14 +186,16 @@ with col1:
         search_clicked = st.button("Go!", type="primary")
     if search_clicked and q:
         st.session_state.run_q = q
+    st.caption("Click an example to get started ->")
     for ex in EXAMPLES:
-        if st.button(ex, key=ex):
+        if st.button(ex, key=ex, type="tertiary"):
             st.session_state.run_q = ex
 
 with col2:
     to_run = st.session_state.run_q
     if to_run:
         st.session_state.run_q = None
+        st.session_state.last_result = None
 
         status_ph = st.empty()
         map_ph = st.empty()
@@ -158,6 +204,8 @@ with col2:
         sql_ph = st.empty()
 
         status_ph.info("Extracting places…")
+
+        result = {"query": to_run, "places": None, "candidates": None, "sql": None, "geojson": None}
 
         try:
             with requests.get(
@@ -173,6 +221,7 @@ with col2:
 
                     if t == "places":
                         places = event["data"].get("places", [])
+                        result["places"] = places
                         status_ph.info("Fuzzy-matching candidates…")
                         if places:
                             with places_ph.container():
@@ -187,22 +236,24 @@ with col2:
                                                 "subtype": "Subtype",
                                             }
                                         ),
-                                        use_container_width=True,
+                                        width="stretch",
                                         hide_index=True,
                                     )
 
                     elif t == "candidates":
+                        result["candidates"] = event["data"]
                         status_ph.info("Generating SQL…")
                         with candidates_ph.container():
                             with st.expander("Candidate datasets", expanded=True):
                                 st.dataframe(
                                     pd.DataFrame(event["data"]),
-                                    use_container_width=True,
+                                    width="stretch",
                                     hide_index=True,
                                 )
 
                     elif t == "sql_attempt":
                         iteration = event.get("iteration", "")
+                        result["sql"] = event["data"]
                         status_ph.info(f"Running SQL (attempt {iteration})…")
                         with sql_ph.container():
                             with st.expander("SQL", expanded=True):
@@ -216,6 +267,7 @@ with col2:
 
                     elif t == "geojson":
                         geojson = event["data"]
+                        result["geojson"] = geojson
                         n = len(geojson.get("features", []))
                         status_ph.success(f"**{to_run}** → {n} feature(s)")
                         _render_map(geojson, map_ph)
@@ -227,3 +279,31 @@ with col2:
             status_ph.error(
                 f"API error: {e}. Is the API running? `uv run uvicorn gazet.api:app --reload`"
             )
+
+        st.session_state.last_result = result
+
+    elif st.session_state.last_result:
+        result = st.session_state.last_result
+        query = result["query"]
+        n_feat = len((result["geojson"] or {}).get("features", []))
+        st.success(f"**{query}** -> {n_feat} feature(s)")
+        _render_map(result["geojson"], st.empty())
+        if result["places"]:
+            with st.expander("Extracted place names"):
+                st.dataframe(
+                    pd.DataFrame(result["places"]).rename(
+                        columns={"place": "Place", "country": "Country", "subtype": "Subtype"}
+                    ),
+                    width="stretch",
+                    hide_index=True,
+                )
+        if result["candidates"]:
+            with st.expander("Candidate datasets"):
+                st.dataframe(
+                    pd.DataFrame(result["candidates"]),
+                    width="stretch",
+                    hide_index=True,
+                )
+        if result["sql"]:
+            with st.expander("SQL"):
+                st.code(result["sql"], language="sql")

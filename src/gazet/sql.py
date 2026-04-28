@@ -2,6 +2,17 @@ import json
 import re
 from typing import Any, Generator, Optional
 
+
+_CANDIDATE_PROMPT_COLS = [
+    "source",
+    "id",
+    "name",
+    "subtype",
+    "country",
+    "region",
+    "admin_level",
+]
+
 import duckdb
 import pandas as pd
 from shapely import wkb
@@ -70,6 +81,38 @@ def _rewrite_data_paths(sql: str) -> str:
     )
     sql = sql.replace(
         "read_parquet('natural_earth')", f"read_parquet('{NATURAL_EARTH_PATH}')"
+    )
+    return sql
+
+
+# Title-cased NE subtype literals the trained model may emit.
+# Data is now fully lowercased, so we normalise at query time.
+_NE_SUBTYPE_FIXES = {
+    "'River'": "'river'",
+    "'Lake'": "'lake'",
+    "'Basin'": "'basin'",
+    "'Range/mtn'": "'range/mtn'",
+    "'Peninsula'": "'peninsula'",
+    "'Depression'": "'depression'",
+    "'Island group'": "'island group'",
+    "'Ocean'": "'ocean'",
+    "'Sea'": "'sea'",
+}
+
+_TERRAIN_AREA_PATTERN = re.compile(
+    r"n\.subtype\s*(=|IN\s*\()\s*'Terrain area'\s*\)?",
+    flags=re.IGNORECASE,
+)
+
+
+def _normalize_ne_subtypes(sql: str) -> str:
+    """Lowercase known NE subtype literals and fix common terrain hallucinations."""
+    for old, new in _NE_SUBTYPE_FIXES.items():
+        sql = sql.replace(old, new)
+
+    sql = _TERRAIN_AREA_PATTERN.sub(
+        "n.subtype IN ('range/mtn', 'peninsula', 'depression')",
+        sql,
     )
     return sql
 
@@ -143,6 +186,7 @@ def run_geo_sql_gguf(
         return
 
     sql = _rewrite_data_paths(sql)
+    sql = _normalize_ne_subtypes(sql)
     print(f"\n[SQL·GGUF] Generated:\n{sql}\n")
     yield {"type": "sql_attempt", "sql": sql, "iteration": 1}
     yield from _execute_sql(con, sql, "SQL·GGUF", iteration=1)
@@ -166,7 +210,8 @@ def run_geo_sql_dspy(
         yield {"type": "result", "df": None, "sql": ""}
         return
 
-    candidates_str = candidates_df.to_string(index=False)
+    cols = [c for c in _CANDIDATE_PROMPT_COLS if c in candidates_df.columns]
+    candidates_str = candidates_df[cols].to_string(index=False)
     previous_sql = ""
     error = ""
 
@@ -183,6 +228,8 @@ def run_geo_sql_dspy(
                 execution_error=error,
             )
             sql = _strip_fences(pred.sql)
+            sql = _rewrite_data_paths(sql)
+            sql = _normalize_ne_subtypes(sql)
         except Exception as exc:
             error = f"LM generation failed: {exc}"
             print(f"Generation error: {error}")

@@ -16,6 +16,8 @@ import pydeck as pdk
 import sqlparse
 import streamlit as st
 
+from gazet.config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
+
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA_DIR = pathlib.Path(
     os.environ.get("GAZET_DATA_DIR", str(PROJECT_ROOT / "data"))
@@ -31,13 +33,17 @@ def load_eval_results(path):
 
 
 def rewrite_data_paths(sql):
-    """Replace symbolic and legacy paths with actual local data paths."""
-    # Legacy fixed Docker paths must be replaced first to avoid double-expansion
+    """Replace symbolic and legacy paths with the configured runtime data paths."""
+    # Legacy fixed Docker paths must be replaced first to avoid double-expansion.
+    sql = sql.replace("/data/overture/division_area/*.parquet", DIVISIONS_AREA_PATH)
+    sql = sql.replace("/data/overture/divisions_area/*.parquet", DIVISIONS_AREA_PATH)
+    sql = sql.replace(
+        "/data/natural_earth_geoparquet/ne_geography.parquet",
+        NATURAL_EARTH_PATH,
+    )
     sql = sql.replace("/data/", f"{DATA_DIR}/")
-    div_path = str(DATA_DIR / "overture" / "divisions_area" / "*.parquet")
-    ne_path = str(DATA_DIR / "natural_earth_geoparquet" / "ne_geography.parquet")
-    sql = sql.replace("read_parquet('divisions_area')", f"read_parquet('{div_path}')")
-    sql = sql.replace("read_parquet('natural_earth')", f"read_parquet('{ne_path}')")
+    sql = sql.replace("read_parquet('divisions_area')", f"read_parquet('{DIVISIONS_AREA_PATH}')")
+    sql = sql.replace("read_parquet('natural_earth')", f"read_parquet('{NATURAL_EARTH_PATH}')")
     return sql
 
 

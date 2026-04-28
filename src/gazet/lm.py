@@ -31,8 +31,6 @@ class ExtractPlaces(dspy.Signature):
     - If the user mentions a natural earth physical feature, use the natural earth physical features.
     - If the user mentions a place name that is not in the overture divisions or natural earth physical features, return the place name as is.
 
-    Where possible and relevant, also extract the ISO country code for each place.
-
     Only extract place names that are explicitly mentioned in the query.
     Do NOT generate or infer place names from your own knowledge.
     For example:
@@ -41,47 +39,14 @@ class ExtractPlaces(dspy.Signature):
     - "neighbouring states of Odisha" -> extract "Odisha", NOT neighbouring state names
 
     Do not repeat the same place name in the result.
-
-    If the user does not explicitly mention a country, dont add the country code to the result.
-
-    If the user does not mention an admin level, dont add the subtype to the result.
-
-    If the query asks for some kind of subdivision (e.g. 'municipalities in Bern', 'States in Brazil'),
-    return the subdivision type in the places result.
-
-    When identifying a place name from the user's query, also infer the most appropriate
-    Overture division subtype from the list below. Only include a subtype if the query
-    makes it reasonably clear what geographic level is intended. If ambiguous, omit it.
-
-    SUBTYPES:
-    - country      : Sovereign nation. E.g. "France", "Brazil"
-    - dependency   : Territory dependent on a country but not a full sub-region. E.g. "Puerto Rico", "Guam"
-    - region       : Largest admin unit within a country; state, province, canton, etc. E.g. "California", "Alberta", "Bavaria"
-    - county       : Second-level admin subdivision within a region. E.g. "Kings County", "Kent"
-    - localadmin   : A governing layer (common in Europe) that contains localities which have no authority of their own. E.g. a French commune or Belgian municipality. Use when the place is clearly an admin unit but not a city itself.
-    - locality     : A populated place — city, town, village. The most common subtype for named settlements. E.g. "Lisbon", "Taipei", "Salt Lake City"
-    - macrohood    : A large super-neighborhood grouping smaller neighborhoods. E.g. "BoCoCa" in Brooklyn
-    - neighborhood : A named community area within a city or town. E.g. "Cobble Hill", "Alfama"
-    - microhood    : A mini-neighborhood within a neighborhood. Very fine-grained, rarely referenced explicitly.
-
-    HIERARCHY (coarse to fine):
-    country → dependency / region → county → localadmin → locality → macrohood → neighborhood → microhood
-
-    GUIDANCE:
-    - "Paris" with no qualifier → locality
-    - "Île-de-France" or "Catalonia" → region
-    - "the 11th arrondissement" → neighborhood (or localadmin)
-    - "Greater London" style phrasing → county or region depending on context
-    - If the user says "neighborhood in X" or "district of X" → neighborhood
-    - Default to locality for any named city/town if unsure
-    - Omit subtype entirely if the query gives no signal (e.g. bare coordinates or a POI name)
+    Return only the place names, in the order they appear in the query.
     """
 
     query: str = dspy.InputField(
         desc="Natural language query mentioning one or more place names"
     )
     result: PlacesResult = dspy.OutputField(
-        desc="Extracted places with optional country codes and optional subtype"
+        desc="Extracted place names in query order"
     )
 
 
@@ -203,7 +168,7 @@ You have access to two DuckDB parquet tables. Given a set of candidate entities 
      id VARCHAR              -- unique feature id prefixed 'ne_'
      names STRUCT("primary" VARCHAR, ...)
      country VARCHAR
-     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'Terrain area', 'Island group'
+     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'range/mtn', 'island group'
      class VARCHAR
      region VARCHAR
      admin_level INTEGER
@@ -265,21 +230,68 @@ def _llama_chat_complete(messages: list[dict]) -> str:
     return resp.json()["choices"][0]["message"]["content"]
 
 
-_PLACES_SYSTEM_PROMPT = """You are a geographic entity extractor. Extract place names from the user query and return valid JSON only.
+_PLACES_SYSTEM_PROMPT = """You are a geographic entity extractor. Extract the place names the user is asking about and return valid JSON only.
 
 OUTPUT FORMAT:
-{"places": [{"place": "<name>", "country": "<ISO-2>", "subtype": "<subtype>"}]}
-"country" and "subtype" are optional; omit if not applicable.
+{"places": [{"place": "<name>"}]}
 
 RULES:
-- Only extract places explicitly mentioned. Never infer or expand (e.g. "states of India" -> extract "India" only).
+- Extract the place or places that are the actual anchors of the query.
+- Physical features are valid places: oceans, seas, gulfs, bays, straits, rivers, lakes, basins, mountain ranges, peninsulas, island groups, deserts, and terrain regions.
+- When a place is followed by its containing region, state, or country as disambiguation context ("Puri, Odisha", "Lisboa, Portugal", "Goa, India", "Manchester in US"), extract ONLY the specific place. Do not return the container as a separate place.
+- When a query names two or more distinct anchors joined by words like "and", "both", "between", or mixes an admin area with a physical feature as separate anchors, extract every anchor in the order they appear.
+- Do not infer or expand category nouns like "regions", "districts", "counties", "rivers", or "mountains" when they refer to a type rather than a specific named place ("regions of India" -> extract "India" only).
+- Only extract places explicitly mentioned.
 - No duplicate place names.
-- "country": ISO 3166-1 alpha-2. Include only if explicitly mentioned or unambiguous.
-- "subtype": include only when the geographic level is clear from the query.
 
-SUBTYPES:
-country, dependency, region, county, localadmin, locality, macrohood, neighborhood, microhood
-- Default to locality for cities/towns; omit for physical features (oceans, rivers, mountains)."""
+EXAMPLES:
+Query: "Puri, Odisha"
+-> {"places": [{"place": "Puri"}]}
+
+Query: "Lisboa, Portugal"
+-> {"places": [{"place": "Lisboa"}]}
+
+Query: "Goa, India"
+-> {"places": [{"place": "Goa"}]}
+
+Query: "Manchester in US"
+-> {"places": [{"place": "Manchester"}]}
+
+Query: "Springfield, Illinois"
+-> {"places": [{"place": "Springfield"}]}
+
+Query: "coastal districts of Brazil"
+-> {"places": [{"place": "Brazil"}]}
+
+Query: "northern half of India"
+-> {"places": [{"place": "India"}]}
+
+Query: "what's within 50 km of Paris?"
+-> {"places": [{"place": "Paris"}]}
+
+Query: "countries the Nile crosses"
+-> {"places": [{"place": "Nile"}]}
+
+Query: "which countries touch the Gulf of Maine"
+-> {"places": [{"place": "Gulf of Maine"}]}
+
+Query: "10 km buffer around Odisha"
+-> {"places": [{"place": "Odisha"}]}
+
+Query: "part of Ecuador in the Amazon basin"
+-> {"places": [{"place": "Ecuador"}, {"place": "Amazon basin"}]}
+
+Query: "Amazon basin inside Ecuador"
+-> {"places": [{"place": "Amazon basin"}, {"place": "Ecuador"}]}
+
+Query: "the part of Chad in Lake Chad"
+-> {"places": [{"place": "Chad"}, {"place": "Lake Chad"}]}
+
+Query: "which regions border both France and Germany?"
+-> {"places": [{"place": "France"}, {"place": "Germany"}]}
+
+Query: "merge Nairobi and Mombasa"
+-> {"places": [{"place": "Nairobi"}, {"place": "Mombasa"}]}"""
 
 
 def generate_places(user_query: str) -> PlacesResult:
@@ -318,7 +330,7 @@ def generate_sql(user_query: str, candidates_df: pd.DataFrame) -> str:
     Single-shot — no retry loop (the finetuned model can't improve from error feedback).
     """
     # Keep only columns the model was trained on
-    keep_cols = ["source", "id", "name", "subtype", "country", "region", "admin_level", "similarity"]
+    keep_cols = ["source", "id", "name", "subtype", "country", "region", "admin_level"]
     cols = [c for c in keep_cols if c in candidates_df.columns]
     candidates_csv = candidates_df[cols].to_csv(index=False)
 

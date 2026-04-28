@@ -37,10 +37,11 @@ def build_divisions_area_inventory(con: duckdb.DuckDBPyConnection) -> pd.DataFra
         ST_XMax(geometry) AS xmax,
         ST_YMax(geometry) AS ymax
     FROM read_parquet(?)
-    WHERE names."primary" IS NOT NULL 
+    WHERE names."primary" IS NOT NULL
       AND trim(names."primary") != ''
+      AND geometry IS NOT NULL
     """
-    
+
     df = con.execute(query, [DIVISIONS_AREA_PATH]).fetchdf()
     print(f"Divisions area inventory: {len(df)} entities")
     print(f"Subtypes: {df['subtype'].value_counts().to_dict()}")
@@ -69,10 +70,11 @@ def build_natural_earth_inventory(con: duckdb.DuckDBPyConnection) -> pd.DataFram
         ST_XMax(geometry) AS xmax,
         ST_YMax(geometry) AS ymax
     FROM read_parquet(?)
-    WHERE names."primary" IS NOT NULL 
+    WHERE names."primary" IS NOT NULL
       AND trim(names."primary") != ''
+      AND geometry IS NOT NULL
     """
-    
+
     df = con.execute(query, [NATURAL_EARTH_PATH]).fetchdf()
     print(f"\nNatural earth inventory: {len(df)} entities")
     print(f"Subtypes: {df['subtype'].value_counts().to_dict()}")

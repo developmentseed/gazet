@@ -20,6 +20,20 @@ uv sync
 You need the Overture and Natural Earth parquet files under `data/` locally,
 or on a Modal volume if running in the cloud.
 
+Before large runs, normalize them once so both datasets use harmonized
+geometry metadata and cross-source joins behave the same locally and on Modal:
+
+```bash
+gazet-dataset normalize-data --config dataset/config.yaml
+```
+
+This writes:
+
+- `data/overture_normalized/divisions_area/part-000.parquet`
+- `data/natural_earth_normalized/ne_geography.parquet`
+
+When those files exist, `gazet.config` will prefer them automatically.
+
 ---
 
 ## Option A — Run locally (small datasets, development)
@@ -63,41 +77,98 @@ gazet-dataset export           --config dataset/config.yaml  # <1 min
 Use this when you need 10 K+ samples or want to use all countries. Modal
 distributes generation across many containers in parallel.
 
-**Step 1 — One-time setup**
+Modal uses two volumes:
+
+- `gazet-data` — read-only source parquets (Overture + Natural Earth). Populated
+  once by `modal-upload`.
+- `gazet-intermediate` — entity inventories and relation tables built by the
+  pipeline. Regenerated on each run.
+
+**Step 1 — One-time setup (only first time, or when source parquets change)**
+
+First normalize the source geodata locally:
 
 ```bash
-modal setup   # authenticate with Modal (one time)
-gazet-dataset modal-upload --config dataset/config.yaml   # upload parquet data to Modal volume
+gazet-dataset normalize-data --config dataset/config.yaml
 ```
+
+Then upload `data/` to Modal:
+
+```bash
+modal setup                                                # authenticate
+gazet-dataset modal-upload --config dataset/config.yaml    # ~15 min, uploads data/ to gazet-data volume
+```
+
+Verify:
+
+```bash
+modal volume ls gazet-data
+# should show: overture/, overture_normalized/, natural_earth_geoparquet/, natural_earth_normalized/
+```
+
+Skip this step on subsequent runs — the volume persists across runs.
 
 **Step 2 — Set run name and targets in `config.yaml`**
 
 ```yaml
-run_name: "v1"
+run_name: "v2"   # bump this every time you regenerate from scratch
 
 countries:
   - all
 
 sample_targets:
-  adjacency:     1250
-  containment:   1250
+  adjacency:     1500
+  containment:   1200
   # ... see config.yaml for all families
 ```
 
 **Step 3 — Run on Modal**
 
 ```bash
-gazet-dataset modal-generate --config dataset/config.yaml
+gazet-dataset modal-generate --config dataset/config.yaml --fresh
 ```
 
-This builds relations, generates samples, validates, and exports — same as
-`full-pipeline` but distributed across 100 cloud containers.
+This builds inventories + relations, generates samples across ~100 containers,
+validates, and exports. Output lands in `dataset/output/runs/{run_name}/`.
 
-If relations are already built from a previous run (same countries, same
-template version), skip rebuilding them:
+Flags:
+
+- `--fresh` overwrites `dataset/output/dataset_raw.jsonl` instead of appending.
+- `--skip-inventory` reuses `{divisions_area,natural_earth}_inventory.parquet`
+  on the intermediate volume.
+- `--skip-relations` reuses the seven `*_pairs.parquet` / `*_relations.parquet`
+  files on the intermediate volume. Only safe when countries and template
+  families are unchanged.
+
+### Fresh-start recipe (after template / SQL / prompt changes)
+
+Always clear stale state so nothing from the previous run leaks in:
 
 ```bash
-gazet-dataset modal-generate --config dataset/config.yaml --skip-relations
+# 1. Bump run_name in config.yaml (e.g. v1 -> v2)
+
+# 2. Wipe the intermediate volume so inventories and relations are rebuilt
+modal volume ls gazet-intermediate
+# for each file shown:
+modal volume rm gazet-intermediate <filename>
+
+# 3. Remove local raw/validated files so nothing gets appended to
+rm -f dataset/output/dataset_raw.jsonl dataset/output/dataset_validated.jsonl
+
+# 4. Run the full pipeline
+gazet-dataset modal-generate --config dataset/config.yaml --fresh
+```
+
+You do NOT need to re-run `modal-upload` — source parquets on `gazet-data`
+don't change.
+
+### Faster iteration (same templates, just more samples)
+
+If relations + inventories are still valid from a previous run:
+
+```bash
+gazet-dataset modal-generate --config dataset/config.yaml \
+  --skip-inventory --skip-relations --fresh
 ```
 
 ---
@@ -155,6 +226,23 @@ Change `run_name` and regenerate from scratch whenever you:
 
 For local runs, the default is a clean run. For Modal, `modal-generate` appends
 by default; pass `--fresh` to overwrite existing samples.
+
+---
+
+## Data quality checks
+
+After a run, spot-check the output with the pytest suite:
+
+```bash
+uv run --extra dev pytest dataset/tests/ -v
+```
+
+The suite reads `dataset/output/dataset_validated.jsonl` plus the exported
+`runs/{run_name}/*.jsonl` and verifies: schema, no unresolved `{placeholders}`
+in questions, candidate refs resolve, SQL shape, template coverage,
+subtype-filtered templates match their phrasing, disambiguation samples have
+same-name distractors, and exported assistant payloads parse as valid
+JSON / SQL. Tests skip gracefully when outputs are missing.
 
 ---
 

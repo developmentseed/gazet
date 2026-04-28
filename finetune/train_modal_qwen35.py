@@ -101,9 +101,9 @@ class Qwen35Config:
     # Logging / saving
     logging_steps: int = 10
     save_strategy: str = "steps"
-    save_steps: int = 400
+    save_steps: int = 2000
     eval_strategy: str = "steps"
-    eval_steps: int = 200
+    eval_steps: int = 500
     report_to: str = "trackio"
     trackio_space_id: Optional[str] = "srmsoumya/gazet-trackio"
     project: str = "gazet-nlg-qwen35"

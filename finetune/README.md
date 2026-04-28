@@ -26,7 +26,7 @@ SQL samples are long (schema + candidates + SQL), places samples are short.
 
 ```bash
 modal run finetune/check_token_lengths.py
-modal run finetune/check_token_lengths.py --run-dir /mnt/gazet/data/v1
+modal run finetune/check_token_lengths.py --run-dir /mnt/gazet/data/smalltest-v1
 ```
 
 This prints per-split statistics (min, max, P95, P99) and recommends a
@@ -66,7 +66,7 @@ overridden, `lora_alpha` is automatically set to `2 * r`.
 
 ```
 base_model:       unsloth/Qwen3.5-0.8B
-run_dir:          /mnt/gazet/data/v1
+run_dir:          /mnt/gazet/data/v1   # override to your exported run, e.g. /mnt/gazet/data/smalltest-v1
 lora_r:           16
 lora_alpha:       32       (2 * r, Unsloth recommendation for Qwen)
 lora_dropout:     0.0
@@ -106,19 +106,19 @@ for local inference with llama-server.
 
 ```bash
 # Download from Modal volume
-modal volume get gazet checkpoints/qwen35-v1/merged ./finetune/models/merged
+modal volume get gazet checkpoints/qwen35-v1/merged ./finetune/models/qwen35-v1-merged
 
 # Convert to GGUF (requires llama.cpp repo)
-uv run \ 
+uv run \
     --no-project \
     --with transformers \
     --with sentencepiece \
     --with protobuf \
     --with torch \
     python convert_hf_to_gguf.py \
-    ../gazet/finetune/models/qwen-base/merged \
+    ./finetune/models/qwen35-v1-merged \
     --outtype q8_0 \
-    --outfile ../gazet/finetune/models/qwen-base/ckpt-001.gguf
+    --outfile ./finetune/models/qwen35-v1-q8_0.gguf
 ```
 
 ---
@@ -129,7 +129,7 @@ uv run \
 
 ```bash
 llama-server \
-    -m finetune/models/qwen-base/ckpt-001.gguf \
+    -m finetune/models/qwen35-v1-q8_0.gguf \
     -ngl 99 \
     --port 9000 \
     --ctx-size 2048
@@ -151,7 +151,7 @@ docker run \
     -v $(pwd)/finetune/models:/models \
     -p 9000:9000 \
     ghcr.io/ggml-org/llama.cpp:server \
-        -m /models/qwen-base/ckpt-001.gguf \
+        -m /models/qwen35-v1-q8_0.gguf \
         --port 9000 --host 0.0.0.0 \
         --ctx-size 2048 -t 2 -v
 ```
@@ -211,7 +211,7 @@ All batch CLI args:
 | `--label` | `local-gguf` | Label used in the output filename |
 | `--task` | `sql` | `sql` or `places` |
 | `--split` | `val` | Data split to evaluate (`val`, `test`) |
-| `--run-dir` | `dataset/output/runs/v1` | Directory with `{task}/{split}.jsonl` |
+| `--run-dir` | `dataset/output/runs/v1` | Directory with `{task}/{split}.jsonl`; override to your exported run, e.g. `dataset/output/runs/smalltest-v1` |
 | `--max-samples` | all | Cap the number of samples |
 | `--output` | `eval-{label}-{task}.json` | Output JSON path |
 | `--workers` | `4` | Concurrent requests; match llama-server `--parallel` |
@@ -250,6 +250,20 @@ GAZET_EVAL_DIR=/path/to/results streamlit run finetune/eval_demo.py
 ```
 
 Set `GAZET_DATA_DIR` if your parquet data is not in the default `data/` directory.
+This only affects the visual SQL viewer (`eval_demo.py`), which executes SQL
+against DuckDB; `eval_cli.py` does not read parquet files directly.
+
+The eval viewer resolves parquet paths through `gazet.config`, which now
+prefers normalized copies automatically when present:
+
+- `data/overture_normalized/divisions_area/*.parquet`
+- `data/natural_earth_normalized/ne_geography.parquet`
+
+Disable that fallback only if needed with:
+
+```bash
+GAZET_USE_NORMALIZED_DATA=0 streamlit run finetune/eval_demo.py
+```
 
 ---
 
@@ -287,5 +301,9 @@ loss is computed only on the completion tokens.
 
 SQL in the training data uses symbolic path placeholders
 (`read_parquet('divisions_area')`) instead of real file paths. At inference
-time, `src/gazet/sql.py` replaces these with actual runtime paths before
-executing against DuckDB.
+and eval time, `src/gazet/sql.py` / `finetune/eval_demo.py` replace these with
+actual runtime paths before executing against DuckDB. When normalized parquet
+copies are present, `gazet.config` prefers:
+
+- `data/overture_normalized/divisions_area/*.parquet`
+- `data/natural_earth_normalized/ne_geography.parquet`

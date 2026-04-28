@@ -107,7 +107,7 @@ def _load_shapefile(src: pathlib.Path, source_key: str) -> gpd.GeoDataFrame:
 
     # subtype: featurecla or source key
     if "featurecla" in gdf.columns:
-        subtype = gdf["featurecla"]
+        subtype = gdf["featurecla"].str.lower()
     else:
         subtype = pd.Series([source_key] * n)
 

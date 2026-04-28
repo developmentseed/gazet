@@ -6,8 +6,33 @@ import pathlib
 _DATA_DIR = pathlib.Path(os.environ.get("GAZET_DATA_DIR", str(
     pathlib.Path(__file__).resolve().parent.parent.parent / "data"
 )))
-DIVISIONS_AREA_PATH = str(_DATA_DIR / "overture/divisions_area/*.parquet")
-NATURAL_EARTH_PATH = str(_DATA_DIR / "natural_earth_geoparquet/ne_geography.parquet")
+
+
+def _prefer_normalized(path_normalized: pathlib.Path, path_original: pathlib.Path) -> pathlib.Path:
+    """Prefer normalized geodata copies when present."""
+    use_normalized = os.environ.get("GAZET_USE_NORMALIZED_DATA", "1") != "0"
+    if use_normalized:
+        parent = path_normalized.parent
+        if "*" in path_normalized.name:
+            if parent.exists() and any(parent.glob(path_normalized.name)):
+                return path_normalized
+        elif path_normalized.exists():
+            return path_normalized
+    return path_original
+
+
+DIVISIONS_AREA_PATH = str(
+    _prefer_normalized(
+        _DATA_DIR / "overture_normalized/divisions_area/*.parquet",
+        _DATA_DIR / "overture/divisions_area/*.parquet",
+    )
+)
+NATURAL_EARTH_PATH = str(
+    _prefer_normalized(
+        _DATA_DIR / "natural_earth_normalized/ne_geography.parquet",
+        _DATA_DIR / "natural_earth_geoparquet/ne_geography.parquet",
+    )
+)
 
 # MODEL = "qwen3.5:cloud"
 # MODEL = "granite4:350m"
@@ -55,7 +80,7 @@ Available DuckDB datasets (read via read_parquet):
    columns:
      id VARCHAR              -- unique feature id prefixed 'ne_'
      names STRUCT("primary" VARCHAR, ...)
-     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'Terrain area', 'Island group'
+     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'range/mtn', 'island group'
      class VARCHAR
      country VARCHAR
      region VARCHAR
