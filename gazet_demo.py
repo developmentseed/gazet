@@ -127,7 +127,7 @@ def _render_map(geojson, placeholder):
                     map_style=None,
                     tooltip={"text": "{name}"},
                 ),
-                use_container_width=True,
+                width="stretch",
                 height=500,
             )
     elif n:
@@ -137,28 +137,36 @@ def _render_map(geojson, placeholder):
 
 API = os.environ.get("GAZET_API_URL", "http://127.0.0.1:8000")
 EXAMPLES = [
-    "Angola and Mozambique",
-    "Mediterranean Sea",
-    "A 0.01 degree buffer around the border between Loja and Piura",
-    "The part of Ecuador that is in the Amazon Basin",
-    "The northern half of India",
+    "Odisha, India",
+    "Neighbouring states of Odisha",
+    "Odisha excluding Cuttack",
+    "Coastal districts of Odisha",
+    "1 km buffer along the border of Odisha and West Bengal",
+    "Western half of Odisha",
+    "Rivers flowing through Odisha",
+    "Districts along the Indravati river",
 ]
 
 st.set_page_config(page_title="Gazet", page_icon="🌍", layout="wide")
+st.markdown("""<style>
+[data-testid="stBaseButton-tertiary"] {
+    border: 1px dashed rgba(128,128,128,0.3) !important;
+    border-radius: 8px !important;
+    padding: 0.3rem 0.7rem !important;
+    transition: all 0.15s ease !important;
+}
+[data-testid="stBaseButton-tertiary"]:hover {
+    background: rgba(40,180,160,0.1) !important;
+    border: 1px solid rgb(40,180,160) !important;
+}
+</style>""", unsafe_allow_html=True)
 
 st.title("Gazet")
-st.caption("Natural-language geo search · click an example or type your own")
+st.caption(
+    "/ask plain english to geometry"
+)
 
-backend = st.sidebar.radio(
-    "SQL Backend",
-    ["gguf", "dspy"],
-    index=0,
-    format_func=lambda x: "⚡ GGUF (llama-server)" if x == "gguf" else "🧠 DSPy (cloud LM)",
-)
-st.sidebar.caption(
-    "**gguf** → finetuned Qwen3.5 via llama-server\n\n"
-    "**dspy** → Ollama / cloud LM with retry loop"
-)
+backend = "gguf"
 
 if "run_q" not in st.session_state:
     st.session_state.run_q = None
@@ -178,8 +186,9 @@ with col1:
         search_clicked = st.button("Go!", type="primary")
     if search_clicked and q:
         st.session_state.run_q = q
+    st.caption("Click an example to get started ->")
     for ex in EXAMPLES:
-        if st.button(ex, key=ex):
+        if st.button(ex, key=ex, type="tertiary"):
             st.session_state.run_q = ex
 
 with col2:
@@ -227,7 +236,7 @@ with col2:
                                                 "subtype": "Subtype",
                                             }
                                         ),
-                                        use_container_width=True,
+                                        width="stretch",
                                         hide_index=True,
                                     )
 
@@ -238,7 +247,7 @@ with col2:
                             with st.expander("Candidate datasets", expanded=True):
                                 st.dataframe(
                                     pd.DataFrame(event["data"]),
-                                    use_container_width=True,
+                                    width="stretch",
                                     hide_index=True,
                                 )
 
@@ -285,14 +294,14 @@ with col2:
                     pd.DataFrame(result["places"]).rename(
                         columns={"place": "Place", "country": "Country", "subtype": "Subtype"}
                     ),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
         if result["candidates"]:
             with st.expander("Candidate datasets"):
                 st.dataframe(
                     pd.DataFrame(result["candidates"]),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
         if result["sql"]:
