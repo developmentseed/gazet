@@ -34,7 +34,7 @@ SERVER_URL = "http://localhost:9000"
 MAX_TOKENS = 2048
 TEMPERATURE = 0.6
 
-DEFAULT_RUN_DIR = Path("dataset/output/runs/v1")
+DEFAULT_RUN_DIR = Path("dataset/output/runs/v3")
 
 
 def postprocess_sql(text: str) -> str:
