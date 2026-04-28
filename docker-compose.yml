@@ -17,7 +17,9 @@ services:
       start_period: 30s
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.compose
     volumes:
       - ./data:/data:ro
     environment:
@@ -31,7 +33,9 @@ services:
         condition: service_healthy
 
   demo:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.compose
     environment:
       GAZET_API_URL: http://app:8000
     ports:
