@@ -219,6 +219,10 @@ with col2:
                     event = json.loads(raw)
                     t = event["type"]
 
+                    if t == "warming_up":
+                        status_ph.warning(event["data"])
+                        continue
+
                     if t == "places":
                         places = event["data"].get("places", [])
                         result["places"] = places
