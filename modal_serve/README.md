@@ -1,3 +1,5 @@
+<img src="../assets/gazet-logo.svg" alt="Gazet logo" width="64" />
+
 # Modal Deployment
 
 Deploys Gazet to Modal as three independently scaled containers:
@@ -59,54 +61,10 @@ API directly:
 curl "https://<workspace>--gazet-api-fastapi-app.modal.run/search?q=Odisha"
 ```
 
-Expected timings:
-
-- First request after idle: ~25-30s (cold start cascade across all three)
-- Warm requests within scaledown windows: ~1-3s
-
-## 4. Set the budget cap
-
-Modal dashboard -> Settings -> Billing:
-
-- Workspace spending limit: **$50/mo**
-- Email alerts at $25 / $40 / $50
-
-Modal pauses new container starts when the limit is hit.
-
 ## Updating
-
-Code or dependency changes:
 
 ```bash
 modal deploy modal_serve/serve.py
 ```
 
 Model updates: re-upload to the `gazet` volume; running containers pick up the new file at next cold start.
-
-## Architecture notes
-
-- **No supervisord.** Each Cls runs one logical service.
-- **`@modal.asgi_app`** serves FastAPI natively, no uvicorn subprocess.
-- **`@modal.web_server`** wraps non-ASGI processes (`llama-server` binary, Streamlit).
-- **Cross-Cls URLs** resolved at runtime via `modal.Cls.from_name(...)`.
-- **`scaledown_window`** tuned per tier: 120s GPU, 300s API, 600s Demo (UI sessions are sticky).
-
-## Cost reference
-
-| Traffic | Monthly estimate |
-|---|---|
-| 200 queries/day | ~$5-7 |
-| 1000 queries/day | ~$18-25 |
-| Idle | $0 |
-
-T4 GPU at ~$0.59/hr is only billed during active inference + brief warmup. CPU containers are negligible.
-
-## Troubleshooting
-
-**Cold start fails on `LlamaServer`**: check the binary path in `modal_serve/serve.py`. The official image's binary is at `/app/llama-server`; if upstream changes, run `modal shell gazet::LlamaServer` and `which llama-server`.
-
-**`Api` cannot reach `LlamaServer`**: confirm `modal.Cls.from_name(...).serve.web_url` returns a non-empty string. The first deploy registers URLs; redeploys keep them stable.
-
-**Streamlit websocket errors**: `@modal.web_server` supports websockets natively; if a proxy issue appears, raise `startup_timeout` and check `modal logs gazet`.
-
-**Model not found**: the path in `serve.py` is `/models/checkpoints/qwen35-fientune-v3/ckpt-q4_k_m.gguf`. Verify the volume layout matches.

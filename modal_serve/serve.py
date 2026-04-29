@@ -48,7 +48,8 @@ llama_image = (
     image=llama_image,
     gpu="T4",
     volumes={"/models": gazet_vol},
-    scaledown_window=120,
+    scaledown_window=300,
+    min_containers=1,
     max_containers=2,
     timeout=600,
 )
@@ -82,6 +83,7 @@ api_image = (
     image=api_image,
     volumes={"/data": data_vol},
     scaledown_window=300,
+    min_containers=1,
     max_containers=3,
     timeout=300,
 )
@@ -108,12 +110,15 @@ demo_image = (
     .pip_install_from_pyproject("pyproject.toml", optional_dependencies=["demo"])
     .add_local_python_source("gazet")
     .add_local_file("gazet_demo.py", "/root/gazet_demo.py")
+    .add_local_file("assets/gazet-logo.svg", "/root/assets/gazet-logo.svg")
+    .add_local_file("assets/ds-logo-pos.svg", "/root/assets/ds-logo-pos.svg")
 )
 
 
 @app.cls(
     image=demo_image,
     scaledown_window=600,
+    min_containers=1,
     max_containers=3,
     timeout=600,
 )
