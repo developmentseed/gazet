@@ -8,6 +8,7 @@ import re
 import pandas as pd
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
 try:
     import pydeck as pdk
@@ -137,6 +138,49 @@ def _render_map(geojson, placeholder):
 
 
 API = os.environ.get("GAZET_API_URL", "http://127.0.0.1:8000")
+PLAUSIBLE_SRC = os.environ.get(
+    "PLAUSIBLE_SRC",
+    "https://plausible.io/js/pa-cOxJkIdBOhaQIfgDA-a4y.js",
+)
+
+
+def _inject_plausible():
+    """Inject the Plausible script into the top-level document once per session."""
+    components.html(
+        f"""
+        <script>
+          (function() {{
+            var doc = window.parent.document;
+            if (doc.getElementById('plausible-script')) return;
+            var s = doc.createElement('script');
+            s.id = 'plausible-script';
+            s.async = true;
+            s.src = '{PLAUSIBLE_SRC}';
+            doc.head.appendChild(s);
+            var win = window.parent;
+            win.plausible = win.plausible || function() {{(win.plausible.q = win.plausible.q || []).push(arguments)}};
+            win.plausible.init = win.plausible.init || function(i) {{win.plausible.o = i || {{}}}};
+            win.plausible.init();
+          }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _track(event_name: str, **props):
+    """Fire a custom Plausible event via the parent window."""
+    components.html(
+        f"""
+        <script>
+          if (window.parent.plausible) {{
+            window.parent.plausible({json.dumps(event_name)}, {{props: {json.dumps(props)}}});
+          }}
+        </script>
+        """,
+        height=0,
+    )
+
 EXAMPLES = [
     "Odisha, India",
     "Neighbouring states of Odisha",
@@ -149,6 +193,7 @@ EXAMPLES = [
 ]
 
 st.set_page_config(page_title="Gazet", page_icon="🌍", layout="wide")
+_inject_plausible()
 st.markdown("""<style>
 [data-testid="stBaseButton-tertiary"] {
     border: 1px dashed rgba(128,128,128,0.3) !important;
@@ -187,10 +232,12 @@ with col1:
         search_clicked = st.button("Go!", type="primary")
     if search_clicked and q:
         st.session_state.run_q = q
+        _track("Query Submitted", q=q, source="button")
     st.caption("Click an example to get started ->")
     for ex in EXAMPLES:
         if st.button(ex, key=ex, type="tertiary"):
             st.session_state.run_q = ex
+            _track("Query Submitted", q=ex, source="example")
 
 with col2:
     to_run = st.session_state.run_q
@@ -277,13 +324,14 @@ with col2:
                         n = len(geojson.get("features", []))
                         status_ph.success(f"**{to_run}** → {n} feature(s)")
                         _slug = re.sub(r"[^\w]+", "_", to_run.lower()).strip("_") or "result"
-                        download_ph.download_button(
+                        if download_ph.download_button(
                             "Download GeoJSON",
                             data=json.dumps(geojson),
                             file_name=f"{_slug}.geojson",
                             mime="application/geo+json",
                             key=f"dl_{_slug}",
-                        )
+                        ):
+                            _track("Download GeoJSON", q=to_run, features=n)
                         _render_map(geojson, map_ph)
 
                     elif t == "error":
@@ -303,13 +351,15 @@ with col2:
         st.success(f"**{query}** -> {n_feat} feature(s)")
         if result["geojson"]:
             _slug = re.sub(r"[^\w]+", "_", query.lower()).strip("_") or "result"
-            st.download_button(
+            _n_cached = len(result["geojson"].get("features", []))
+            if st.download_button(
                 "Download GeoJSON",
                 data=json.dumps(result["geojson"]),
                 file_name=f"{_slug}.geojson",
                 mime="application/geo+json",
-                key=f"dl_cached_{_slug}",
-            )
+                key=f"dl_{_slug}",
+            ):
+                _track("Download GeoJSON", q=query, features=_n_cached)
         _render_map(result["geojson"], st.empty())
         if result["places"]:
             with st.expander("Extracted place names"):
