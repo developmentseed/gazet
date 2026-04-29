@@ -3,6 +3,7 @@
 import json
 import math
 import os
+import re
 
 import pandas as pd
 import requests
@@ -198,6 +199,7 @@ with col2:
         st.session_state.last_result = None
 
         status_ph = st.empty()
+        download_ph = st.empty()
         map_ph = st.empty()
         places_ph = st.empty()
         candidates_ph = st.empty()
@@ -274,6 +276,14 @@ with col2:
                         result["geojson"] = geojson
                         n = len(geojson.get("features", []))
                         status_ph.success(f"**{to_run}** → {n} feature(s)")
+                        _slug = re.sub(r"[^\w]+", "_", to_run.lower()).strip("_") or "result"
+                        download_ph.download_button(
+                            "Download GeoJSON",
+                            data=json.dumps(geojson),
+                            file_name=f"{_slug}.geojson",
+                            mime="application/geo+json",
+                            key=f"dl_{_slug}",
+                        )
                         _render_map(geojson, map_ph)
 
                     elif t == "error":
@@ -291,6 +301,15 @@ with col2:
         query = result["query"]
         n_feat = len((result["geojson"] or {}).get("features", []))
         st.success(f"**{query}** -> {n_feat} feature(s)")
+        if result["geojson"]:
+            _slug = re.sub(r"[^\w]+", "_", query.lower()).strip("_") or "result"
+            st.download_button(
+                "Download GeoJSON",
+                data=json.dumps(result["geojson"]),
+                file_name=f"{_slug}.geojson",
+                mime="application/geo+json",
+                key=f"dl_cached_{_slug}",
+            )
         _render_map(result["geojson"], st.empty())
         if result["places"]:
             with st.expander("Extracted place names"):
