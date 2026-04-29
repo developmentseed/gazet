@@ -82,6 +82,8 @@ def _has_line_geometries(features):
 
 
 def _render_map(geojson, placeholder):
+    if not geojson:
+        return
     features = geojson.get("features", [])
     n = len(features)
     if pdk and n:
@@ -421,10 +423,10 @@ with col2:
 
         st.session_state.last_result = result
 
-    elif st.session_state.last_result:
+    elif st.session_state.last_result and st.session_state.last_result.get("geojson"):
         result = st.session_state.last_result
         query = result["query"]
-        n_feat = len((result["geojson"] or {}).get("features", []))
+        n_feat = len(result["geojson"].get("features", []))
         st.success(f"**{query}** -> {n_feat} feature(s)")
         if result["geojson"]:
             _slug = re.sub(r"[^\w]+", "_", query.lower()).strip("_") or "result"
