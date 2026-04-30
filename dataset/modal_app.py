@@ -275,8 +275,11 @@ def run_pipeline(
 
 @app.local_entrypoint()
 def upload_data(data_dir: str = "data"):
-    """Upload local data directory to the Modal volume."""
-    import os
+    """Upload only normalized parquet datasets to the Modal volume.
+
+    The runtime config prefers these normalized copies, so there is no need to
+    upload the original raw source trees to Modal.
+    """
     from pathlib import Path
 
     data_path = Path(data_dir)
@@ -284,25 +287,58 @@ def upload_data(data_dir: str = "data"):
         print(f"Error: {data_path} does not exist")
         return
 
-    print(f"Uploading {data_path} to Modal volume 'gazet-data'...")
+    upload_specs = [
+        (
+            data_path / "overture_normalized" / "divisions_area",
+            "/overture_normalized/divisions_area",
+            True,
+        ),
+        (
+            data_path / "natural_earth_normalized" / "ne_geography.parquet",
+            "/natural_earth_normalized/ne_geography.parquet",
+            False,
+        ),
+    ]
 
-    file_count = 0
+    missing = []
+    files_to_upload: list[tuple[Path, str]] = []
     total_size = 0
 
-    for root, dirs, files in os.walk(data_path):
-        for f in files:
-            local_path = os.path.join(root, f)
-            # Relative path within data_dir becomes the volume path
-            rel = os.path.relpath(local_path, data_path)
-            size = os.path.getsize(local_path)
-            total_size += size
-            file_count += 1
-            print(f"  {rel} ({size / (1024*1024):.1f} MB)")
+    for local_path, remote_path, is_dir in upload_specs:
+        if not local_path.exists():
+            missing.append(local_path)
+            continue
+        if is_dir:
+            parquet_files = sorted(local_path.glob("*.parquet"))
+            if not parquet_files:
+                missing.append(local_path)
+                continue
+            for parquet_file in parquet_files:
+                rel_name = parquet_file.name
+                dest = f"{remote_path}/{rel_name}"
+                files_to_upload.append((parquet_file, dest))
+                total_size += parquet_file.stat().st_size
+        else:
+            files_to_upload.append((local_path, remote_path))
+            total_size += local_path.stat().st_size
 
-    print(f"  {file_count} files, {total_size / (1024*1024):.1f} MB")
+    if missing:
+        print("Error: missing normalized dataset paths:")
+        for path in missing:
+            print(f"  {path}")
+        print("Run dataset/scripts/normalize_geodata.py first.")
+        return
+
+    print("Uploading normalized datasets to Modal volume 'gazet-data'...")
+    for local_path, remote_path in files_to_upload:
+        print(f"  {local_path.relative_to(data_path)} -> {remote_path} "
+              f"({local_path.stat().st_size / (1024 * 1024):.1f} MB)")
+
+    print(f"  {len(files_to_upload)} files, {total_size / (1024 * 1024):.1f} MB")
 
     vol = modal.Volume.from_name("gazet-data", create_if_missing=True)
     with vol.batch_upload() as batch:
-        batch.put_directory(str(data_path), "/")
+        for local_path, remote_path in files_to_upload:
+            batch.put_file(str(local_path), remote_path)
 
     print("Upload complete")

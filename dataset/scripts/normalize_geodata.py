@@ -53,6 +53,7 @@ def normalize_geodata(output_root: Path | None = None) -> dict[str, str]:
             )
             FROM read_parquet('{root / 'overture/divisions_area/*.parquet'}')
             WHERE geometry IS NOT NULL
+              AND subtype IN ('country', 'region', 'county')
         ) TO '{overture_path}' (FORMAT PARQUET)
         """
     )

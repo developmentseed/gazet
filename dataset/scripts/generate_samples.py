@@ -16,6 +16,7 @@ Output:
 
 import json
 import random
+import re
 import warnings
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -53,6 +54,131 @@ MAX_WORKERS = 8
 RETRY_MULTIPLIER = 2
 APPEND_MODE = False
 
+
+_GENERIC_SURFACE_RULES = [
+    ("spelling_neighboring", r"\bneighbouring\b", ["neighboring"]),
+    ("spelling_neighbors", r"\bneighbours\b", ["neighbors"]),
+    ("expand_whats", r"\bwhat's\b", ["what is"]),
+    ("show_me", r"\bshow me\b", ["show", "display"]),
+    ("give_me", r"\bgive me\b", ["show", "list"]),
+    ("pull_up", r"\bpull up\b", ["show", "display"]),
+    ("find_to_show", r"\bfind\b", ["show", "locate"]),
+    ("kilometers_variant", r"\bkilometers\b", ["km"]),
+    ("metres_variant", r"\bmetres\b", ["meters"]),
+    ("recognised_variant", r"\brecognised\b", ["recognized"]),
+]
+
+_FAMILY_SURFACE_RULES = {
+    "adjacency": [
+        ("which_border_to_next_to", r"\bwhich (.+?) border (.+)\?", [r"which \1 are next to \2?", r"which \1 are adjacent to \2?"]),
+        ("bordering_to_next_to", r"\bbordering (.+)", [r"next to \1", r"adjacent to \1"]),
+        ("touching_to_next_to", r"\btouching (.+)", [r"next to \1"]),
+        ("share_border_to_adjacent", r"share a border with", ["are adjacent to", "are next to"]),
+        ("adjacent_to_next_to", r"adjacent to", ["next to"]),
+    ],
+    "multi_adjacency": [
+        ("which_border_both_to_next_to", r"\bwhich (.+?) border both (.+)\?", [r"which \1 are next to both \2?", r"which \1 are adjacent to both \2?"]),
+        ("touch_both_to_next_to", r"touch both", ["are next to both"]),
+        ("adjacent_both_to_next_to", r"adjacent to both", ["next to both"]),
+    ],
+    "containment": [
+        ("within_to_inside", r"\bwithin\b", ["inside", "in"]),
+        ("inside_to_in", r"\binside\b", ["in"]),
+        ("belonging_to_in", r"belonging to", ["in"]),
+        ("contain_to_have", r"\bcontain\b", ["have"]),
+    ],
+    "intersection": [
+        ("which_intersect_to_overlap", r"\bwhich (.+?) intersect (.+)\?", [r"which \1 overlap \2?"]),
+        ("overlap_with_to_intersect", r"overlap with", ["intersect"]),
+        ("crossing_to_overlapping", r"crossing into", ["overlapping"]),
+        ("partly_in_to_overlap", r"partly in", ["overlapping"]),
+    ],
+    "buffer": [
+        ("within_distance_to_from", r"within ([0-9]+\s*(?:km|m)) of", [r"up to \1 from", r"at a distance of \1 from"]),
+        ("buffer_to_radius", r"\bbuffer\b", ["radius", "zone"]),
+        ("close_to_near", r"close to", ["near"]),
+        ("around_to_near", r"what is around", ["what is near"]),
+    ],
+    "chained": [
+        ("coastal_to_seaside", r"\bcoastal\b", ["seaside", "maritime"]),
+        ("landlocked_to_inland", r"\blandlocked\b", ["inland"]),
+        ("sea_access_to_coast", r"sea access", ["a coastline"]),
+    ],
+    "difference": [
+        ("part_to_portion", r"\bpart of\b", ["portion of", "section of"]),
+        ("outside_to_excluding", r"\boutside\b", ["excluding"]),
+    ],
+    "border_corridor": [
+        ("zone_to_buffer", r"\bzone\b", ["buffer", "corridor"]),
+        ("within_distance_to_along", r"within ([0-9]+ km) of the", [r"along the", r"up to \1 from the"]),
+    ],
+    "set_operations": [
+        ("combined_to_merged", r"combined", ["merged"]),
+        ("union_of_to_merged_area", r"\bunion of\b", ["merged area of", "combined area of"]),
+        ("merge_to_combine", r"\bmerge\b", ["combine"]),
+        ("together_to_combined", r"\btogether\b", ["combined"]),
+    ],
+    "partial_selection": [
+        ("part_to_portion", r"\bpart of\b", ["portion of", "section of"]),
+        ("half_to_side", r"\bhalf\b", ["side"]),
+    ],
+    "aggregation": [
+        ("largest_to_biggest", r"\blargest\b", ["biggest"]),
+        ("smallest_to_tiniest", r"\bsmallest\b", ["tiniest"]),
+    ],
+    "window_function": [
+        ("largest_to_biggest", r"\blargest\b", ["biggest"]),
+        ("smallest_to_tiniest", r"\bsmallest\b", ["tiniest"]),
+    ],
+    "attribute_filter": [
+        ("official_to_recognized", r"\bofficial\b", ["recognized", "recognized territorial"]),
+        ("land_based_to_on_land", r"land-based", ["on-land", "on land"]),
+        ("sovereign_to_official", r"\bsovereign\b", ["official"]),
+    ],
+    "direct_lookup": [
+        ("where_is_to_show", r"\bwhere is\b", ["show", "locate"]),
+        ("map_of_to_outline", r"\bmap of\b", ["outline of"]),
+    ],
+    "disambiguation": [
+        ("show_me_to_find", r"\bshow me\b", ["find", "show"]),
+        ("pull_up_to_find", r"\bpull up\b", ["find", "show"]),
+    ],
+}
+
+
+def _diversify_question_surface(question: str, family: str) -> tuple[str, List[str]]:
+    """Apply light family-aware paraphrasing to reduce template memorization.
+
+    Rewrites are intentionally shallow and lexically local so the generated
+    question stays aligned with the underlying SQL intent.
+    """
+    if not question or random.random() < 0.35:
+        return question, []
+
+    rules = _GENERIC_SURFACE_RULES + _FAMILY_SURFACE_RULES.get(family, [])
+    rewritten = question
+    applied: List[str] = []
+    max_rewrites = 2 if random.random() < 0.5 else 1
+
+    for _ in range(max_rewrites):
+        matches = []
+        for label, pattern, replacements in rules:
+            if re.search(pattern, rewritten, flags=re.IGNORECASE):
+                for replacement in replacements:
+                    matches.append((label, pattern, replacement))
+        if not matches:
+            break
+
+        label, pattern, replacement = random.choice(matches)
+        updated = re.sub(pattern, replacement, rewritten, count=1, flags=re.IGNORECASE)
+        if updated == rewritten:
+            continue
+        rewritten = re.sub(r"\s+", " ", updated).strip()
+        applied.append(f"{family}:{label}")
+
+    return rewritten, applied
+
+
 # Import templates from same directory
 from . import sql_templates
 TEMPLATES = sql_templates.TEMPLATES
@@ -68,16 +194,18 @@ _NE_NAMED_LOOKUP_SUBTYPES = {
 _NE_TEMPLATE_SUBTYPES = {
     'lookup_02': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'island group', 'peninsula', 'strait', 'range/mtn', 'depression'},
     'adj_03': {'sea', 'ocean'},
-    'adj_04': {'river', 'lake', 'basin'},
-    'adj_05': {'range/mtn', 'peninsula', 'depression'},
-    'contain_03': {'sea', 'ocean', 'gulf', 'bay', 'basin', 'island group', 'peninsula', 'range/mtn', 'depression'},
-    'contain_04': {'sea', 'ocean', 'gulf', 'bay', 'strait'},
-    'intersect_02': {'river', 'lake', 'basin', 'gulf', 'bay', 'strait', 'range/mtn', 'peninsula', 'depression'},
+    'adj_09': {'river', 'lake', 'basin'},
+    'adj_10': {'range/mtn', 'peninsula', 'depression'},
+    'adj_06': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'strait', 'range/mtn', 'peninsula', 'depression', 'plateau', 'plain', 'lowland', 'valley', 'gorge'},
+    'adj_07': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'strait', 'range/mtn', 'peninsula', 'depression', 'plateau', 'plain', 'lowland', 'valley', 'gorge'},
+    'adj_08': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'strait', 'range/mtn', 'peninsula', 'depression', 'plateau', 'plain', 'lowland', 'valley', 'gorge'},
+    'contain_04': {'sea', 'ocean', 'gulf', 'bay', 'basin', 'island group', 'peninsula', 'range/mtn', 'depression'},
+    'contain_05': {'sea', 'ocean', 'gulf', 'bay', 'strait'},
     'intersect_03': {'river', 'lake', 'basin', 'gulf', 'bay', 'strait', 'range/mtn', 'peninsula', 'depression'},
-    'intersect_05': {'river', 'lake', 'basin', 'gulf', 'bay', 'strait', 'range/mtn', 'peninsula', 'depression'},
-    'buffer_03': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'island group', 'peninsula', 'strait', 'range/mtn', 'depression'},
-    'buffer_04': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'island group', 'peninsula', 'strait', 'range/mtn', 'depression'},
-    'buffer_05': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'island group', 'peninsula', 'strait', 'range/mtn', 'depression'},
+    'intersect_04': {'river', 'lake', 'basin', 'gulf', 'bay', 'strait', 'range/mtn', 'peninsula', 'depression'},
+    'intersect_06': {'river', 'lake', 'basin', 'gulf', 'bay', 'strait', 'range/mtn', 'peninsula', 'depression'},
+    'buffer_02': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'island group', 'peninsula', 'strait', 'range/mtn', 'depression'},
+    'buffer_11': {'sea', 'ocean', 'lake', 'river', 'basin', 'gulf', 'bay', 'island group', 'peninsula', 'strait', 'range/mtn', 'depression'},
     'chained_03': {'island group', 'peninsula', 'range/mtn', 'depression'},
     'chained_04': {'river', 'lake', 'basin'},
     'chained_05': {'range/mtn', 'depression'},
@@ -126,13 +254,15 @@ def load_relation_tables(intermediate_dir: Path, quiet: bool = False) -> Dict[st
 def sample_adjacency_anchor(
     adjacency_df: pd.DataFrame,
     target_subtype: Optional[str] = None,
+    anchor_subtypes: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Sample a random adjacency pair, optionally filtered by target_subtype.
+    """Sample a random adjacency pair, optionally filtered by subtypes.
 
     When ``target_subtype`` is provided, only rows whose neighbouring feature
-    matches that subtype are considered. This lets subtype-specific templates
-    (e.g. "neighbouring counties of X") guarantee coverage instead of relying
-    on whatever subtype the random draw happens to produce.
+    matches that subtype are considered. When ``anchor_subtypes`` is provided,
+    only rows whose anchor feature is one of those subtypes are considered.
+    Both filters are applied together so sampled pairs are geographically
+    coherent with the template intent (e.g. country anchor → country result).
     """
     if adjacency_df.empty:
         return None
@@ -142,6 +272,10 @@ def sample_adjacency_anchor(
         df = df[df['target_subtype'] == target_subtype]
         if df.empty:
             return None
+    if anchor_subtypes is not None:
+        filtered = df[df['anchor_subtype'].isin(anchor_subtypes)]
+        if not filtered.empty:
+            df = filtered
 
     row = df.sample(n=1).iloc[0]
     return {
@@ -450,140 +584,6 @@ def build_distractors(
     return same + cross
 
 
-def generate_adjacency_sample(
-    con: duckdb.DuckDBPyConnection,
-    adjacency_df: pd.DataFrame,
-    sample_id: str
-) -> Optional[TrainingSample]:
-    """Generate a sample for adjacency task."""
-    
-    anchor = sample_adjacency_anchor(adjacency_df)
-    if not anchor:
-        return None
-    
-    # Build SQL
-    sql = f"""WITH a AS (
-  SELECT geometry FROM read_parquet('divisions_area')
-  WHERE id = '{anchor['anchor_id']}'
-)
-SELECT b.id, b.names."primary" AS name, b.geometry
-FROM read_parquet('divisions_area') AS b, a
-WHERE b.id != '{anchor['anchor_id']}'
-  AND b.subtype = '{anchor['target_subtype']}'
-  AND ST_Touches(a.geometry, b.geometry)"""
-    
-    # Execute to verify
-    try:
-        result = con.execute(_for_execution(sql)).fetchdf()
-        if result.empty:
-            return None
-    except Exception as e:
-        print(f"SQL execution failed: {e}")
-        return None
-    
-    # Build candidates
-    candidates = build_candidate_list(
-        con,
-        anchor['anchor_id'],
-        anchor['anchor_name'],
-        "divisions_area",
-        num_candidates=10,
-        difficulty="medium"
-    )
-    
-    # Find which candidate is the true anchor
-    selected_candidate_ids = [c.candidate_id for c in candidates if c.id == anchor['anchor_id']]
-    
-    # Generate question
-    question = f"Which {anchor['target_subtype']}s border {anchor['anchor_name']}?"
-    
-    return TrainingSample(
-        id=sample_id,
-        question=question,
-        candidates=candidates,
-        target={
-            "selected_candidates": selected_candidate_ids,
-            "sql": sql
-        },
-        metadata={
-            "task_family": "adjacency",
-            "sql_difficulty": "medium",
-            "grounding_difficulty": "medium",
-            "template_id": "adj_02",
-            "num_candidates": len(candidates),
-            "anchor_source": "divisions_area",
-            "sql_verified": True
-        }
-    )
-
-
-def generate_containment_sample(
-    con: duckdb.DuckDBPyConnection,
-    containment_df: pd.DataFrame,
-    sample_id: str
-) -> Optional[TrainingSample]:
-    """Generate a sample for containment task."""
-    
-    anchor = sample_containment_anchor(containment_df)
-    if not anchor:
-        return None
-    
-    # Build SQL
-    sql = f"""WITH a AS (
-  SELECT geometry FROM read_parquet('divisions_area')
-  WHERE id = '{anchor['container_id']}'
-)
-SELECT b.id, b.names."primary" AS name, b.geometry
-FROM read_parquet('divisions_area') AS b, a
-WHERE b.id != '{anchor['container_id']}'
-  AND b.subtype = '{anchor['contained_subtype']}'
-  AND ST_Within(b.geometry, a.geometry)"""
-    
-    # Execute to verify
-    try:
-        result = con.execute(_for_execution(sql)).fetchdf()
-        if result.empty:
-            return None
-    except Exception as e:
-        print(f"SQL execution failed: {e}")
-        return None
-    
-    # Build candidates
-    candidates = build_candidate_list(
-        con,
-        anchor['container_id'],
-        anchor['container_name'],
-        "divisions_area",
-        num_candidates=10,
-        difficulty="medium"
-    )
-    
-    # Find which candidate is the true anchor
-    selected_candidate_ids = [c.candidate_id for c in candidates if c.id == anchor['container_id']]
-    
-    # Generate question
-    question = f"What {anchor['contained_subtype']}s are in {anchor['container_name']}?"
-    
-    return TrainingSample(
-        id=sample_id,
-        question=question,
-        candidates=candidates,
-        target={
-            "selected_candidates": selected_candidate_ids,
-            "sql": sql
-        },
-        metadata={
-            "task_family": "containment",
-            "sql_difficulty": "medium",
-            "grounding_difficulty": "medium",
-            "template_id": "contain_01",
-            "num_candidates": len(candidates),
-            "anchor_source": "divisions_area",
-            "sql_verified": True
-        }
-    )
-
-
 def sample_random_entity(
     con: duckdb.DuckDBPyConnection,
     inventory_df: pd.DataFrame,
@@ -657,12 +657,12 @@ def generate_template_based_sample(
         # container + same-name distractors so the model must read the CSV
         # to pick the right entry.
         _disambig_subtypes = {
-            "disambiguate_01": (["locality"], ["region", "county", "localadmin"]),
-            "disambiguate_02": (["locality"], ["country"]),
-            "disambiguate_03": (["region", "dependency"], ["country"]),
+            "disambiguate_01": (["county"], ["region", "country"]),
+            "disambiguate_02": (["county"], ["country"]),
+            "disambiguate_03": (["region"], ["country"]),
         }
         contained_sts, container_sts = _disambig_subtypes.get(
-            template.template_id, (["locality"], ["country"])
+            template.template_id, (["county"], ["country"])
         )
 
         pair = sample_disambiguation_anchor(
@@ -719,27 +719,25 @@ def generate_template_based_sample(
         # disambiguation context and stays in candidates but NOT in
         # selected_candidates. The model learns to use the container row of
         # the CSV (via country/region columns) to pick the right same-name
-        # locality.
+        # county or region.
         anchor = {"id": pair["contained_id"], "name": pair["contained_name"]}
 
     elif template.family == "adjacency":
-        # adj_03/04/05/07/08 target natural_earth features (marine, water,
-        # mountain, plateau, and broad landform regions).
-        # Their SQL hardcodes NE subtypes and does not use {target_subtype}.
-        # Sample from cross_source_relations so the anchor is a division
-        # that actually intersects the right NE features.
-        _NE_ADJ_SUBTYPES = {
+        # adj_03/09/10/11/12: division anchor -> natural_earth targets.
+        # adj_06/07/08: natural_earth anchor -> admin targets.
+        # Use cross_source_relations so anchors are guaranteed to intersect.
+        _NE_TARGET_ADJ_SUBTYPES = {
             "adj_03": ("ocean", "sea"),
-            "adj_04": ("river", "lake", "basin"),
-            "adj_05": ("range/mtn",),
-            "adj_07": ("plateau",),
-            "adj_08": ("plain", "lowland", "basin", "valley", "depression", "gorge"),
+            "adj_09": ("river", "lake", "basin"),
+            "adj_10": ("range/mtn",),
+            "adj_11": ("plateau",),
+            "adj_12": ("plain", "lowland", "basin", "valley", "depression", "gorge"),
         }
-        if template.template_id in _NE_ADJ_SUBTYPES:
+        if template.template_id in _NE_TARGET_ADJ_SUBTYPES:
             cs_df = tables.get('cross_source_relations', pd.DataFrame())
             if cs_df.empty:
                 return None
-            ne_types = _NE_ADJ_SUBTYPES[template.template_id]
+            ne_types = _NE_TARGET_ADJ_SUBTYPES[template.template_id]
             filtered = cs_df[cs_df['natural_subtype'].isin(ne_types)]
             if filtered.empty:
                 return None
@@ -749,10 +747,28 @@ def generate_template_based_sample(
                 'anchor_name': row['division_name'],
                 'anchor_subtype': row['division_subtype'],
                 'target_subtype': row['natural_subtype'],
+                'anchor_source': 'divisions_area',
+            }
+        elif template.anchor_source == "natural_earth":
+            cs_anchor = sample_cross_source_anchor(
+                tables.get('cross_source_relations', pd.DataFrame()),
+                natural_subtypes=_NE_TEMPLATE_SUBTYPES.get(template.template_id),
+            )
+            if not cs_anchor:
+                return None
+            anchor = {
+                'anchor_id': cs_anchor['natural_id'],
+                'anchor_name': cs_anchor['natural_name'],
+                'target_subtype': template.target_subtype,
+                'anchor_source': 'natural_earth',
             }
         else:
-            # adj_01/02/06: divisions_area self-join adjacency.
-            # Only filter by target_subtype when the SQL uses {target_subtype}.
+            # divisions_area self-join adjacency.
+            _ADJ_ANCHOR_SUBTYPES = {
+                "adj_02": ["country", "region"],
+                "adj_04": ["region"],
+                "adj_05": ["country"],
+            }
             filter_subtype = (
                 template.target_subtype
                 if '{target_subtype}' in template.sql_template
@@ -761,7 +777,10 @@ def generate_template_based_sample(
             anchor = sample_adjacency_anchor(
                 tables['adjacency_pairs'],
                 target_subtype=filter_subtype,
+                anchor_subtypes=_ADJ_ANCHOR_SUBTYPES.get(template.template_id),
             )
+            if anchor:
+                anchor['anchor_source'] = 'divisions_area'
         if not anchor:
             return None
 
@@ -771,7 +790,7 @@ def generate_template_based_sample(
         )
 
         candidates = build_candidate_list(
-            con, anchor['anchor_id'], anchor['anchor_name'], 'divisions_area',
+            con, anchor['anchor_id'], anchor['anchor_name'], anchor.get('anchor_source', 'divisions_area'),
             num_candidates=10, difficulty="medium"
         )
 
@@ -782,7 +801,7 @@ def generate_template_based_sample(
         
     elif template.family == "containment":
         if template.anchor_source == "natural_earth":
-            # contain_03 / contain_04: NE anchor (sea, desert, etc.).
+            # contain_04 / contain_05: NE anchor (sea, desert, etc.).
             # Use cross_source_relations so the anchor exists in natural_earth
             # and is guaranteed to intersect divisions_area features.
             cs_anchor = sample_cross_source_anchor(
@@ -812,8 +831,13 @@ def generate_template_based_sample(
         elif template.template_id == "contain_02":
             # "What country contains X?" - anchor is the CONTAINED entity;
             # result is the country that ST_Contains it.
+            # Guard against stale relation tables by only allowing contained
+            # subtypes that exist in the simplified admin schema.
             df = tables['containment_pairs']
-            df = df[df['container_subtype'] == 'country']
+            df = df[
+                (df['container_subtype'] == 'country')
+                & (df['contained_subtype'].isin(['region', 'county']))
+            ]
             pair = sample_containment_anchor(df)
             if not pair:
                 return None
@@ -832,16 +856,60 @@ def generate_template_based_sample(
             )
             anchor = {'id': pair['contained_id'], 'name': pair['contained_name']}
 
-        else:
-            # contain_01: standard containment.
-            # Anchor = container, target_subtype = contained entity's subtype.
-            anchor = sample_containment_anchor(tables['containment_pairs'])
-            if not anchor:
+        elif template.template_id == "contain_03":
+            # "What regions are in country X?" - anchor is a country, target is regions.
+            df = tables['containment_pairs']
+            df = df[
+                (df['container_subtype'] == 'country')
+                & (df['contained_subtype'] == 'region')
+            ]
+            pair = sample_containment_anchor(df)
+            if not pair:
                 return None
 
             sql = template.sql_template.format(
+                anchor_id=pair['container_id'],
+                target_subtype='region',
+            )
+            candidates = build_candidate_list(
+                con, pair['container_id'], pair['container_name'], 'divisions_area',
+                num_candidates=10, difficulty="medium"
+            )
+            question = random.choice(template.question_hints).format(
+                anchor_name=pair['container_name'],
+                target_subtype='region',
+            )
+            anchor = {'id': pair['container_id'], 'name': pair['container_name']}
+
+        else:
+            # contain_01: standard containment.
+            # Enforce hierarchy: county must be inside region or country, never
+            # inside another county. Filter container_subtype accordingly.
+            # Also filter contained_subtype to match template.target_subtype so
+            # hardcoded vocab hints (e.g. "districts") always align with the SQL.
+            _VALID_CONTAINERS = {
+                "county":  ["region", "country"],
+                "region":  ["country"],
+            }
+            df = tables['containment_pairs']
+            if template.target_subtype:
+                filtered = df[df['contained_subtype'] == template.target_subtype]
+                if not filtered.empty:
+                    df = filtered
+            valid_containers = _VALID_CONTAINERS.get(template.target_subtype)
+            if valid_containers:
+                filtered = df[df['container_subtype'].isin(valid_containers)]
+                if not filtered.empty:
+                    df = filtered
+            anchor = sample_containment_anchor(df)
+            if not anchor:
+                return None
+
+            target_subtype = template.target_subtype or anchor['contained_subtype']
+
+            sql = template.sql_template.format(
                 anchor_id=anchor['container_id'],
-                target_subtype=anchor['contained_subtype'],
+                target_subtype=target_subtype,
             )
             candidates = build_candidate_list(
                 con, anchor['container_id'], anchor['container_name'], 'divisions_area',
@@ -849,7 +917,7 @@ def generate_template_based_sample(
             )
             question = random.choice(template.question_hints).format(
                 anchor_name=anchor['container_name'],
-                target_subtype=anchor['contained_subtype'],
+                target_subtype=target_subtype,
             )
         
     elif template.family == "intersection":
@@ -878,24 +946,31 @@ def generate_template_based_sample(
                 target_subtype=target_subtype,
             )
         else:
-            # Same-source intersection
-            anchor = sample_intersection_anchor(tables['intersection_pairs'])
+            # Same-source intersection.
+            # If the template pins a target_subtype (e.g. intersect_02 targets county),
+            # filter intersection_pairs so the sampled pair is guaranteed to match.
+            idf = tables['intersection_pairs']
+            if template.target_subtype and not idf.empty:
+                filtered = idf[idf['target_subtype'] == template.target_subtype]
+                if filtered.empty:
+                    return None
+                idf = filtered
+            anchor = sample_intersection_anchor(idf)
             if not anchor:
                 return None
-            
-            # Use a generic subtype if not available
-            target_subtype = anchor.get('target_subtype') or 'region'
-            
+
+            target_subtype = template.target_subtype or anchor.get('target_subtype') or 'region'
+
             sql = template.sql_template.format(
                         anchor_id=anchor['anchor_id'],
                 target_subtype=target_subtype
             )
-            
+
             candidates = build_candidate_list(
                 con, anchor['anchor_id'], anchor['anchor_name'], 'divisions_area',
                 num_candidates=10, difficulty="medium"
             )
-            
+
             question = random.choice(template.question_hints).format(
                 anchor_name=anchor['anchor_name'],
                 target_subtype=target_subtype
@@ -932,7 +1007,7 @@ def generate_template_based_sample(
                 anchor_3_name=anchor3['name'],
             )
 
-        elif template.template_id in ("contain_multi_01", "contain_multi_02"):
+        elif template.template_id in ("contain_multi_01", "contain_multi_02", "contain_multi_03"):
             # country IN clause — 2 or 3 anchors, each contributes its country code
             num_a = 3 if template.template_id == "contain_multi_02" else 2
             anchors = [
@@ -973,12 +1048,19 @@ def generate_template_based_sample(
             question = random.choice(template.question_hints).format(**q_kwargs)
 
         elif template.template_id == "union_02":
-            # Filtered union: ST_Union_Agg of contained sub-features
-            pair = sample_containment_anchor(tables['containment_pairs'])
+            # Filtered union: ST_Union_Agg of contained sub-features.
+            # Pin to template.target_subtype so hardcoded vocabulary hints
+            # (e.g. "districts") always match the SQL subtype.
+            df = tables['containment_pairs']
+            if template.target_subtype:
+                filtered = df[df['contained_subtype'] == template.target_subtype]
+                if not filtered.empty:
+                    df = filtered
+            pair = sample_containment_anchor(df)
             if not pair:
                 return None
 
-            target_subtype = pair.get('contained_subtype', 'locality')
+            target_subtype = template.target_subtype or pair.get('contained_subtype', 'county')
             sql = template.sql_template.format(
                     anchor_id=pair['container_id'],
                 target_subtype=target_subtype,
@@ -1022,14 +1104,22 @@ def generate_template_based_sample(
             )
     
     elif template.family == "buffer":
-        # Buffer operations
-        # Kilometre distances used by km-based buffer templates (for example
-        # buffer_01, buffer_03, buffer_05, and buffer_06).
-        # Metre distances used by metre-based buffer templates (buffer_02 and
-        # buffer_04).
-        # The template SQL divides by 111 320 to convert to degrees.
-        _buffer_km_choices = [1, 2, 5, 10, 25, 50, 100, 200]
-        _buffer_m_choices = [100, 250, 500, 1000, 2000, 5000]
+        # Buffer operations use metre distances in SQL and a human-readable
+        # buffer_label in questions, e.g. (1000, "1 km") or (250, "250 m").
+        # The template SQL divides by 111 320 to approximate metres in degrees.
+        _buffer_choices = [
+            (100, "100 m"),
+            (250, "250 m"),
+            (500, "500 m"),
+            (1000, "1 km"),
+            (2000, "2 km"),
+            (5000, "5 km"),
+            (10000, "10 km"),
+            (25000, "25 km"),
+            (50000, "50 km"),
+            (100000, "100 km"),
+            (200000, "200 km"),
+        ]
 
         if template.num_anchors == 1:
             if template.anchor_source == "natural_earth":
@@ -1044,22 +1134,13 @@ def generate_template_based_sample(
             if not anchor:
                 return None
 
-            # Choose unit based on which placeholder the template uses.
-            uses_km = "{buffer_km}" in template.sql_template
-            if uses_km:
-                buffer_val = random.choice(_buffer_km_choices)
-                fmt_kwargs = dict(
-                    anchor_id=anchor['id'],
-                    buffer_km=buffer_val,
-                )
-                q_kwargs = dict(anchor_name=anchor['name'], buffer_km=buffer_val)
-            else:
-                buffer_val = random.choice(_buffer_m_choices)
-                fmt_kwargs = dict(
-                    anchor_id=anchor['id'],
-                    buffer_m=buffer_val,
-                )
-                q_kwargs = dict(anchor_name=anchor['name'], buffer_m=buffer_val)
+            buffer_m, buffer_label = random.choice(_buffer_choices)
+            fmt_kwargs = dict(anchor_id=anchor['id'], buffer_m=buffer_m)
+            q_kwargs = dict(anchor_name=anchor['name'], buffer_label=buffer_label)
+
+            if template.target_subtype:
+                fmt_kwargs['target_subtype'] = template.target_subtype
+                q_kwargs['target_subtype'] = template.target_subtype
 
             sql = template.sql_template.format(**fmt_kwargs)
 
@@ -1070,46 +1151,41 @@ def generate_template_based_sample(
 
             question = random.choice(template.question_hints).format(**q_kwargs)
         else:
-            # Two anchor buffer (union / set-op style) — kept for completeness.
-            anchor1 = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
-            anchor2 = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
+            # Multi-anchor buffer (2–5 places): union of individual buffers.
+            num_a = template.num_anchors
+            anchors = []
+            for _ in range(num_a):
+                a = sample_random_entity(con, tables['divisions_area_inventory'], 'divisions_area')
+                if not a:
+                    return None
+                anchors.append(a)
 
-            if not anchor1 or not anchor2:
-                return None
+            buffer_m, buffer_label = random.choice(_buffer_choices[:7])
 
-            buffer_val = random.choice(_buffer_km_choices[:4])  # smaller range for two-anchor
-            sql = template.sql_template.format(
-                        anchor_id_1=anchor1['id'],
-                anchor_id_2=anchor2['id'],
-                buffer_km=buffer_val,
-            )
+            fmt_kwargs = {f'anchor_id_{i+1}': a['id'] for i, a in enumerate(anchors)}
+            fmt_kwargs['buffer_m'] = buffer_m
+            if template.target_subtype:
+                fmt_kwargs['target_subtype'] = template.target_subtype
 
-            candidates1 = build_candidate_list(
-                con, anchor1['id'], anchor1['name'], 'divisions_area',
-                num_candidates=5, difficulty="medium"
-            )
-            candidates2 = build_candidate_list(
-                con, anchor2['id'], anchor2['name'], 'divisions_area',
-                num_candidates=5, difficulty="medium"
-            )
+            sql = template.sql_template.format(**fmt_kwargs)
 
-            candidates = candidates1 + candidates2
-            seen_ids = set()
-            unique_candidates = []
-            for c in candidates:
-                if c.id not in seen_ids:
-                    unique_candidates.append(c)
-                    seen_ids.add(c.id)
-            candidates = unique_candidates[:10]
+            # Build one candidate list per anchor then merge.
+            per_anchor_n = max(2, 10 // num_a)
+            cand_lists = [
+                build_candidate_list(
+                    con, a['id'], a['name'], 'divisions_area',
+                    num_candidates=per_anchor_n, difficulty="medium",
+                )
+                for a in anchors
+            ]
+            candidates = _merge_candidate_lists(*cand_lists)
 
-            for i, c in enumerate(candidates, 1):
-                c.candidate_id = f"c{i}"
+            q_kwargs = {f'anchor_{i+1}_name': a['name'] for i, a in enumerate(anchors)}
+            q_kwargs['buffer_label'] = buffer_label
+            if template.target_subtype:
+                q_kwargs['target_subtype'] = template.target_subtype
 
-            question = random.choice(template.question_hints).format(
-                anchor_1_name=anchor1['name'],
-                anchor_2_name=anchor2['name'],
-                buffer_km=buffer_val,
-            )
+            question = random.choice(template.question_hints).format(**q_kwargs)
     
     elif template.family == "partial_selection":
         # Partial selection (northern half, clipping, etc.)
@@ -1175,7 +1251,7 @@ def generate_template_based_sample(
         # Teach the model to distinguish singular superlatives ("the largest")
         # from explicit top-N requests ("top 5 largest").
         top_n = random.choice([1, 3, 5, 10])
-        target_subtype = random.choice(['locality', 'region'])
+        target_subtype = random.choice(['county', 'region'])
         singular_hints = [h for h in template.question_hints if '{top_n}' not in h]
         plural_hints = [h for h in template.question_hints if '{top_n}' in h]
         question_hint_pool = singular_hints if top_n == 1 and singular_hints else plural_hints or template.question_hints
@@ -1234,65 +1310,119 @@ def generate_template_based_sample(
             )
         
     elif template.family == "chained":
-        # Use pre-filtered coastal/landlocked containment pairs so the SQL
-        # verification step doesn't constantly return empty results.
-        _COASTAL_CHAINED = {"chained_01", "chained_06", "chained_10"}
-        _LANDLOCKED_CHAINED = {"chained_02", "chained_07", "chained_11"}
-        if template.template_id in _COASTAL_CHAINED:
-            table_key = 'coastal_containment_pairs'
-        elif template.template_id in _LANDLOCKED_CHAINED:
-            table_key = 'landlocked_containment_pairs'
+        # chained_12/13: country-level coastal/landlocked via adjacency.
+        # The SQL uses ST_Touches (not containment), so bypass the containment
+        # pair sampling and use adjacency_pairs with country-level anchors.
+        if template.template_id in {"chained_12", "chained_13"}:
+            adj_df = tables.get('adjacency_pairs', pd.DataFrame())
+            country_adj = (
+                adj_df[
+                    (adj_df['anchor_subtype'] == 'country')
+                    & (adj_df['target_subtype'] == 'country')
+                ]
+                if not adj_df.empty else pd.DataFrame()
+            )
+            if country_adj.empty:
+                return None
+            pair = sample_adjacency_anchor(country_adj)
+            if not pair:
+                return None
+
+            sql = template.sql_template.format(anchor_id=pair['anchor_id'])
+            candidates = build_candidate_list(
+                con, pair['anchor_id'], pair['anchor_name'], 'divisions_area',
+                num_candidates=10, difficulty="hard"
+            )
+            question = random.choice(template.question_hints).format(
+                anchor_name=pair['anchor_name']
+            )
+            anchor = {'id': pair['anchor_id'], 'name': pair['anchor_name']}
+
         else:
-            table_key = 'containment_pairs'
+            # Use pre-filtered coastal/landlocked containment pairs so the SQL
+            # verification step doesn't constantly return empty results.
+            _COASTAL_CHAINED = {"chained_01", "chained_06", "chained_10"}
+            _LANDLOCKED_CHAINED = {"chained_02", "chained_07", "chained_11"}
+            if template.template_id in _COASTAL_CHAINED:
+                table_key = 'coastal_containment_pairs'
+            elif template.template_id in _LANDLOCKED_CHAINED:
+                table_key = 'landlocked_containment_pairs'
+            else:
+                table_key = 'containment_pairs'
 
-        df = tables.get(table_key, tables['containment_pairs'])
+            df = tables.get(table_key, tables['containment_pairs'])
 
-        # When the template pins a target_subtype (e.g. chained_06 wants
-        # counties), only consider pairs whose contained entity already
-        # matches — guarantees the sampled container holds at least one
-        # entity of the right subtype so the SQL filter returns rows.
-        if template.target_subtype:
-            df = df[df['contained_subtype'] == template.target_subtype]
+            # When the template pins a target_subtype (e.g. chained_06 wants
+            # counties), only consider pairs whose contained entity already
+            # matches — guarantees the sampled container holds at least one
+            # entity of the right subtype so the SQL filter returns rows.
+            if template.target_subtype:
+                df = df[df['contained_subtype'] == template.target_subtype]
 
-        # chained_10/11 additionally need a country-level container so
-        # phrasings like "coastal states of India" line up.
-        if template.template_id in {"chained_10", "chained_11"}:
-            df = df[df['container_subtype'] == 'country']
+            # chained_10/11 additionally need a country-level container so
+            # phrasings like "coastal states of India" line up.
+            if template.template_id in {"chained_10", "chained_11"}:
+                df = df[df['container_subtype'] == 'country']
 
-        anchor = sample_containment_anchor(df)
-        if not anchor:
-            return None
+            anchor = sample_containment_anchor(df)
+            if not anchor:
+                return None
 
-        target_subtype = template.target_subtype or anchor.get('contained_subtype', 'locality')
+            target_subtype = template.target_subtype or anchor.get('contained_subtype', 'county')
 
-        sql = template.sql_template.format(
-            anchor_id=anchor['container_id'],
-            target_subtype=target_subtype,
-        )
+            sql = template.sql_template.format(
+                anchor_id=anchor['container_id'],
+                target_subtype=target_subtype,
+            )
 
-        candidates = build_candidate_list(
-            con, anchor['container_id'], anchor['container_name'], 'divisions_area',
-            num_candidates=10, difficulty="hard"
-        )
+            candidates = build_candidate_list(
+                con, anchor['container_id'], anchor['container_name'], 'divisions_area',
+                num_candidates=10, difficulty="hard"
+            )
 
-        question = random.choice(template.question_hints).format(
-            anchor_name=anchor['container_name'],
-            target_subtype=target_subtype,
-        )
+            question = random.choice(template.question_hints).format(
+                anchor_name=anchor['container_name'],
+                target_subtype=target_subtype,
+            )
 
     elif template.family == "multi_adjacency":
         # Use common_neighbor_pairs so anchor1 and anchor2 are guaranteed to
         # share at least one touching neighbour — SQL will return non-empty.
+        # Filter by both anchor subtypes AND shared_neighbor_subtype so the
+        # sampled pair is geographically coherent with the template intent:
+        #   multi_adj_01: region anchors → region result
+        #   multi_adj_02: country anchors → country result
+        #   multi_adj_03: region anchors → county result
+        _MULTI_ADJ_ANCHOR_SUBTYPES = {
+            "multi_adj_01": ("region", "region"),
+            "multi_adj_02": ("country", "country"),
+            "multi_adj_03": ("region", "region"),
+        }
         cn_df = tables.get('common_neighbor_pairs', pd.DataFrame())
         if cn_df.empty:
             return None
+        if template.target_subtype and 'shared_neighbor_subtype' in cn_df.columns:
+            filtered = cn_df[cn_df['shared_neighbor_subtype'] == template.target_subtype]
+            if not filtered.empty:
+                cn_df = filtered
+        if template.template_id in _MULTI_ADJ_ANCHOR_SUBTYPES and 'anchor_subtype_1' in cn_df.columns:
+            a1_st, a2_st = _MULTI_ADJ_ANCHOR_SUBTYPES[template.template_id]
+            filtered = cn_df[
+                (cn_df['anchor_subtype_1'] == a1_st) &
+                (cn_df['anchor_subtype_2'] == a2_st)
+            ]
+            if not filtered.empty:
+                cn_df = filtered
         row = cn_df.sample(n=1).iloc[0]
         anchor1 = {'id': row['anchor_id_1'], 'name': row['anchor_name_1'], 'source': 'divisions_area'}
         anchor2 = {'id': row['anchor_id_2'], 'name': row['anchor_name_2'], 'source': 'divisions_area'}
 
+        target_subtype = template.target_subtype or row.get('shared_neighbor_subtype', 'region')
+
         sql = template.sql_template.format(
             anchor_id_1=anchor1['id'],
             anchor_id_2=anchor2['id'],
+            target_subtype=target_subtype,
         )
 
         candidates1 = build_candidate_list(
@@ -1308,6 +1438,7 @@ def generate_template_based_sample(
         question = random.choice(template.question_hints).format(
             anchor_1_name=anchor1['name'],
             anchor_2_name=anchor2['name'],
+            target_subtype=target_subtype,
         )
 
     elif template.family == "difference":
@@ -1429,7 +1560,7 @@ def generate_template_based_sample(
             return None
 
         country = anchor.get('country') or 'US'
-        target_subtype = template.target_subtype or 'locality'
+        target_subtype = template.target_subtype or 'county'
 
         sql = template.sql_template.format(
             country=country,
@@ -1490,7 +1621,7 @@ def generate_template_based_sample(
 
     # Collect every anchor ID that appears in the generated SQL so we can
     # mark them as the "selected" candidates in the training sample.
-    _multi_anchor_families = {"set_operations", "multi_adjacency", "difference", "border_corridor"}
+    _multi_anchor_families = {"set_operations", "multi_adjacency", "difference", "border_corridor", "buffer"}
 
     # Mixed partial_selection (partial_05) and mixed difference (diff_02) each
     # have two anchors from different sources — both must be marked selected.
@@ -1524,6 +1655,8 @@ def generate_template_based_sample(
         )
         selected_candidate_ids = [c.candidate_id for c in candidates if c.id == anchor_id_to_find]
 
+    question, surface_variants = _diversify_question_surface(question, template.family)
+
     return TrainingSample(
         id=sample_id,
         question=question,
@@ -1539,73 +1672,8 @@ def generate_template_based_sample(
             "template_id": template.template_id,
             "num_candidates": len(candidates),
             "anchor_source": template.anchor_source,
-            "sql_verified": True
-        }
-    )
-
-
-def generate_cross_source_sample(
-    con: duckdb.DuckDBPyConnection,
-    cross_source_df: pd.DataFrame,
-    sample_id: str
-) -> Optional[TrainingSample]:
-    """Generate a sample for cross-source intersection task."""
-    
-    anchor = sample_cross_source_anchor(cross_source_df)
-    if not anchor:
-        return None
-    
-    # Build SQL (natural feature -> divisions)
-    sql = f"""WITH a AS (
-  SELECT geometry FROM read_parquet('natural_earth')
-  WHERE id = '{anchor['natural_id']}'
-)
-SELECT b.id, b.names."primary" AS name, b.geometry
-FROM read_parquet('divisions_area') AS b, a
-WHERE b.subtype = 'country'
-  AND ST_Intersects(b.geometry, a.geometry)"""
-    
-    # Execute to verify
-    try:
-        result = con.execute(_for_execution(sql)).fetchdf()
-        if result.empty:
-            return None
-    except Exception as e:
-        print(f"SQL execution failed: {e}")
-        return None
-    
-    # Build candidates for natural feature
-    candidates = build_candidate_list(
-        con,
-        anchor['natural_id'],
-        anchor['natural_name'],
-        "natural_earth",
-        num_candidates=10,
-        difficulty="medium"
-    )
-    
-    # Find which candidate is the true anchor
-    selected_candidate_ids = [c.candidate_id for c in candidates if c.id == anchor['natural_id']]
-    
-    # Generate question
-    question = f"Which countries intersect the {anchor['natural_name']}?"
-    
-    return TrainingSample(
-        id=sample_id,
-        question=question,
-        candidates=candidates,
-        target={
-            "selected_candidates": selected_candidate_ids,
-            "sql": sql
-        },
-        metadata={
-            "task_family": "intersection",
-            "sql_difficulty": "medium-hard",
-            "grounding_difficulty": "medium",
-            "template_id": "intersect_02",
-            "num_candidates": len(candidates),
-            "anchor_source": "natural_earth",
-            "sql_verified": True
+            "sql_verified": True,
+            "surface_variants": surface_variants,
         }
     )
 
