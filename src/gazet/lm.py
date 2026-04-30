@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 
 import dspy
 import httpx
@@ -213,21 +214,36 @@ def is_llama_server_available() -> bool:
 
 
 def _llama_chat_complete(messages: list[dict]) -> str:
-    """Call llama-server /v1/chat/completions with a messages list."""
-    resp = httpx.post(
-        f"{LLAMA_SERVER_URL}/v1/chat/completions",
-        json={
-            "messages": messages,
-            "n_predict": LLAMA_MAX_TOKENS,
-            "temperature": LLAMA_TEMPERATURE,
-            "chat_template_kwargs": {"enable_thinking": False},
-        },
-        timeout=60,
-    )
-    if resp.status_code != 200:
-        logger.error("llama-server %s: %s", resp.status_code, resp.text[:500])
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+    """Call llama-server /v1/chat/completions, waiting through cold starts."""
+    payload = {
+        "messages": messages,
+        "n_predict": LLAMA_MAX_TOKENS,
+        "temperature": LLAMA_TEMPERATURE,
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+    deadline = time.monotonic() + 120.0
+    backoff = 2.0
+    last_err: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            resp = httpx.post(
+                f"{LLAMA_SERVER_URL}/v1/chat/completions",
+                json=payload,
+                timeout=90,
+            )
+            if resp.status_code == 503:
+                time.sleep(backoff)
+                backoff = min(backoff * 1.5, 8.0)
+                continue
+            if resp.status_code != 200:
+                logger.error("llama-server %s: %s", resp.status_code, resp.text[:500])
+            resp.raise_for_status()
+            return resp.json()["choices"][0]["message"]["content"]
+        except (httpx.ConnectError, httpx.ReadError, httpx.TimeoutException) as e:
+            last_err = e
+            time.sleep(backoff)
+            backoff = min(backoff * 1.5, 8.0)
+    raise RuntimeError(f"llama-server did not become ready within 120s: {last_err}")
 
 
 _PLACES_SYSTEM_PROMPT = """You are a geographic entity extractor. Extract the place names the user is asking about and return valid JSON only.

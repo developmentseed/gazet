@@ -9,6 +9,8 @@ app_port: 7860
 
 # Gazet
 
+<img src="assets/gazet-logo.svg" alt="Gazet logo" width="64" />
+
 Lean natural-language geocoder with GIS operations over Overture and Natural Earth parquet datasets.
 
 Gazet  is built to be easily packagable and minimal in setup, trying to push the boundaries on how small we can go in setup for LLM driven data applications. It is built for working with small language models and parquet files.

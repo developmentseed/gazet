@@ -46,11 +46,16 @@ def _run_stream(query: str, backend: str = "gguf") -> Generator[str, None, None]
     - ``error``       – fatal error (no result)
     """
     if backend == "gguf":
+        from .lm import is_llama_server_available
+        if not is_llama_server_available():
+            yield json.dumps({
+                "type": "warming_up",
+                "data": "Starting model server, this takes 30-60s on cold start",
+            }) + "\n"
         places_result = generate_places(query)
     else:
         pred = extract(query=query)
         places_result = pred.result
-    print("places:", places_result)
 
     yield json.dumps({"type": "places", "data": places_result.model_dump()}) + "\n"
 

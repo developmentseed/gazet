@@ -3,10 +3,13 @@
 import json
 import math
 import os
+import re
+from pathlib import Path
 
 import pandas as pd
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
 try:
     import pydeck as pdk
@@ -79,6 +82,8 @@ def _has_line_geometries(features):
 
 
 def _render_map(geojson, placeholder):
+    if not geojson:
+        return
     features = geojson.get("features", [])
     n = len(features)
     if pdk and n:
@@ -136,18 +141,73 @@ def _render_map(geojson, placeholder):
 
 
 API = os.environ.get("GAZET_API_URL", "http://127.0.0.1:8000")
+PLAUSIBLE_SRC = os.environ.get(
+    "PLAUSIBLE_SRC",
+    "https://plausible.io/js/pa-cOxJkIdBOhaQIfgDA-a4y.js",
+)
+
+
+def _inject_plausible():
+    """Inject the Plausible script into the top-level document once per session."""
+    components.html(
+        f"""
+        <script>
+          (function() {{
+            var doc = window.parent.document;
+            if (doc.getElementById('plausible-script')) return;
+            var s = doc.createElement('script');
+            s.id = 'plausible-script';
+            s.async = true;
+            s.src = '{PLAUSIBLE_SRC}';
+            doc.head.appendChild(s);
+            var win = window.parent;
+            win.plausible = win.plausible || function() {{(win.plausible.q = win.plausible.q || []).push(arguments)}};
+            win.plausible.init = win.plausible.init || function(i) {{win.plausible.o = i || {{}}}};
+            win.plausible.init();
+          }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _track(event_name: str, **props):
+    """Fire a custom Plausible event via the parent window."""
+    components.html(
+        f"""
+        <script>
+          if (window.parent.plausible) {{
+            window.parent.plausible({json.dumps(event_name)}, {{props: {json.dumps(props)}}});
+          }}
+        </script>
+        """,
+        height=0,
+    )
+
 EXAMPLES = [
-    "Odisha, India",
+    "Goa, India",
     "Neighbouring states of Odisha",
-    "Odisha excluding Cuttack",
-    "Coastal districts of Odisha",
-    "1 km buffer along the border of Odisha and West Bengal",
-    "Western half of Odisha",
-    "Rivers flowing through Odisha",
-    "Districts along the Indravati river",
+    "Karnataka excluding Bengaluru",
+    "Coastal districts of Kerala",
+    "1 km buffer along the border of West Bengal and Odisha",
+    "Northern half of India",
+    "Rivers flowing through Tamil Nadu",
+    "Districts along the Cauvery river",
+    "Largest district of Bihar",
+    "merge Bihar and Jharkhand"
 ]
 
-st.set_page_config(page_title="Gazet", page_icon="🌍", layout="wide")
+LOGO_PATH = str(Path(__file__).parent / "assets" / "gazet-logo.svg")
+DEVSEED_LOGO_PATH = str(Path(__file__).parent / "assets" / "ds-logo-pos.svg")
+
+st.set_page_config(
+    page_title="Gazet",
+    page_icon=LOGO_PATH,
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+st.logo(LOGO_PATH, size="large")
+_inject_plausible()
 st.markdown("""<style>
 [data-testid="stBaseButton-tertiary"] {
     border: 1px dashed rgba(128,128,128,0.3) !important;
@@ -165,6 +225,71 @@ st.title("Gazet")
 st.caption(
     "/ask plain english to geometry"
 )
+
+with st.sidebar:
+    st.header("Learn how this was built")
+    st.markdown(
+        """
+**Gazet** turns plain English questions into geometries on a map.
+
+### Behind the scenes
+
+This demo is powered by a small language model (SLM) finetuned from
+**Qwen3.5 0.8B**. We picked a small model on purpose: it is fast, cheap to
+run, and easy to host. The trade off is that it works best on the kinds of
+questions it was trained for. Wide open queries may not always work, but
+that is also the point of this work.
+
+### Why a small model?
+
+Small models are easy to improve. When the model fails on a new kind of
+question, we can add a few examples, finetune again in a short cycle, and
+ship the fix. The dataset for this demo was generated synthetically from
+templates and grew over time as we added new question patterns. You can
+follow the same approach for your own domain.
+
+### Data sources
+
+The model queries two open geographic datasets:
+
+- [Overture Maps – Divisions Area](https://docs.overturemaps.org/schema/reference/divisions/division_area/)
+  for administrative boundaries (countries, states, districts, localities).
+- [Natural Earth](https://www.naturalearthdata.com/) for physical
+  features such as rivers, lakes, mountain ranges, and coastlines.
+
+### Links
+
+- Dataset:
+  [developmentseed/gazet-dataset](https://huggingface.co/datasets/developmentseed/gazet-dataset)
+- Model:
+  [developmentseed/gazet-model](https://huggingface.co/developmentseed/gazet-model)
+- Hosted Space:
+  [developmentseed/gazet](https://huggingface.co/spaces/developmentseed/gazet)
+- Source code:
+  [developmentseed/gazet](https://github.com/developmentseed/gazet)
+
+### Talk to us
+
+Interested in small models for your own vertical, or want to try this
+approach on a different domain? Reach out:
+
+- Soumya: [soumya@developmentseed.org](mailto:soumya@developmentseed.org)
+- Daniel: [danielwiesmann@developmentseed.org](mailto:danielwiesmann@developmentseed.org)
+
+### Tips for asking good questions
+
+- Use a place name the model is likely to know (countries, states,
+  major districts, well known rivers and lakes).
+- Combine simple operations: union, intersection, difference, buffer,
+  half splits, neighbours.
+- If a query fails, try rephrasing it more concretely or narrow down
+  the search space, for example: "Coastal districts of Odisha" instead of 
+  "Areas near the sea".
+"""
+    )
+    st.divider()
+    st.caption("Built by")
+    st.image(DEVSEED_LOGO_PATH, width=180)
 
 backend = "gguf"
 
@@ -186,10 +311,12 @@ with col1:
         search_clicked = st.button("Go!", type="primary")
     if search_clicked and q:
         st.session_state.run_q = q
+        _track("Query Submitted", q=q, source="button")
     st.caption("Click an example to get started ->")
     for ex in EXAMPLES:
         if st.button(ex, key=ex, type="tertiary"):
             st.session_state.run_q = ex
+            _track("Query Submitted", q=ex, source="example")
 
 with col2:
     to_run = st.session_state.run_q
@@ -198,6 +325,7 @@ with col2:
         st.session_state.last_result = None
 
         status_ph = st.empty()
+        download_ph = st.empty()
         map_ph = st.empty()
         places_ph = st.empty()
         candidates_ph = st.empty()
@@ -218,6 +346,10 @@ with col2:
                         continue
                     event = json.loads(raw)
                     t = event["type"]
+
+                    if t == "warming_up":
+                        status_ph.warning(event["data"])
+                        continue
 
                     if t == "places":
                         places = event["data"].get("places", [])
@@ -270,6 +402,15 @@ with col2:
                         result["geojson"] = geojson
                         n = len(geojson.get("features", []))
                         status_ph.success(f"**{to_run}** → {n} feature(s)")
+                        _slug = re.sub(r"[^\w]+", "_", to_run.lower()).strip("_") or "result"
+                        if download_ph.download_button(
+                            "Download GeoJSON",
+                            data=json.dumps(geojson),
+                            file_name=f"{_slug}.geojson",
+                            mime="application/geo+json",
+                            key=f"dl_{_slug}",
+                        ):
+                            _track("Download GeoJSON", q=to_run, features=n)
                         _render_map(geojson, map_ph)
 
                     elif t == "error":
@@ -282,11 +423,22 @@ with col2:
 
         st.session_state.last_result = result
 
-    elif st.session_state.last_result:
+    elif st.session_state.last_result and st.session_state.last_result.get("geojson"):
         result = st.session_state.last_result
         query = result["query"]
-        n_feat = len((result["geojson"] or {}).get("features", []))
+        n_feat = len(result["geojson"].get("features", []))
         st.success(f"**{query}** -> {n_feat} feature(s)")
+        if result["geojson"]:
+            _slug = re.sub(r"[^\w]+", "_", query.lower()).strip("_") or "result"
+            _n_cached = len(result["geojson"].get("features", []))
+            if st.download_button(
+                "Download GeoJSON",
+                data=json.dumps(result["geojson"]),
+                file_name=f"{_slug}.geojson",
+                mime="application/geo+json",
+                key=f"dl_{_slug}",
+            ):
+                _track("Download GeoJSON", q=query, features=_n_cached)
         _render_map(result["geojson"], st.empty())
         if result["places"]:
             with st.expander("Extracted place names"):
