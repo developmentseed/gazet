@@ -416,6 +416,35 @@ def _merge_candidate_lists(
     return merged
 
 
+def _dedupe_country_candidates(
+    candidates: List[Candidate],
+    max_total: Optional[int] = None,
+) -> List[Candidate]:
+    """Deduplicate country candidates by country code, preserving first match.
+
+    This is useful for templates whose SQL uses ``country IN (...)`` rather
+    than candidate IDs. Overture can contain multiple country-level rows for
+    the same ISO code, which weakens grounding if they all remain in the list.
+    """
+    deduped: List[Candidate] = []
+    seen_keys: set[tuple[str, str]] = set()
+    for cand in candidates:
+        if cand.subtype == "country" and cand.country:
+            key = ("country", cand.country)
+        else:
+            key = ("id", cand.id)
+        if key in seen_keys:
+            continue
+        deduped.append(cand)
+        seen_keys.add(key)
+        if max_total is not None and len(deduped) >= max_total:
+            break
+
+    for i, cand in enumerate(deduped, 1):
+        cand.candidate_id = f"c{i}"
+    return deduped
+
+
 def build_candidate_list(
     con: duckdb.DuckDBPyConnection,
     anchor_id: str,
@@ -1008,19 +1037,29 @@ def generate_template_based_sample(
             )
 
         elif template.template_id in ("contain_multi_01", "contain_multi_02", "contain_multi_03"):
-            # country IN clause — 2 or 3 anchors, each contributes its country code
+            # country IN clause — 2 or 3 anchors, each contributes its country code.
+            # Sample unique countries so the query actually teaches a multi-country
+            # pattern rather than repeating the same ISO code multiple times.
             num_a = 3 if template.template_id == "contain_multi_02" else 2
-            anchors = [
-                sample_random_entity(
-                    con,
-                    tables['divisions_area_inventory'],
-                    'divisions_area',
-                    subtypes={'country'},
-                )
-                for _ in range(num_a)
-            ]
-            if any(a is None for a in anchors):
+            country_inventory = tables['divisions_area_inventory']
+            country_inventory = country_inventory[
+                (country_inventory['subtype'] == 'country')
+                & country_inventory['country'].notna()
+            ].drop_duplicates(subset=['country'])
+            if len(country_inventory) < num_a:
                 return None
+
+            sampled = country_inventory.sample(n=num_a, replace=False)
+            anchors = [
+                {
+                    'id': row['id'],
+                    'name': row['name'],
+                    'subtype': row.get('subtype'),
+                    'country': row.get('country'),
+                    'source': 'divisions_area',
+                }
+                for _, row in sampled.iterrows()
+            ]
 
             countries = [a.get('country') or 'US' for a in anchors]
             target_subtype = template.target_subtype or 'region'
@@ -1039,7 +1078,10 @@ def generate_template_based_sample(
                                      num_candidates=per_anchor, difficulty="medium")
                 for a in anchors
             ]
-            candidates = _merge_candidate_lists(*cands, max_total=num_a * per_anchor)
+            candidates = _dedupe_country_candidates(
+                _merge_candidate_lists(*cands, max_total=num_a * per_anchor),
+                max_total=num_a * per_anchor,
+            )
 
             q_kwargs = dict(target_subtype=target_subtype)
             for i, a in enumerate(anchors, 1):
@@ -1629,7 +1671,12 @@ def generate_template_based_sample(
         template.anchor_source == "mixed" and template.num_anchors == 2
     )
 
-    if template.family in _multi_anchor_families and template.num_anchors >= 2:
+    if _is_mixed_two_anchor:
+        # partial_05 / diff_02: anchor (division) + clip_feature (natural_earth)
+        mixed_ids = {anchor.get("id", ""), clip_feature.get("id", "")}
+        selected_candidate_ids = [c.candidate_id for c in candidates if c.id in mixed_ids]
+
+    elif template.family in _multi_anchor_families and template.num_anchors >= 2:
         anchor_ids: set = set()
         for var in ("anchor1", "anchor2", "anchor3"):
             obj = locals().get(var)
@@ -1640,11 +1687,6 @@ def generate_template_based_sample(
                 if a:
                     anchor_ids.add(a.get("id", ""))
         selected_candidate_ids = [c.candidate_id for c in candidates if c.id in anchor_ids]
-
-    elif _is_mixed_two_anchor:
-        # partial_05 / diff_02: anchor (division) + clip_feature (natural_earth)
-        mixed_ids = {anchor.get("id", ""), clip_feature.get("id", "")}
-        selected_candidate_ids = [c.candidate_id for c in candidates if c.id in mixed_ids]
 
     else:
         anchor_id_to_find = (

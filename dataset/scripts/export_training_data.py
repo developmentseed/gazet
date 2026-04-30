@@ -20,6 +20,7 @@ Output layout (all paths relative to dataset/):
     output/runs/{run_name}/stats.json
 """
 
+import copy
 import json
 import random
 import sys
@@ -176,6 +177,23 @@ def _format_sql(sql: str) -> str:
         keyword_case="upper",
         indent_width=4,
     ).strip()
+
+
+def _shuffle_candidates_for_export(sample: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a copy of sample with candidate row order shuffled deterministically.
+
+    Candidate IDs remain unchanged; only row order changes. This removes the
+    positional shortcut where the true anchor often appears first in the raw
+    synthetic samples, while keeping selected_candidates valid.
+    """
+    shuffled = copy.deepcopy(sample)
+    candidates = shuffled.get("candidates", [])
+    if len(candidates) <= 1:
+        return shuffled
+
+    rng = random.Random(shuffled.get("id", "sample"))
+    rng.shuffle(candidates)
+    return shuffled
 
 
 def sample_to_sql_pair(sample: Dict[str, Any]) -> Optional[Dict]:
@@ -360,7 +378,9 @@ def main(config_path: Optional[Path] = None) -> None:
     # Load
     print("\nLoading validated samples...")
     samples = load_samples(validated_file)
+    samples = [_shuffle_candidates_for_export(s) for s in samples]
     print(f"  {len(samples):,} samples loaded")
+    print("  Candidate row order shuffled deterministically for export")
 
     # Split once, reuse for both tasks
     print("\nSplitting 80 / 10 / 10 (stratified by task family)...")
