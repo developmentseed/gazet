@@ -103,7 +103,7 @@ Verify:
 
 ```bash
 modal volume ls gazet-data
-# should show: overture/, overture_normalized/, natural_earth_geoparquet/, natural_earth_normalized/
+# should show: overture_normalized/, natural_earth_normalized/
 ```
 
 Skip this step on subsequent runs — the volume persists across runs.

@@ -25,7 +25,7 @@ import modal
 
 app = modal.App("gazet-nlg-qwen35-finetune-v2")
 
-GPU_TYPE = "A100-80GB"
+GPU_TYPE = "H200"
 TIMEOUT_HOURS = 24
 MAX_RETRIES = 1
 
@@ -88,9 +88,9 @@ class Qwen35Config:
 
     # Training
     num_train_epochs: int = 1
-    per_device_train_batch_size: int = 32
-    per_device_eval_batch_size: int = 16
-    gradient_accumulation_steps: int = 1  # effective batch = 48
+    per_device_train_batch_size: int = 96
+    per_device_eval_batch_size: int = 48
+    gradient_accumulation_steps: int = 1  # effective batch = 96
     learning_rate: float = 1e-4
     max_grad_norm: float = 1.0
     warmup_steps: int = 50
@@ -99,17 +99,17 @@ class Qwen35Config:
     optim: str = "adamw_8bit"
 
     # Logging / saving
-    logging_steps: int = 10
+    logging_steps: int = 5
     save_strategy: str = "steps"
-    save_steps: int = 2000
+    save_steps: int = 700
     eval_strategy: str = "steps"
-    eval_steps: int = 500
+    eval_steps: int = 170
     report_to: str = "trackio"
     trackio_space_id: Optional[str] = "srmsoumya/gazet-trackio"
     project: str = "gazet-nlg-qwen35"
 
     # Experiment
-    seed: int = 42
+    seed: int = 108
     experiment_name: Optional[str] = None
 
     def __post_init__(self):
@@ -169,7 +169,7 @@ def _load_data(run_dir: str, tokenizer, max_train_samples=None, max_eval_samples
             ds_dict[split] = Dataset.from_list(combined)
             print(f"{split} split: {len(combined):,} total rows")
 
-    ds = DatasetDict(ds_dict).shuffle(seed=42)
+    ds = DatasetDict(ds_dict).shuffle(seed=108)
 
     if max_train_samples is not None and "train" in ds:
         ds["train"] = ds["train"].select(range(min(max_train_samples, len(ds["train"]))))

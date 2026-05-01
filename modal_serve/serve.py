@@ -15,7 +15,7 @@ import modal
 
 APP_NAME = "gazet"
 
-MODEL_PATH = "/models/checkpoints/qwen35-fientune-v3/ckpt-q4_k_m.gguf"
+MODEL_PATH = "/models/checkpoints/qwen35-fientune-v4/ckpt-q8_0.gguf"
 DATA_PATH = "/data"
 
 app = modal.App(APP_NAME)

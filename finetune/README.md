@@ -117,8 +117,13 @@ uv run \
     --with torch \
     python convert_hf_to_gguf.py \
     ./finetune/models/qwen35-v1-merged \
-    --outtype q8_0 \
-    --outfile ./finetune/models/qwen35-v1-q8_0.gguf
+    --outtype bf16 \
+    --outfile ./finetune/models/ckpt-bf16.gguf
+```
+
+# Quantize to 8-bits
+```bash
+llama-quantize ckpt-bf16.gguf ckpt-q8_0.gguf Q8_0
 ```
 
 ---
@@ -129,7 +134,7 @@ uv run \
 
 ```bash
 llama-server \
-    -m finetune/models/qwen35-v1-q8_0.gguf \
+    -m finetune/models/ckpt-q8_0.gguf \
     -ngl 99 \
     --port 9000 \
     --ctx-size 2048
@@ -151,7 +156,7 @@ docker run \
     -v $(pwd)/finetune/models:/models \
     -p 9000:9000 \
     ghcr.io/ggml-org/llama.cpp:server \
-        -m /models/qwen35-v1-q8_0.gguf \
+        -m /models/ckpt-q8_0.gguf \
         --port 9000 --host 0.0.0.0 \
         --ctx-size 2048 -t 2 -v
 ```

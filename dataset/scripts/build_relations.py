@@ -24,31 +24,21 @@ import pandas as pd
 from gazet.config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
 
 
-# Subtypes too granular for spatial self-joins at global scale
-_EXCLUDED_SUBTYPES_FOR_GLOBAL = ("locality", "neighborhood", "microhood", "macrohood")
-
-
 # (container_subtype, contained_subtype) combos used by the chained,
-# containment, and disambiguation templates. A naive self-join with
-# LIMIT fills up with coarse pairs (country -> region / county) first and
-# never emits locality-level pairs; stratifying by combo ensures each
-# template has anchors to draw from.
+# containment, and disambiguation templates. The normalized Overture input is
+# now restricted to country / region / county, so keep relation building in
+# sync and avoid wasting work on removed subtypes.
 _CONTAINMENT_SUBTYPE_PAIRS = (
-    ("country",    "region"),
-    ("country",    "county"),
-    ("country",    "localadmin"),
-    ("country",    "locality"),
-    ("region",     "county"),
-    ("region",     "localadmin"),
-    ("region",     "locality"),
-    ("county",     "locality"),
-    ("localadmin", "locality"),
+    ("country", "region"),
+    ("country", "county"),
+    ("region", "county"),
 )
 
 
-# Natural Earth subtype vocabulary in the current GeoParquet.
-# Keep these exact strings in one place so relation building and templates
-# stay aligned with the underlying dataset.
+# Natural Earth subtype vocabulary normalized to lowercase.
+# We lowercase the source subtype values while building relation tables so
+# mixed casing in upstream data (e.g. Lake vs lake, Range/mtn vs range/mtn)
+# does not fragment anchor pools or break template matching.
 _NE_CROSS_SOURCE_SUBTYPES = (
     "sea",
     "ocean",
@@ -58,6 +48,8 @@ _NE_CROSS_SOURCE_SUBTYPES = (
     "gulf",
     "bay",
     "strait",
+    "island group",
+    "peninsula",
     "range/mtn",
     "plateau",
     "plain",
@@ -66,6 +58,8 @@ _NE_CROSS_SOURCE_SUBTYPES = (
     "depression",
     "gorge",
 )
+
+_DIVISION_SUBTYPES = ("country", "region", "county")
 
 
 def _country_filter(countries: list) -> tuple[str, list]:
@@ -76,16 +70,10 @@ def _country_filter(countries: list) -> tuple[str, list]:
 
 
 def _country_filter_for_join(countries: list) -> tuple[str, list]:
-    """Like _country_filter but also excludes fine-grained subtypes for global runs.
-
-    When joining all 1M+ entities, localities/neighborhoods/microhoods cause
-    OOM. Excluding them keeps ~110K higher-level admin entities.
-    """
-    excluded = "', '".join(_EXCLUDED_SUBTYPES_FOR_GLOBAL)
-    subtype_clause = f"AND subtype NOT IN ('{excluded}')"
+    """Return a country filter for self-joins over normalized admin data."""
     if countries == ["all"]:
-        return f"WHERE 1=1 {subtype_clause}", []
-    return f"WHERE country IN (SELECT unnest(?)) {subtype_clause}", [countries]
+        return "", []
+    return "WHERE country IN (SELECT unnest(?))", [countries]
 
 
 def _country_chunks(
@@ -171,9 +159,9 @@ def _stratified_containment(
     """Compute containment pairs stratified by (container_subtype, contained_subtype).
 
     A single global self-join with LIMIT fills up with coarse country->region
-    pairs before emitting any locality-level pairs. We run one focused query
-    per subtype combo instead so every combo receives a fair share of the
-    overall limit.
+    pairs before emitting country->county and region->county pairs. We run one
+    focused query per subtype combo instead so every combo receives a fair
+    share of the overall limit.
 
     ``extra_where`` / ``extra_params`` let the coastal and landlocked variants
     inject their country-set filter without duplicating the whole body.
@@ -313,69 +301,75 @@ def compute_cross_source_relations(
 ) -> pd.DataFrame:
     """Find relations between divisions_area and natural_earth.
 
-    The join is heavily skewed by a few abundant Natural Earth subtypes
-    (especially rivers and mountain ranges). We therefore stratify by exact
-    natural subtype so seas/oceans, gulfs/bays, island groups, and rarer
-    landforms all make it into the anchor pool.
+    The join is skewed both by abundant Natural Earth subtypes and by coarse
+    admin features. We therefore stratify by (natural_subtype,
+    division_subtype) so country / region / county anchors all make it into
+    the pool used by mixed-source, NE-intersection, and NE-adjacency templates.
     """
-    print("\nComputing cross-source relations (stratified by NE subtype)...")
+    print("\nComputing cross-source relations (stratified by NE subtype and admin subtype)...")
 
     cfilter, cparams = _country_filter(countries)
-    per_subtype = max(limit // len(_NE_CROSS_SOURCE_SUBTYPES), 50)
+    num_combos = len(_NE_CROSS_SOURCE_SUBTYPES) * len(_DIVISION_SUBTYPES)
+    per_combo = max(limit // num_combos, 10)
 
     frames: list[pd.DataFrame] = []
     for natural_subtype in _NE_CROSS_SOURCE_SUBTYPES:
-        query = f"""
-        WITH divisions AS (
+        for division_subtype in _DIVISION_SUBTYPES:
+            query = f"""
+            WITH divisions AS (
+                SELECT
+                    id,
+                    names."primary" AS name,
+                    subtype,
+                    country,
+                    geometry
+                FROM read_parquet(?)
+                WHERE geometry IS NOT NULL
+                  AND names."primary" IS NOT NULL
+                  AND trim(names."primary") != ''
+                  AND subtype = '{division_subtype}'
+                  {cfilter.replace("WHERE", "AND") if cfilter else ''}
+            ),
+            natural_features AS (
+                SELECT
+                    id,
+                    names."primary" AS name,
+                    lower(subtype) AS natural_subtype,
+                    geometry
+                FROM read_parquet(?)
+                WHERE geometry IS NOT NULL
+                  AND names."primary" IS NOT NULL
+                  AND trim(names."primary") != ''
+                  AND lower(subtype) = '{natural_subtype}'
+            )
             SELECT
-                id,
-                names."primary" AS name,
-                subtype,
-                country,
-                geometry
-            FROM read_parquet(?)
-            WHERE geometry IS NOT NULL
-              AND names."primary" IS NOT NULL
-              AND trim(names."primary") != ''
-              {cfilter.replace("WHERE", "AND") if cfilter else ''}
-        ),
-        natural_features AS (
-            SELECT
-                id,
-                names."primary" AS name,
-                subtype,
-                geometry
-            FROM read_parquet(?)
-            WHERE geometry IS NOT NULL
-              AND names."primary" IS NOT NULL
-              AND trim(names."primary") != ''
-              AND subtype = '{natural_subtype}'
-        )
-        SELECT
-            d.id AS division_id,
-            d.name AS division_name,
-            d.subtype AS division_subtype,
-            d.country AS division_country,
-            n.id AS natural_id,
-            n.name AS natural_name,
-            n.subtype AS natural_subtype,
-            CASE
-                WHEN ST_Touches(d.geometry, n.geometry) THEN 'touches'
-                WHEN ST_Within(d.geometry, n.geometry) THEN 'within'
-                WHEN ST_Contains(d.geometry, n.geometry) THEN 'contains'
-                WHEN ST_Intersects(d.geometry, n.geometry) THEN 'intersects'
-            END AS relation_type
-        FROM divisions AS d
-        JOIN natural_features AS n
-          ON ST_Intersects(d.geometry, n.geometry)
-        LIMIT {per_subtype}
-        """
-        df_part = con.execute(
-            query,
-            [DIVISIONS_AREA_PATH] + cparams + [NATURAL_EARTH_PATH],
-        ).fetchdf()
-        print(f"  cross_source {natural_subtype:>12s}: {len(df_part)} rows")
-        frames.append(df_part)
+                d.id AS division_id,
+                d.name AS division_name,
+                d.subtype AS division_subtype,
+                d.country AS division_country,
+                n.id AS natural_id,
+                n.name AS natural_name,
+                n.natural_subtype AS natural_subtype,
+                CASE
+                    WHEN ST_Touches(d.geometry, n.geometry) THEN 'touches'
+                    WHEN ST_Within(d.geometry, n.geometry) THEN 'within'
+                    WHEN ST_Contains(d.geometry, n.geometry) THEN 'contains'
+                    WHEN ST_Intersects(d.geometry, n.geometry) THEN 'intersects'
+                END AS relation_type
+            FROM divisions AS d
+            JOIN natural_features AS n
+              ON ST_Intersects(d.geometry, n.geometry)
+            LIMIT {per_combo}
+            """
+            df_part = con.execute(
+                query,
+                [DIVISIONS_AREA_PATH] + cparams + [NATURAL_EARTH_PATH],
+            ).fetchdf()
+            print(
+                f"  cross_source {natural_subtype:>12s} x {division_subtype:<7s}: "
+                f"{len(df_part)} rows"
+            )
+            frames.append(df_part)
 
     df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
     print(f"Found {len(df)} cross-source relations")
@@ -389,9 +383,9 @@ def compute_coastal_containment_pairs(
 ) -> pd.DataFrame:
     """Stratified containment pairs limited to coastal-country containers.
 
-    Used by chained_01 (coastal towns of X) so sampled anchors actually have
-    sea-adjacent sub-features. Stratification guarantees coverage of every
-    admin-level combination (country->locality, region->locality, etc.).
+    Used by chained templates so sampled anchors actually have sea-adjacent
+    sub-features. Stratification guarantees coverage of every supported
+    admin-level combination (country->region, country->county, region->county).
     """
     print("\nComputing coastal containment pairs (stratified)...")
     extra_where = f"""
@@ -421,8 +415,8 @@ def compute_landlocked_containment_pairs(
 ) -> pd.DataFrame:
     """Stratified containment pairs limited to landlocked-country containers.
 
-    Used by chained_02 (landlocked localities within X). Stratification by
-    subtype combo ensures locality-level pairs are actually present in the
+    Used by chained templates that need inland anchors. Stratification by
+    subtype combo ensures county-level pairs are actually present in the
     output instead of being starved by coarse country->region pairs.
     """
     print("\nComputing landlocked containment pairs (stratified)...")
@@ -465,8 +459,9 @@ def compute_common_neighbor_pairs(
     if not adj_path.exists():
         print("  adjacency_pairs.parquet not found — skipping (run adjacency first)")
         return pd.DataFrame(columns=[
-            "anchor_id_1", "anchor_name_1", "anchor_id_2", "anchor_name_2",
-            "shared_neighbor_id", "shared_neighbor_name",
+            "anchor_id_1", "anchor_name_1", "anchor_subtype_1",
+            "anchor_id_2", "anchor_name_2", "anchor_subtype_2",
+            "shared_neighbor_id", "shared_neighbor_name", "shared_neighbor_subtype",
         ])
 
     query = """
@@ -474,24 +469,31 @@ def compute_common_neighbor_pairs(
         SELECT
             anchor_id,
             anchor_name,
+            anchor_subtype,
             target_id,
-            target_name
+            target_name,
+            target_subtype
         FROM read_parquet(?)
         UNION ALL
         SELECT
-            target_id AS anchor_id,
-            target_name AS anchor_name,
-            anchor_id AS target_id,
-            anchor_name AS target_name
+            target_id      AS anchor_id,
+            target_name    AS anchor_name,
+            target_subtype AS anchor_subtype,
+            anchor_id      AS target_id,
+            anchor_name    AS target_name,
+            anchor_subtype AS target_subtype
         FROM read_parquet(?)
     )
     SELECT DISTINCT
-        a1.anchor_id   AS anchor_id_1,
-        a1.anchor_name AS anchor_name_1,
-        a2.anchor_id   AS anchor_id_2,
-        a2.anchor_name AS anchor_name_2,
-        a1.target_id   AS shared_neighbor_id,
-        a1.target_name AS shared_neighbor_name
+        a1.anchor_id      AS anchor_id_1,
+        a1.anchor_name    AS anchor_name_1,
+        a1.anchor_subtype AS anchor_subtype_1,
+        a2.anchor_id      AS anchor_id_2,
+        a2.anchor_name    AS anchor_name_2,
+        a2.anchor_subtype AS anchor_subtype_2,
+        a1.target_id      AS shared_neighbor_id,
+        a1.target_name    AS shared_neighbor_name,
+        a1.target_subtype AS shared_neighbor_subtype
     FROM undirected AS a1
     JOIN undirected AS a2
       ON a1.target_id = a2.target_id
@@ -588,11 +590,11 @@ def main(countries: list = None, relation_limits: dict = None):
     if relation_limits is None:
         relation_limits = {
             'adjacency':              50000,
-            'containment':            1000,
-            'intersection':           500,
-            'cross_source':           500,
-            'coastal_containment':    1000,
-            'landlocked_containment': 500,
+            'containment':            3000,
+            'intersection':           3000,
+            'cross_source':           1800,
+            'coastal_containment':    3000,
+            'landlocked_containment': 1500,
             'common_neighbor':        5000,
         }
 

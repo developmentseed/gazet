@@ -65,8 +65,7 @@ Available DuckDB datasets (read via read_parquet):
      id VARCHAR              -- unique feature id (use this to filter precisely)
      names STRUCT("primary" VARCHAR, ...)
      country VARCHAR         -- ISO 3166-1 alpha-2
-     subtype VARCHAR         -- country | region | dependency | county | macrohood |
-                               localadmin | locality | neighborhood | microhood
+     subtype VARCHAR         -- country | region | county
      class VARCHAR
      region VARCHAR          -- region code (e.g. 'EC-L' for Loja Ecuador)
      admin_level INTEGER

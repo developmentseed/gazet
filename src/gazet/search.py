@@ -10,6 +10,7 @@ def simple_fuzzy_search(
     path: str,
     source: str,
     place: Place,
+    name_expr: str = 'names.common.en',
     extra_select: str = "",
     limit: int = 5,
 ) -> pd.DataFrame:
@@ -21,7 +22,7 @@ def simple_fuzzy_search(
         f"""
         SELECT
             id,
-            names."primary" AS name,
+            {name_expr} AS name,
             country,
             subtype,
             class,
@@ -29,9 +30,9 @@ def simple_fuzzy_search(
             admin_level,
             is_land,
             is_territorial{extra_clause},
-            jaro_winkler_similarity(lower(names."primary"), lower(?)) AS similarity
+            jaro_winkler_similarity(lower({name_expr}), lower(?)) AS similarity
         FROM read_parquet(?)
-        WHERE names."primary" IS NOT NULL AND trim(names."primary") != ''
+        WHERE {name_expr} IS NOT NULL AND trim({name_expr}) != ''
         ORDER BY similarity DESC, admin_level ASC
         LIMIT ?
         """,
@@ -70,6 +71,7 @@ def search_natural_earth(
         NATURAL_EARTH_PATH,
         "natural_earth",
         place,
+        name_expr='names.primary',
         limit=limit,
     )
 

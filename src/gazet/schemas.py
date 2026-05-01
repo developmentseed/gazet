@@ -6,13 +6,7 @@ from pydantic import BaseModel
 SUBTYPES = Literal[
     "country",
     "region",
-    "dependency",
     "county",
-    "macrohood",
-    "localadmin",
-    "locality",
-    "neighborhood",
-    "microhood",
 ]
 COUNTRIES = Literal[
     "AD",

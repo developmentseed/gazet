@@ -29,13 +29,14 @@ RUN uv sync --frozen --no-install-project --extra demo
 
 # Copy application code
 COPY --chown=user src/ src/
+COPY --chown=user assets/ assets/
 COPY --chown=user gazet_demo.py .
 RUN uv sync --frozen --extra demo
 
 # Download model from HF
 RUN uv run python -c "\
 from huggingface_hub import hf_hub_download; \
-hf_hub_download('developmentseed/gazet-model', 'models/ckpt-001.gguf', local_dir='.')"
+hf_hub_download('developmentseed/gazet-model', 'models/ckpt-q8_0.gguf', local_dir='.')"
 
 # Download geodata from HF (repo structure matches app's expected layout)
 RUN uv run python -c "\
