@@ -185,16 +185,20 @@ def _track(event_name: str, **props):
     )
 
 EXAMPLES = [
-    "Goa, India",
-    "Neighbouring states of Odisha",
-    "Karnataka excluding Bengaluru",
+    "Lima, Peru",
+    "states bordering California",
     "Coastal districts of Kerala",
-    "1 km buffer along the border of West Bengal and Odisha",
+    "1 km buffer along the border of Texas and Louisiana",
     "Northern half of India",
-    "Rivers flowing through Tamil Nadu",
-    "Districts along the Cauvery river",
-    "Largest district of Bihar",
-    "merge Bihar and Jharkhand"
+    "Rivers flowing through Bangladesh",
+    "merge Westminster and Camden",
+    "show me outline of Hokkaido",
+    "Mountain ranges in Nepal",
+    "nations sharing a border with Saudi Arabia",
+    "countries with coastline in the Mediterranean Sea",
+    "states along the Mississippi River",
+    "districts along the Ganges",
+    "countries bordering the Sahara",
 ]
 
 LOGO_PATH = str(Path(__file__).parent / "assets" / "gazet-logo.svg")
