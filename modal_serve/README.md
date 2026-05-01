@@ -19,18 +19,18 @@ All three scale to zero independently. The Demo URL is the user-facing entrypoin
   - `gazet` (model checkpoints)
   - `gazet-data` (normalized parquet datasets)
 
-## 1. Upload the Q4 GGUF model
+## 1. Upload the Q8 GGUF model
 
 ```bash
 modal volume put gazet \
-    finetune/models/ckpt-q4_k_m.gguf \
-    checkpoints/qwen35-fientune-v3/ckpt-q4_k_m.gguf
+    finetune/models/ckpt-q8_0.gguf \
+    checkpoints/qwen35-fientune-v4/ckpt-q8_0.gguf
 ```
 
 Verify:
 
 ```bash
-modal volume ls gazet checkpoints/qwen35-fientune-v3 | grep ckpt-q4_k_m
+modal volume ls gazet checkpoints/qwen35-fientune-v4 | grep ckpt-q8_0
 ```
 
 ## 2. Deploy
