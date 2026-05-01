@@ -27,7 +27,7 @@ The finetuned model should be converted to GGUF format before uploading.
 # Download merged model from Modal
 modal volume get gazet checkpoints/qwen35-v1/merged ./finetune/models/qwen35-v1-merged
 
-# Convert to GGUF
+# Convert to GGUF (requires llama.cpp repo)
 uv run \
     --no-project \
     --with transformers \
@@ -36,8 +36,13 @@ uv run \
     --with torch \
     python convert_hf_to_gguf.py \
     ./finetune/models/qwen35-v1-merged \
-    --outtype q8_0 \
-    --outfile ./finetune/models/qwen35-v1-q8_0.gguf
+    --outtype bf16 \
+    --outfile ./finetune/models/ckpt-bf16.gguf
+```
+
+# Quantize to 8-bits
+```bash
+llama-quantize ckpt-bf16.gguf ckpt-q8_0.gguf Q8_0
 ```
 
 ### Upload GGUF model
@@ -45,12 +50,12 @@ uv run \
 ```bash
 # Upload GGUF file (repo is created automatically if it doesn't exist)
 hf upload developmentseed/gazet-model \
-    ./finetune/models/qwen35-v1-q8_0.gguf \
-    /models/ckpt-001.gguf \
-    --commit-message "Upload Qwen3.5 GGUF model"
+    ./finetune/models/ckpt-q8_0.gguf \
+    /models/ckpt-q8_0.gguf \
+    --commit-message <message>
 ```
 
-The HF Spaces Dockerfile expects the model at `models/ckpt-001.gguf`.
+The HF Spaces Dockerfile expects the model at `models/ckpt-q8_0.gguf`.
 
 ---
 
@@ -67,18 +72,6 @@ Ensure normalized data exists locally:
 ```bash
 data/overture_normalized/divisions_area/*.parquet
 data/natural_earth_normalized/ne_geography.parquet
-```
-
-If not, create them from the original data:
-
-```bash
-# Create normalized directories
-mkdir -p data/overture_normalized/divisions_area
-mkdir -p data/natural_earth_normalized
-
-# Copy and normalize
-cp data/overture/divisions_area/*.parquet data/overture_normalized/divisions_area/
-cp data/natural_earth_geoparquet/ne_geography.parquet data/natural_earth_normalized/
 ```
 
 ### Upload dataset
@@ -101,7 +94,7 @@ hf upload developmentseed/gazet-geodata \
 
 The HF repo will only contain:
 
-```
+```bash
 gazet-geodata/
 ├── overture_normalized/
 │   └── divisions_area/
@@ -136,7 +129,7 @@ git push space main
 
 1. Copies llama-server binary and backend libraries
 2. Installs Python dependencies via `uv`
-3. Downloads model from `developmentseed/gazet-model` to `models/ckpt-001.gguf`
+3. Downloads model from `developmentseed/gazet-model` to `models/ckpt-q8_0.gguf`
 4. Downloads geodata from `developmentseed/gazet-geodata` to `data/`
 5. Runs supervisord to manage three processes:
    - `llama-server` on port 9000 (GGUF inference)
@@ -178,8 +171,8 @@ View logs in the HF Space UI.
 ```bash
 # Upload new GGUF
 hf upload developmentseed/gazet-model \
-    ./finetune/models/qwen35-v1-q8_0.gguf \
-    /models/ckpt-001.gguf \
+    ./finetune/models/ckpt-q8_0.gguf \
+    /models/ckpt-q8_0.gguf \
     --commit-message "Update GGUF model"
 ```
 
@@ -213,7 +206,7 @@ Test locally before deploying to ensure model and data work together:
 ```bash
 # Download model from HF
 hf download developmentseed/gazet-model \
-    /models/ckpt-001.gguf \
+    /models/ckpt-q8_0.gguf \
     --local-dir models
 
 # Download geodata from HF (only normalized data is downloaded)
@@ -222,7 +215,7 @@ hf download developmentseed/gazet-geodata \
     --local-dir data
 
 # Run llama-server
-llama-server -m models/ckpt-001.gguf --port 9000 --ctx-size 2048
+llama-server -m models/ckpt-q8_0.gguf --port 9000 --ctx-size 2048
 
 # Run API
 uv run uvicorn gazet.api:app --reload

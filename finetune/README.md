@@ -122,7 +122,7 @@ uv run \
 ```
 
 # Quantize to 8-bits
-```
+```bash
 llama-quantize ckpt-bf16.gguf ckpt-q8_0.gguf Q8_0
 ```
 
