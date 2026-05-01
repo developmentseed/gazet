@@ -86,3 +86,7 @@ uv run streamlit run gazet_demo.py   # demo UI
 - `api.py` exposes GET `/search?q=<query>`; returns GeoJSON FeatureCollection and logs intermediate output.
 - LM is initialised at import time in `lm.py`, suitable for a long-lived server process.
 - Data lives in `data/overture/` and `data/natural_earth_geoparquet/` (not tracked in git).
+
+## Attributions
+
+Logo icon: search globe by popcornarts from <a href="https://thenounproject.com/browse/icons/term/search-globe/" target="_blank" title="search globe Icons">Noun Project</a> (CC BY 3.0)
