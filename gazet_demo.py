@@ -226,8 +226,8 @@ st.markdown("""<style>
 </style>""", unsafe_allow_html=True)
 
 st.title("Gazet")
-st.caption(
-    "/ask plain english to geometry"
+st.markdown(
+    "/ask plain english to geometry - powered by [Modal](https://modal.com)"
 )
 
 with st.sidebar:
