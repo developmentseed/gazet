@@ -55,6 +55,24 @@ hf upload developmentseed/gazet-model \
     --commit-message <message>
 ```
 
+```bash
+hf upload developmentseed/gazet-model \
+    finetune/models/qwen-finetune-v1/merged \
+    merged \
+    --commit-message <message>
+```
+
+### Upload Dataset (if needed)
+
+```bash
+# Upload dataset (repo is created automatically if it doesn't exist)
+hf upload developmentseed/gazet-dataset \
+    ./dataset/output/runs/v1 \
+    . \
+    --repo-type dataset \
+    --commit-message <message>
+```
+
 The HF Spaces Dockerfile expects the model at `models/ckpt-q8_0.gguf`.
 
 ---
@@ -82,14 +100,14 @@ hf upload developmentseed/gazet-geodata \
     ./data/overture_normalized \
     /overture_normalized \
     --repo-type dataset \
-    --commit-message "Upload Overture normalized data"
+    --commit-message <message>
 
 # Upload Natural Earth normalized data
 hf upload developmentseed/gazet-geodata \
     ./data/natural_earth_normalized \
     /natural_earth_normalized \
     --repo-type dataset \
-    --commit-message "Upload Natural Earth normalized data"
+    --commit-message <message>
 ```
 
 The HF repo will only contain:
@@ -173,7 +191,7 @@ View logs in the HF Space UI.
 hf upload developmentseed/gazet-model \
     ./finetune/models/ckpt-q8_0.gguf \
     /models/ckpt-q8_0.gguf \
-    --commit-message "Update GGUF model"
+    --commit-message <message>
 ```
 
 Then rebuild the Space (via HF UI or by pushing a commit).
@@ -186,13 +204,13 @@ hf upload developmentseed/gazet-geodata \
     ./data/overture_normalized \
     /overture_normalized \
     --repo-type dataset \
-    --commit-message "Update Overture normalized data"
+    --commit-message <message>
 
 hf upload developmentseed/gazet-geodata \
     ./data/natural_earth_normalized \
     /natural_earth_normalized \
     --repo-type dataset \
-    --commit-message "Update Natural Earth normalized data"
+    --commit-message <message>
 ```
 
 The Space will use the updated data on next rebuild.
@@ -215,7 +233,7 @@ hf download developmentseed/gazet-geodata \
     --local-dir data
 
 # Run llama-server
-llama-server -m models/ckpt-q8_0.gguf --port 9000 --ctx-size 2048
+llama-server -m models/ckpt-q8_0.gguf -ngl 99 --port 9000 --ctx-size 2048
 
 # Run API
 uv run uvicorn gazet.api:app --reload
