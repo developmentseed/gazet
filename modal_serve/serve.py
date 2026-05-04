@@ -124,7 +124,7 @@ demo_image = (
 )
 @modal.concurrent(max_inputs=10)
 class Demo:
-    @modal.web_server(port=7860, startup_timeout=60)
+    @modal.web_server(port=7860, startup_timeout=60, custom_domains=["gazet.ds.io"])
     def serve(self):
         import os
         import subprocess
