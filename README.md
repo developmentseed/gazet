@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 ---
 
-# Gazet
+# [Gazet](https://gazet.ds.io)
 
 <img src="assets/gazet-logo.svg" alt="Gazet logo" width="64" />
 
