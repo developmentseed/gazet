@@ -143,7 +143,7 @@ def _render_map(geojson, placeholder):
 API = os.environ.get("GAZET_API_URL", "http://127.0.0.1:8000")
 PLAUSIBLE_SRC = os.environ.get(
     "PLAUSIBLE_SRC",
-    "https://plausible.io/js/pa-cOxJkIdBOhaQIfgDA-a4y.js",
+    "https://plausible.io/js/pa-rYXsbLvnb-tHwR72IDneF.js",
 )
 
 
