@@ -95,7 +95,10 @@ def _run_stream(
         candidates_df = (
             pd.concat(all_candidates, ignore_index=True)
             .drop_duplicates(subset=["source", "id"])
-            .sort_values(["similarity", "admin_level"], ascending=[False, True])
+            .sort_values(
+                ["is_substring_match", "similarity", "admin_level"],
+                ascending=[False, False, True],
+            )
             .reset_index(drop=True)
         )
 
@@ -210,7 +213,9 @@ def search_fuzzy(
     truncated to the top ``limit``. Returns a GeoJSON FeatureCollection.
 
     Pass ``ids_only=true`` to skip fetching full geometry and get back
-    ``{"ids": [{"source", "id", "name", "bbox"}, ...]}`` instead — ``bbox`` is
+    ``{"ids": [{"source", "id", "name", "country", "admin_level", "bbox"}, ...]}``
+    instead — ``country``/``admin_level`` disambiguate same-named places (e.g.
+    multiple real-world "Loja"s across Ecuador and Spain), and ``bbox`` is
     ``[minx, miny, maxx, maxy]`` computed via ST_XMin/YMin/XMax/YMax, a much
     smaller payload than full geometry, giving minimal spatial context before
     fetching the full geometry for one candidate via ``GET /geometry/{id}``.
@@ -244,15 +249,18 @@ def search_fuzzy(
         candidates_df = (
             pd.concat(candidate_dfs, ignore_index=True)
             .drop_duplicates(subset=["source", "id"])
-            .sort_values("similarity", ascending=False)
+            .sort_values(
+                ["is_substring_match", "similarity"], ascending=[False, False]
+            )
             .head(limit)
             .reset_index(drop=True)
         )
 
         if ids_only:
-            cols = ["source", "id", "name", "bbox"]
-            ids_df = candidates_df[cols].copy()
-            ids_df["bbox"] = ids_df["bbox"].apply(
+            scalar_cols = ["source", "id", "name", "country", "admin_level"]
+            ids_df = candidates_df[scalar_cols].copy()
+            ids_df = ids_df.astype(object).where(ids_df.notna(), None)
+            ids_df["bbox"] = candidates_df["bbox"].apply(
                 lambda arr: [float(x) for x in arr] if arr is not None else None
             )
             return {"ids": ids_df.to_dict(orient="records")}

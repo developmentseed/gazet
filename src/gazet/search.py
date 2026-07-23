@@ -18,6 +18,12 @@ def simple_fuzzy_search(
 ) -> pd.DataFrame:
     """Jaro-Winkler similarity search using only the place name.
 
+    Ranks exact-substring matches (query literally contained in the name,
+    e.g. "Loja" in "Loja Province") ahead of pure edit-distance near-misses
+    (e.g. "Lodja"), even when the near-miss scores a slightly higher raw
+    Jaro-Winkler similarity — substring containment is a stronger signal of
+    a true match than character-level similarity alone.
+
     ``include_geometry``/``include_bbox`` require the spatial extension to
     already be loaded on ``con`` (``INSTALL spatial; LOAD spatial;``).
     ``include_bbox`` computes ``[minx, miny, maxx, maxy]`` via
@@ -25,7 +31,7 @@ def simple_fuzzy_search(
     (no coordinate arrays or GeoJSON serialization), for lightweight
     context (e.g. ``ids_only`` responses).
     """
-    params = [place.place, path, limit]
+    params = [place.place, place.place, path, limit]
 
     extra_clause = f", {extra_select}" if extra_select else ""
     geometry_clause = ", ST_AsGeoJSON(geometry) AS geometry" if include_geometry else ""
@@ -46,10 +52,11 @@ def simple_fuzzy_search(
             admin_level,
             is_land,
             is_territorial{extra_clause}{geometry_clause}{bbox_clause},
-            jaro_winkler_similarity(lower({name_expr}), lower(?)) AS similarity
+            jaro_winkler_similarity(lower({name_expr}), lower(?)) AS similarity,
+            contains(lower({name_expr}), lower(?)) AS is_substring_match
         FROM read_parquet(?)
         WHERE {name_expr} IS NOT NULL AND trim({name_expr}) != ''
-        ORDER BY similarity DESC, admin_level ASC
+        ORDER BY is_substring_match DESC, similarity DESC, admin_level ASC
         LIMIT ?
         """,
         params,
@@ -72,12 +79,18 @@ def search_divisions_area(
     include_geometry: bool = False,
     include_bbox: bool = False,
 ) -> pd.DataFrame:
-    """Fuzzy-match a place against divisions_area (Overture admin boundaries)."""
+    """Fuzzy-match a place against divisions_area (Overture admin boundaries).
+
+    Matches against ``names.primary`` rather than ``names.common.en``:
+    77% of divisions_area rows have no English common name, and would be
+    silently excluded from every fuzzy search if that were the match field.
+    """
     return simple_fuzzy_search(
         con,
         DIVISIONS_AREA_PATH,
         "divisions_area",
         place,
+        name_expr='names.primary',
         extra_select="division_id",
         limit=limit,
         include_geometry=include_geometry,
