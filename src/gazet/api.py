@@ -213,12 +213,15 @@ def search_fuzzy(
     truncated to the top ``limit``. Returns a GeoJSON FeatureCollection.
 
     Pass ``ids_only=true`` to skip fetching full geometry and get back
-    ``{"ids": [{"source", "id", "name", "country", "admin_level", "bbox"}, ...]}``
-    instead — ``country``/``admin_level`` disambiguate same-named places (e.g.
-    multiple real-world "Loja"s across Ecuador and Spain), and ``bbox`` is
-    ``[minx, miny, maxx, maxy]`` computed via ST_XMin/YMin/XMax/YMax, a much
-    smaller payload than full geometry, giving minimal spatial context before
-    fetching the full geometry for one candidate via ``GET /geometry/{id}``.
+    ``{"ids": [{"source", "id", "name", "country", "subtype", "admin_level", "bbox"}, ...]}``
+    instead — ``country``/``subtype``/``admin_level`` disambiguate same-named
+    places (e.g. multiple real-world "Loja"s across Ecuador and Spain, or
+    Ecuador's "Loja" region vs. its nested "Loja" county — same ``subtype``
+    can occur at different ``admin_level``s, and locality-type subtypes have
+    no ``admin_level`` at all). ``bbox`` is ``[minx, miny, maxx, maxy]``
+    computed via ST_XMin/YMin/XMax/YMax, a much smaller payload than full
+    geometry, giving minimal spatial context before fetching the full
+    geometry for one candidate via ``GET /geometry/{id}``.
     """
     requested_sources = (
         tuple(s.strip() for s in sources.split(",")) if sources else _FUZZY_SOURCES
@@ -257,7 +260,7 @@ def search_fuzzy(
         )
 
         if ids_only:
-            scalar_cols = ["source", "id", "name", "country", "admin_level"]
+            scalar_cols = ["source", "id", "name", "country", "subtype", "admin_level"]
             ids_df = candidates_df[scalar_cols].copy()
             ids_df = ids_df.astype(object).where(ids_df.notna(), None)
             ids_df["bbox"] = candidates_df["bbox"].apply(
