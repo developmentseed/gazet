@@ -14,16 +14,26 @@ def simple_fuzzy_search(
     extra_select: str = "",
     limit: int = 5,
     include_geometry: bool = False,
+    include_bbox: bool = False,
 ) -> pd.DataFrame:
     """Jaro-Winkler similarity search using only the place name.
 
-    ``include_geometry`` requires the spatial extension to already be
-    loaded on ``con`` (``INSTALL spatial; LOAD spatial;``).
+    ``include_geometry``/``include_bbox`` require the spatial extension to
+    already be loaded on ``con`` (``INSTALL spatial; LOAD spatial;``).
+    ``include_bbox`` computes ``[minx, miny, maxx, maxy]`` via
+    ST_XMin/YMin/XMax/YMax — a much smaller payload than full geometry
+    (no coordinate arrays or GeoJSON serialization), for lightweight
+    context (e.g. ``ids_only`` responses).
     """
     params = [place.place, path, limit]
 
     extra_clause = f", {extra_select}" if extra_select else ""
     geometry_clause = ", ST_AsGeoJSON(geometry) AS geometry" if include_geometry else ""
+    bbox_clause = (
+        ", [ST_XMin(geometry), ST_YMin(geometry), ST_XMax(geometry), ST_YMax(geometry)] AS bbox"
+        if include_bbox
+        else ""
+    )
     rel = con.execute(
         f"""
         SELECT
@@ -35,7 +45,7 @@ def simple_fuzzy_search(
             region,
             admin_level,
             is_land,
-            is_territorial{extra_clause}{geometry_clause},
+            is_territorial{extra_clause}{geometry_clause}{bbox_clause},
             jaro_winkler_similarity(lower({name_expr}), lower(?)) AS similarity
         FROM read_parquet(?)
         WHERE {name_expr} IS NOT NULL AND trim({name_expr}) != ''
@@ -60,6 +70,7 @@ def search_divisions_area(
     place: Place,
     limit: int = 5,
     include_geometry: bool = False,
+    include_bbox: bool = False,
 ) -> pd.DataFrame:
     """Fuzzy-match a place against divisions_area (Overture admin boundaries)."""
     return simple_fuzzy_search(
@@ -70,6 +81,7 @@ def search_divisions_area(
         extra_select="division_id",
         limit=limit,
         include_geometry=include_geometry,
+        include_bbox=include_bbox,
     )
 
 
@@ -78,6 +90,7 @@ def search_natural_earth(
     place: Place,
     limit: int = 5,
     include_geometry: bool = False,
+    include_bbox: bool = False,
 ) -> pd.DataFrame:
     """Fuzzy-match a place against Natural Earth geography polygons."""
     return simple_fuzzy_search(
@@ -88,6 +101,7 @@ def search_natural_earth(
         name_expr='names.primary',
         limit=limit,
         include_geometry=include_geometry,
+        include_bbox=include_bbox,
     )
 
 
@@ -189,6 +203,7 @@ def search_candidates(
     place: Place,
     limit: int = 5,
     include_geometry: bool = False,
+    include_bbox: bool = False,
     sources: tuple[str, ...] = ("divisions_area", "natural_earth"),
 ) -> list[pd.DataFrame]:
     """Return candidate DataFrames for a place from the requested sources.
@@ -200,7 +215,11 @@ def search_candidates(
     results = []
     for source in sources:
         df = _SOURCE_SEARCH_FNS[source](
-            con, place, limit=limit, include_geometry=include_geometry
+            con,
+            place,
+            limit=limit,
+            include_geometry=include_geometry,
+            include_bbox=include_bbox,
         )
         if not df.empty:
             results.append(df)

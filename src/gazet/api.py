@@ -209,9 +209,11 @@ def search_fuzzy(
     subset of divisions_area/natural_earth; defaults to both), combined and
     truncated to the top ``limit``. Returns a GeoJSON FeatureCollection.
 
-    Pass ``ids_only=true`` to skip fetching geometry entirely and get back
-    ``{"ids": [{"source": ..., "id": ...}, ...]}`` instead — useful when you
-    only need candidate IDs to fetch individually via ``GET /geometry/{id}``.
+    Pass ``ids_only=true`` to skip fetching full geometry and get back
+    ``{"ids": [{"source", "id", "name", "bbox"}, ...]}`` instead — ``bbox`` is
+    ``[minx, miny, maxx, maxy]`` computed via ST_XMin/YMin/XMax/YMax, a much
+    smaller payload than full geometry, giving minimal spatial context before
+    fetching the full geometry for one candidate via ``GET /geometry/{id}``.
     """
     requested_sources = (
         tuple(s.strip() for s in sources.split(",")) if sources else _FUZZY_SOURCES
@@ -233,6 +235,7 @@ def search_fuzzy(
             Place(place=q),
             limit=per_source_limit,
             include_geometry=not ids_only,
+            include_bbox=ids_only,
             sources=requested_sources,
         )
         if not candidate_dfs:
@@ -247,7 +250,12 @@ def search_fuzzy(
         )
 
         if ids_only:
-            return {"ids": candidates_df[["source", "id"]].to_dict(orient="records")}
+            cols = ["source", "id", "name", "bbox"]
+            ids_df = candidates_df[cols].copy()
+            ids_df["bbox"] = ids_df["bbox"].apply(
+                lambda arr: [float(x) for x in arr] if arr is not None else None
+            )
+            return {"ids": ids_df.to_dict(orient="records")}
 
         if simplify:
             candidates_df = normalize_geometry_to_geojson(con, candidates_df)
