@@ -1,15 +1,14 @@
 import json
 import logging
 import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
-from collections.abc import AsyncIterator, Awaitable, Callable
-from typing import Any, Generator
-from fastapi.responses import Response
+from typing import Any
 
 import duckdb
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from .export import to_feature_collection
 from .geometry import normalize_geometry_to_geojson
@@ -83,7 +82,7 @@ def _df_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
 
 def _run_stream(
     base_con: duckdb.DuckDBPyConnection, query: str, backend: str = "gguf"
-) -> Generator[str, None, None]:
+) -> Generator[str]:
     """Yield NDJSON lines as each stage of the search completes.
 
     Event ``type`` values (in order of emission):

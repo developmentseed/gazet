@@ -174,8 +174,7 @@ def _postprocess_sql(text: str) -> str:
     cleaned = text.strip()
     if "```sql" in cleaned:
         cleaned = cleaned.split("```sql", 1)[1]
-    if cleaned.startswith("```"):
-        cleaned = cleaned[3:]
+    cleaned = cleaned.removeprefix("```")
     if "```" in cleaned:
         cleaned = cleaned.split("```", 1)[0]
     return cleaned.strip()
@@ -302,8 +301,7 @@ def generate_places(user_query: str) -> PlacesResult:
     # Strip markdown fences if the model wrapped the JSON
     if raw_output.startswith("```"):
         raw_output = raw_output.split("```")[1]
-        if raw_output.startswith("json"):
-            raw_output = raw_output[4:]
+        raw_output = raw_output.removeprefix("json")
         raw_output = raw_output.strip()
 
     try:

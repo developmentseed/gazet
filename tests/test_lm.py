@@ -1,10 +1,10 @@
 """Tests for gazet.lm — prompt templates, postprocessing, and GGUF helpers."""
 
 from gazet.lm import (
-    _postprocess_sql,
     _PLACES_SYSTEM_PROMPT,
     _SYSTEM_PROMPT_TEMPLATE,
     _USER_PROMPT_TEMPLATE,
+    _postprocess_sql,
 )
 from gazet.schemas import PlacesResult
 

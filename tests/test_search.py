@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+from gazet.schemas import Place
 from gazet.search import (
     get_by_id,
     get_division_by_id,
@@ -10,7 +11,6 @@ from gazet.search import (
     search_divisions_area,
     search_natural_earth,
 )
-from gazet.schemas import Place
 
 
 class TestSearchDivisionsArea:

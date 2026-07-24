@@ -1,6 +1,7 @@
 import logging
 import re
-from typing import Any, Generator, Optional
+from collections.abc import Generator
+from typing import Any
 
 import duckdb
 import pandas as pd
@@ -91,7 +92,7 @@ def _normalize_ne_subtypes(sql: str) -> str:
     return sql
 
 
-def _strip_fences(sql: Optional[str]) -> str:
+def _strip_fences(sql: str | None) -> str:
     """Remove markdown code fences that the LM may wrap the SQL in."""
     if not sql:
         return ""
@@ -105,7 +106,7 @@ def _execute_sql(
     sql: str,
     label: str,
     iteration: int,
-) -> Generator[dict[str, Any], None, None]:
+) -> Generator[dict[str, Any]]:
     """Execute SQL and yield result/error events. Shared by both paths."""
     try:
         result_df = con.execute(sql).fetchdf()
@@ -135,7 +136,7 @@ def run_geo_sql_gguf(
     con: duckdb.DuckDBPyConnection,
     user_query: str,
     candidates_df: pd.DataFrame,
-) -> Generator[dict[str, Any], None, None]:
+) -> Generator[dict[str, Any]]:
     """Single-shot text-to-SQL via the finetuned GGUF model (llama-server).
 
     Event types:
@@ -178,7 +179,7 @@ def run_geo_sql_dspy(
     user_query: str,
     candidates_df: pd.DataFrame,
     max_iterations: int = MAX_SQL_ITERATIONS,
-) -> Generator[dict[str, Any], None, None]:
+) -> Generator[dict[str, Any]]:
     """Code-act retry loop using the DSPy SQL writer (Ollama / cloud LM).
 
     Same event types as ``run_geo_sql_gguf``.

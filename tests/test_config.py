@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-import gazet.config as config
+from gazet import config
 
 
 class TestPreferNormalized:

@@ -1,5 +1,5 @@
 import json
-from typing import Any, Optional
+from typing import Any
 
 import duckdb
 import pandas as pd
@@ -38,7 +38,7 @@ def normalize_geometry_to_geojson(
     if sample.empty:
         return result_df
 
-    def _simplify(val: Any) -> Optional[str]:
+    def _simplify(val: Any) -> str | None:
         if val is None:
             return None
         if isinstance(val, (bytes, bytearray, memoryview)):
