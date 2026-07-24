@@ -1,4 +1,14 @@
 services:
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx.local.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "7860:7860"
+    depends_on:
+      - app
+      - demo
+
   llama:
     image: ghcr.io/ggml-org/llama.cpp:server
     volumes:

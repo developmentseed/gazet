@@ -4,7 +4,7 @@ FROM python:3.13-slim
 
 # Install system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl supervisor libgomp1 && rm -rf /var/lib/apt/lists/*
+    curl nginx supervisor libgomp1 && rm -rf /var/lib/apt/lists/*
 
 # Copy llama-server binary and backend .so files (must stay together)
 COPY --from=llama /app /usr/local/lib/llama
@@ -45,9 +45,20 @@ snapshot_download('developmentseed/gazet-geodata', repo_type='dataset', local_di
 
 COPY --chown=user supervisord.conf .
 
+# Switch to root for nginx config and permissions
+USER root
+COPY nginx.conf /etc/nginx/nginx.conf
+RUN chown -R user:user /var/log/nginx && \
+    chown -R user:user /var/lib/nginx && \
+    chmod 755 /var/log/nginx
+
+# HF Spaces requires UID 1000 — drop back to the non-root user for runtime
+USER user
+
 ENV GAZET_DATA_DIR=$HOME/app/data \
     LLAMA_SERVER_URL=http://localhost:9000 \
     GAZET_API_URL=http://localhost:8000 \
+    GAZET_PUBLIC_API_URL=/api \
     PATH="$HOME/app/.venv/bin:$PATH"
 
 EXPOSE 7860

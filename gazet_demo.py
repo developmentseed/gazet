@@ -141,6 +141,7 @@ def _render_map(geojson, placeholder):
 
 
 API = os.environ.get("GAZET_API_URL", "http://127.0.0.1:8000")
+PUBLIC_API_URL = os.environ.get("GAZET_PUBLIC_API_URL", API)
 PLAUSIBLE_SRC = os.environ.get(
     "PLAUSIBLE_SRC",
     "https://plausible.io/js/pa-rYXsbLvnb-tHwR72IDneF.js",
@@ -233,7 +234,7 @@ st.markdown(
 with st.sidebar:
     st.header("Learn how this was built")
     st.markdown(
-        """
+        f"""
 **Gazet** turns plain English questions into geometries on a map.
 
 ### Behind the scenes
@@ -271,6 +272,8 @@ The model queries two open geographic datasets:
   [developmentseed/gazet](https://huggingface.co/spaces/developmentseed/gazet)
 - Source code:
   [developmentseed/gazet](https://github.com/developmentseed/gazet)
+- API docs:
+  [{PUBLIC_API_URL}/docs]({PUBLIC_API_URL}/docs)
 
 ### Talk to us
 
