@@ -1,8 +1,12 @@
+import logging
+
 import duckdb
 import pandas as pd
 
 from .config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
 from .schemas import Place
+
+logger = logging.getLogger(__name__)
 
 
 def simple_fuzzy_search(
@@ -64,11 +68,9 @@ def simple_fuzzy_search(
     df = rel.fetchdf()
     df.insert(0, "source", source)
     if df.empty:
-        print(f"\n{source} - \"{place.place}\": no matches")
+        logger.debug("%s - %r: no matches", source, place.place)
     else:
-        print(f"\n{source} - \"{place.place}\" (top {len(df)} by Jaro-Winkler):")
-        preview_cols = [c for c in df.columns if c != "geometry"]
-        print(df[preview_cols].to_string(index=False))
+        logger.debug("%s - %r (top %d by Jaro-Winkler)", source, place.place, len(df))
     return df
 
 

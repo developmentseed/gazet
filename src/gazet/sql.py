@@ -1,6 +1,9 @@
+import logging
 import re
 from typing import Any, Generator, Optional
 
+import duckdb
+import pandas as pd
 
 _CANDIDATE_PROMPT_COLS = [
     "source",
@@ -12,14 +15,11 @@ _CANDIDATE_PROMPT_COLS = [
     "admin_level",
 ]
 
-import duckdb
-import pandas as pd
-from shapely import wkb
-from shapely.geometry import mapping
-
 from .config import DIVISIONS_AREA_PATH, MAX_SQL_ITERATIONS, NATURAL_EARTH_PATH, SCHEMA_INFO
 from .geometry import normalize_geometry_to_geojson
 from .lm import generate_sql, write_sql
+
+logger = logging.getLogger(__name__)
 
 
 def _rewrite_data_paths(sql: str) -> str:
@@ -106,15 +106,15 @@ def _execute_sql(
         result_df = con.execute(sql).fetchdf()
         result_df = normalize_geometry_to_geojson(con, result_df)
         if result_df.empty:
-            print(f"[{label}] Query returned no rows.")
+            logger.debug("[%s] Query returned no rows", label)
             yield {"type": "sql_error", "error": "Query returned no rows", "iteration": iteration}
             yield {"type": "result", "df": None, "sql": sql}
         else:
-            print(f"[{label}] Result ({len(result_df)} row(s))")
+            logger.debug("[%s] Result (%d row(s))", label, len(result_df))
             yield {"type": "result", "df": result_df, "sql": sql}
     except Exception as exc:
         error = str(exc)
-        print(f"[{label}] Execution error: {error}")
+        logger.warning("[%s] Execution error: %s", label, error)
         yield {"type": "sql_error", "error": error, "iteration": iteration}
         yield {"type": "result", "df": None, "sql": sql}
 
@@ -135,7 +135,7 @@ def run_geo_sql_gguf(
     - ``result``       – ``{"type": "result", "df": DataFrame | None, "sql": str}``
     """
     if candidates_df.empty:
-        print("\n[SQL·GGUF] No candidates to work with — skipping.")
+        logger.debug("SQL·GGUF: no candidates to work with — skipping.")
         yield {"type": "result", "df": None, "sql": ""}
         return
 
@@ -143,20 +143,20 @@ def run_geo_sql_gguf(
         sql = generate_sql(user_query, candidates_df)
     except Exception as exc:
         error = f"GGUF generation failed: {exc}"
-        print(f"[SQL·GGUF] {error}")
+        logger.error("SQL·GGUF: %s", error)
         yield {"type": "sql_error", "error": error, "iteration": 1}
         yield {"type": "result", "df": None, "sql": ""}
         return
 
     if not sql:
-        print("[SQL·GGUF] Model returned empty SQL.")
+        logger.error("SQL·GGUF: model returned empty SQL")
         yield {"type": "sql_error", "error": "Empty SQL response", "iteration": 1}
         yield {"type": "result", "df": None, "sql": ""}
         return
 
     sql = _rewrite_data_paths(sql)
     sql = _normalize_ne_subtypes(sql)
-    print(f"\n[SQL·GGUF] Generated:\n{sql}\n")
+    logger.debug("SQL·GGUF generated:\n%s", sql)
     yield {"type": "sql_attempt", "sql": sql, "iteration": 1}
     yield from _execute_sql(con, sql, "SQL·GGUF", iteration=1)
 
@@ -175,7 +175,7 @@ def run_geo_sql_dspy(
     Same event types as ``run_geo_sql_gguf``.
     """
     if candidates_df.empty:
-        print("\n[SQL·DSPy] No candidates to work with — skipping.")
+        logger.debug("SQL·DSPy: no candidates to work with — skipping.")
         yield {"type": "result", "df": None, "sql": ""}
         return
 
@@ -185,8 +185,7 @@ def run_geo_sql_dspy(
     error = ""
 
     for iteration in range(1, max_iterations + 1):
-        print(f"\n{'=' * 60}")
-        print(f"[SQL·DSPy] Iteration {iteration}/{max_iterations}")
+        logger.debug("SQL·DSPy iteration %d/%d", iteration, max_iterations)
 
         try:
             pred = write_sql(
@@ -201,17 +200,17 @@ def run_geo_sql_dspy(
             sql = _normalize_ne_subtypes(sql)
         except Exception as exc:
             error = f"LM generation failed: {exc}"
-            print(f"Generation error: {error}")
+            logger.error("SQL·DSPy generation error: %s", error)
             yield {"type": "sql_error", "error": error, "iteration": iteration}
             continue
 
         if not sql:
             error = "LM returned an empty SQL response."
-            print(f"Generation error: {error}")
+            logger.error("SQL·DSPy generation error: %s", error)
             yield {"type": "sql_error", "error": error, "iteration": iteration}
             continue
 
-        print(f"\nGenerated SQL:\n{sql}\n")
+        logger.debug("SQL·DSPy generated:\n%s", sql)
         yield {"type": "sql_attempt", "sql": sql, "iteration": iteration}
 
         try:
@@ -220,20 +219,17 @@ def run_geo_sql_dspy(
             if result_df.empty:
                 error = "The query executed successfully but returned no rows. Revise the query to return at least one result."
                 previous_sql = sql
-                print(f"Empty result: {error}")
+                logger.warning("SQL·DSPy empty result: %s", error)
                 yield {"type": "sql_error", "error": error, "iteration": iteration}
                 continue
-            print(f"Result ({len(result_df)} row(s)):")
-            print(result_df.to_string(index=False, max_colwidth=120))
+            logger.debug("SQL·DSPy result (%d row(s))", len(result_df))
             yield {"type": "result", "df": result_df, "sql": sql}
             return
         except Exception as exc:
             error = str(exc)
             previous_sql = sql
-            print(f"Execution error: {error}")
+            logger.warning("SQL·DSPy execution error: %s", error)
             yield {"type": "sql_error", "error": error, "iteration": iteration}
 
-    print(
-        f"\n[SQL·DSPy] Exhausted {max_iterations} iterations without a successful query."
-    )
+    logger.warning("SQL·DSPy exhausted %d iterations without a successful query", max_iterations)
     yield {"type": "result", "df": None, "sql": ""}
