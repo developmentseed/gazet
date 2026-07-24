@@ -54,11 +54,13 @@ def _per_source_limit(num_places: int) -> int:
       1 place  → 5 per source → 10 total
       2 places → 4 per source → 16 total
       3 places → 3 per source → 18 total
-      4 places → 2 per source → 16 total
-      5 places → 2 per source → 20 total
+      4+ places → 3 per source → 12+ total (floors at reasonable minimum)
     """
-    table = {1: 5, 2: 4, 3: 3, 4: 2, 5: 2}
-    return table.get(num_places, max(1, math.ceil(5 / num_places)))
+    if num_places <= 1:
+        return 5
+    if num_places <= 2:
+        return 4
+    return 3
 
 
 def _df_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
