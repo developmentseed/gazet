@@ -288,7 +288,7 @@ def search_fuzzy(
             sources=requested_sources,
         )
         if not candidate_dfs:
-            return {"ids": []} if ids_only else to_feature_collection(pd.DataFrame())
+            return to_feature_collection(pd.DataFrame())
 
         candidates_df = (
             pd.concat(candidate_dfs, ignore_index=True)
@@ -307,7 +307,10 @@ def search_fuzzy(
             ids_df["bbox"] = candidates_df["bbox"].apply(
                 lambda arr: [float(x) for x in arr] if arr is not None else None
             )
-            return {"ids": ids_df.to_dict(orient="records")}
+            return {
+                "geojson": {"type": "FeatureCollection", "features": []},
+                "ids": ids_df.to_dict(orient="records"),
+            }
 
         if simplify:
             candidates_df = normalize_geometry_to_geojson(con, candidates_df)
