@@ -11,6 +11,7 @@ from .config import (
     LLAMA_SERVER_URL,
     LLAMA_TEMPERATURE,
     PLACE_EXTRACTION_MODEL,
+    SCHEMA_INFO,
     SQL_GENERATION_MODEL,
 )
 from .schemas import Place, PlacesResult
@@ -142,39 +143,12 @@ write_sql = SQLWriter(lm=sql_generation_lm)
 
 # ── GGUF SQL generation via llama-server ──────────────────────────────────────
 
-_SYSTEM_PROMPT = """You are a text to SQL query translator that helps in natural language geocoding.
+_SYSTEM_PROMPT_TEMPLATE = """You are a text to SQL query translator that helps in natural language geocoding.
 
 You have access to two DuckDB parquet tables. Given a set of candidate entities and a user query, generate the SQL to retrieve the desired geometry.
 
 <SCHEMA>
-1. divisions_area  -- Overture polygon/multipolygon admin boundaries
-   query: read_parquet('divisions_area')
-   columns:
-     id VARCHAR              -- unique feature id
-     names STRUCT("primary" VARCHAR, ...)
-     country VARCHAR         -- ISO 3166-1 alpha-2
-     subtype VARCHAR         -- country | region | county
-     class VARCHAR
-     region VARCHAR
-     admin_level INTEGER
-     division_id VARCHAR
-     is_land BOOLEAN
-     is_territorial BOOLEAN
-     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
-
-2. natural_earth  -- Natural Earth geography polygons (oceans, seas, rivers, terrain)
-   query: read_parquet('natural_earth')
-   columns:
-     id VARCHAR              -- unique feature id prefixed 'ne_'
-     names STRUCT("primary" VARCHAR, ...)
-     country VARCHAR
-     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'range/mtn', 'island group'
-     class VARCHAR
-     region VARCHAR
-     admin_level INTEGER
-     is_land BOOLEAN
-     is_territorial BOOLEAN
-     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
+{schema}
 </SCHEMA>
 
 The candidates table has a 'source' column: 'divisions_area' or 'natural_earth'.
@@ -355,7 +329,7 @@ def generate_sql(user_query: str, candidates_df: pd.DataFrame) -> str:
     )
 
     messages = [
-        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "system", "content": _SYSTEM_PROMPT_TEMPLATE.format(schema=SCHEMA_INFO.strip())},
         {"role": "user", "content": user_prompt},
     ]
     raw_output = _llama_chat_complete(messages)
