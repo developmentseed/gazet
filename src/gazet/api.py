@@ -189,6 +189,29 @@ def health(request: Request) -> dict[str, Any]:
     }
 
 
+@app.get("/sources")
+def sources(request: Request) -> dict[str, Any]:
+    """List available data sources with row counts and name ranges."""
+    con = request.app.state.duckdb_con
+    from .config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
+
+    info = {}
+    for name, path in [("divisions_area", DIVISIONS_AREA_PATH), ("natural_earth", NATURAL_EARTH_PATH)]:
+        try:
+            row = con.execute(
+                f"SELECT COUNT(*) as count, MIN(names.primary) as min_name, MAX(names.primary) as max_name FROM read_parquet('{path}')"
+            ).fetchone()
+            info[name] = {
+                "path": path,
+                "row_count": row[0],
+                "name_range": [row[1], row[2]],
+            }
+        except Exception as e:
+            info[name] = {"path": path, "error": str(e)}
+
+    return info
+
+
 @app.get("/search/stream")
 def search_stream(request: Request, q: str, backend: str = "gguf") -> StreamingResponse:
     """Stream search progress as NDJSON (one JSON object per line)."""
