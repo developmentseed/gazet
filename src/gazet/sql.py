@@ -5,6 +5,12 @@ from typing import Any, Generator, Optional
 import duckdb
 import pandas as pd
 
+from .config import DIVISIONS_AREA_PATH, MAX_SQL_ITERATIONS, NATURAL_EARTH_PATH, SCHEMA_INFO
+from .geometry import normalize_geometry_to_geojson
+from .lm import generate_sql, write_sql
+
+logger = logging.getLogger(__name__)
+
 _CANDIDATE_PROMPT_COLS = [
     "source",
     "id",
@@ -14,12 +20,6 @@ _CANDIDATE_PROMPT_COLS = [
     "region",
     "admin_level",
 ]
-
-from .config import DIVISIONS_AREA_PATH, MAX_SQL_ITERATIONS, NATURAL_EARTH_PATH, SCHEMA_INFO
-from .geometry import normalize_geometry_to_geojson
-from .lm import generate_sql, write_sql
-
-logger = logging.getLogger(__name__)
 
 
 def _rewrite_data_paths(sql: str) -> str:
