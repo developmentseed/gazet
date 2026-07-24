@@ -1,5 +1,7 @@
 import json
+import logging
 import math
+import uuid
 from contextlib import asynccontextmanager
 from typing import Any, Generator
 
@@ -32,6 +34,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+logger = logging.getLogger(__name__)
+
+
+@app.middleware("http")
+async def log_request(request: Request, call_next):
+    """Attach X-Request-Id header and log each request."""
+    request_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
+    response = await call_next(request)
+    logger.info("%s %s %d %s %s", request.method, request.url.path, response.status_code, request_id, request.query_params)
+    return response
 
 
 def _per_source_limit(num_places: int) -> int:
