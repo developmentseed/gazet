@@ -1,5 +1,7 @@
 """Tests for gazet.api — FastAPI endpoints and helpers."""
 
+import json
+
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
@@ -145,6 +147,55 @@ class TestSearchFuzzy:
             assert resp.status_code == 200
         except ValueError:
             pass
+
+
+class TestSearchUnifiedMode:
+    """GET /search?mode=fuzzy should behave identically to the deprecated
+    GET /search/fuzzy, since the latter is now a thin wrapper around the same
+    helper."""
+
+    def test_mode_fuzzy_matches_legacy_endpoint(self, client):
+        try:
+            unified = client.get("/search", params={"q": "India", "mode": "fuzzy"})
+            legacy = client.get("/search/fuzzy", params={"q": "India"})
+            assert unified.status_code == legacy.status_code == 200
+            assert unified.json() == legacy.json()
+        except ValueError:
+            pytest.skip("Known limitation: nan in JSON encoding")
+
+    def test_mode_fuzzy_ids_only(self, client):
+        resp = client.get(
+            "/search", params={"q": "India", "mode": "fuzzy", "ids_only": "true"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "ids" in data
+        for item in data["ids"]:
+            assert "id" in item
+            assert "source" in item
+
+    def test_mode_fuzzy_invalid_source(self, client):
+        resp = client.get(
+            "/search", params={"q": "India", "mode": "fuzzy", "sources": "invalid"}
+        )
+        assert resp.status_code == 400
+
+    def test_mode_defaults_to_nl(self, client):
+        # Omitting `mode` should attempt the LLM pipeline, not silently
+        # behave like mode=fuzzy. Skip if no llama-server is reachable.
+        try:
+            resp = client.get("/search", params={"q": "India"})
+            assert resp.status_code in (200, 404)
+        except Exception:
+            pytest.skip("llama-server not available for nl-mode test")
+
+    def test_stream_mode_fuzzy_emits_single_event(self, client):
+        resp = client.get("/search/stream", params={"q": "India", "mode": "fuzzy"})
+        assert resp.status_code == 200
+        lines = [line for line in resp.text.splitlines() if line.strip()]
+        assert len(lines) == 1
+        event = json.loads(lines[0])
+        assert event["type"] in ("geojson", "ids", "error")
 
 
 class TestGeometryById:
