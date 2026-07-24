@@ -3,21 +3,83 @@ import logging
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, Literal
 
 import duckdb
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 
 from .export import to_feature_collection
 from .geometry import normalize_geometry_to_geojson
 from .lm import extract, generate_places
-from .schemas import Place
+from .schemas import (
+    Feature,
+    FeatureCollection,
+    FuzzyIdItem,
+    FuzzyIdsResult,
+    HealthStatus,
+    NLSearchResult,
+    Place,
+    SourceInfo,
+)
 from .search import get_by_id, search_candidates
 from .sql import run_geo_sql_dspy, run_geo_sql_gguf
 
 _FUZZY_SOURCES = ("divisions_area", "natural_earth")
+
+SearchMode = Literal["nl", "fuzzy"]
+
+_Q_QUERY = Query(
+    description=(
+        "Search query: a natural-language sentence for mode=nl, "
+        "a bare place name for mode=fuzzy."
+    )
+)
+_Q_MODE = Query(
+    "nl",
+    description=(
+        "'nl': LLM place-extraction + SQL synthesis over the query. "
+        "'fuzzy': direct Jaro-Winkler name match, no LLM."
+    ),
+)
+_Q_BACKEND = Query(
+    "gguf",
+    description="LLM backend for mode=nl ('gguf' or 'dspy'); ignored for mode=fuzzy.",
+)
+_Q_LIMIT = Query(5, description="Max results for mode=fuzzy; ignored for mode=nl.")
+_Q_SIMPLIFY = Query(
+    True,
+    description="Simplify geometry to GeoJSON for mode=fuzzy; ignored for mode=nl.",
+)
+_Q_SOURCES = Query(
+    None,
+    description=(
+        "Comma-separated subset of divisions_area,natural_earth for mode=fuzzy "
+        "(defaults to both); ignored for mode=nl."
+    ),
+)
+_Q_IDS_ONLY = Query(
+    False,
+    description=(
+        "For mode=fuzzy: return lightweight id/bbox records instead of full "
+        "geometry; ignored for mode=nl."
+    ),
+)
+
+_TAGS_METADATA = [
+    {
+        "name": "search",
+        "description": (
+            "`mode=nl` (default) runs the full natural-language pipeline: "
+            "LLM place-extraction, fuzzy candidate matching, then LLM-generated "
+            "SQL. `mode=fuzzy` skips the LLM entirely and does a direct "
+            "Jaro-Winkler name match — `q` is a place name, not a sentence."
+        ),
+    },
+    {"name": "geometry", "description": "Direct, non-fuzzy geometry lookups by ID."},
+    {"name": "meta", "description": "Health and dataset introspection."},
+]
 
 
 @asynccontextmanager
@@ -33,7 +95,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     con.close()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Gazet API",
+    description=(
+        "Lean natural-language geocoder with GIS operations over Overture "
+        "and Natural Earth parquet datasets. See `GET /search` for the main "
+        "entrypoint (natural-language or fuzzy-name modes)."
+    ),
+    version="0.1.0",
+    lifespan=lifespan,
+    openapi_tags=_TAGS_METADATA,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +253,7 @@ def _run_stream(
         con.close()
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthStatus, tags=["meta"])
 def health(request: Request) -> dict[str, Any]:
     """Health check — DuckDB connection alive + llama-server status."""
     con = request.app.state.duckdb_con
@@ -210,7 +282,7 @@ def health(request: Request) -> dict[str, Any]:
     }
 
 
-@app.get("/sources")
+@app.get("/sources", response_model=dict[str, SourceInfo], tags=["meta"])
 def sources(request: Request) -> dict[str, Any]:
     """List available data sources with row counts and name ranges."""
     con = request.app.state.duckdb_con
@@ -236,28 +308,15 @@ def sources(request: Request) -> dict[str, Any]:
     return info
 
 
-@app.get("/search/stream")
-def search_stream(request: Request, q: str, backend: str = "gguf") -> StreamingResponse:
-    """Stream search progress as NDJSON (one JSON object per line)."""
-    con = request.app.state.duckdb_con
-    return StreamingResponse(
-        _run_stream(con, q, backend), media_type="application/x-ndjson"
-    )
-
-
-@app.get("/search", response_model=None)
-def search(request: Request, q: str, backend: str = "gguf") -> dict[str, Any]:
-    """Run geo search for natural-language query (non-streaming).
-
-    Returns GeoJSON FeatureCollection, the executed SQL, and the identified
-    dataframes (candidates) as JSON-serializable records.
-    """
+def _nl_search(
+    con: duckdb.DuckDBPyConnection, q: str, backend: str = "gguf"
+) -> NLSearchResult:
+    """Run the natural-language pipeline (LLM extraction + SQL) to completion."""
     places: dict = {}
     candidates: list = []
     sql = ""
     geojson: dict | None = None
 
-    con = request.app.state.duckdb_con
     for line in _run_stream(con, q, backend):
         if not line.strip():
             continue
@@ -275,40 +334,34 @@ def search(request: Request, q: str, backend: str = "gguf") -> dict[str, Any]:
     if geojson is None:
         raise HTTPException(status_code=404, detail="No result")
 
-    return {
-        "geojson": geojson,
-        "sql": sql,
-        "places": places,
-        "dataframes": {"candidates": candidates},
-    }
+    return NLSearchResult(
+        geojson=FeatureCollection(**geojson),
+        sql=sql,
+        places=places,
+        dataframes={"candidates": candidates},
+    )
 
 
-@app.get("/search/fuzzy", response_model=None)
-def search_fuzzy(
-    request: Request,
+def _fuzzy_search(
+    con: duckdb.DuckDBPyConnection,
     q: str,
     limit: int = 5,
     simplify: bool = True,
     sources: str | None = None,
     ids_only: bool = False,
-) -> dict[str, Any]:
+) -> FeatureCollection | FuzzyIdsResult:
     """Pure fuzzy-name search with geometry, no LLM involved.
 
-    ``q`` is a place-name string (not a natural-language query) — this
-    endpoint has no place-extraction step. Matches are ranked by
-    Jaro-Winkler similarity across the requested ``sources`` (comma-separated
-    subset of divisions_area/natural_earth; defaults to both), combined and
-    truncated to the top ``limit``. Returns a GeoJSON FeatureCollection.
+    ``q`` is a place-name string (not a natural-language query) — no
+    place-extraction step. Matches are ranked by Jaro-Winkler similarity
+    across the requested ``sources`` (comma-separated subset of
+    divisions_area/natural_earth; defaults to both), combined and truncated
+    to the top ``limit``.
 
     Pass ``ids_only=true`` to skip fetching full geometry and get back
-    ``{"ids": [{"source", "id", "name", "country", "subtype", "admin_level", "bbox"}, ...]}``
-    instead — ``country``/``subtype``/``admin_level`` disambiguate same-named
-    places (e.g. multiple real-world "Loja"s across Ecuador and Spain, or
-    Ecuador's "Loja" region vs. its nested "Loja" county — same ``subtype``
-    can occur at different ``admin_level``s, and locality-type subtypes have
-    no ``admin_level`` at all). ``bbox`` is ``[minx, miny, maxx, maxy]``
-    computed via ST_XMin/YMin/XMax/YMax, a much smaller payload than full
-    geometry, giving minimal spatial context before fetching the full
+    lightweight candidates (id/name/country/subtype/admin_level/bbox)
+    instead — enough to disambiguate same-named places (e.g. multiple
+    real-world "Loja"s across Ecuador and Spain) before fetching the full
     geometry for one candidate via ``GET /geometry/{id}``.
     """
     requested_sources = (
@@ -320,14 +373,14 @@ def search_fuzzy(
             status_code=400, detail=f"Unknown source(s): {sorted(invalid)}"
         )
 
-    con = request.app.state.duckdb_con.cursor()
+    cur = con.cursor()
 
     try:
         # Fetch a pool larger than `limit` per source so the combined,
         # similarity-ranked top-`limit` isn't skewed by per-source cutoffs.
         per_source_limit = max(limit * 3, 15)
         candidate_dfs = search_candidates(
-            con,
+            cur,
             Place(place=q),
             limit=per_source_limit,
             include_geometry=not ids_only,
@@ -335,7 +388,7 @@ def search_fuzzy(
             sources=requested_sources,
         )
         if not candidate_dfs:
-            return to_feature_collection(pd.DataFrame())
+            return FeatureCollection()
 
         candidates_df = (
             pd.concat(candidate_dfs, ignore_index=True)
@@ -352,25 +405,142 @@ def search_fuzzy(
             ids_df["bbox"] = candidates_df["bbox"].apply(
                 lambda arr: [float(x) for x in arr] if arr is not None else None
             )
-            return {
-                "geojson": {"type": "FeatureCollection", "features": []},
-                "ids": ids_df.to_dict(orient="records"),
-            }
+            return FuzzyIdsResult(
+                geojson=FeatureCollection(),
+                ids=[FuzzyIdItem(**r) for r in _df_to_records(ids_df)],
+            )
 
         if simplify:
-            candidates_df = normalize_geometry_to_geojson(con, candidates_df)
+            candidates_df = normalize_geometry_to_geojson(cur, candidates_df)
 
-        return to_feature_collection(candidates_df)
+        return FeatureCollection(**to_feature_collection(candidates_df))
     finally:
-        con.close()
+        cur.close()
 
 
-@app.get("/geometry/{id}", response_model=None)
+def _run_fuzzy_stream(
+    con: duckdb.DuckDBPyConnection,
+    q: str,
+    limit: int,
+    simplify: bool,
+    sources: str | None,
+    ids_only: bool,
+) -> Generator[str]:
+    """Wrap ``_fuzzy_search`` in the same NDJSON event contract as ``_run_stream``,
+    for streaming clients that don't want to branch on ``mode``."""
+    try:
+        result = _fuzzy_search(
+            con, q, limit=limit, simplify=simplify, sources=sources, ids_only=ids_only
+        )
+    except HTTPException as e:
+        yield json.dumps({"type": "error", "data": e.detail}) + "\n"
+        return
+
+    event_type = "ids" if isinstance(result, FuzzyIdsResult) else "geojson"
+    yield json.dumps({"type": event_type, "data": result.model_dump()}) + "\n"
+
+
+@app.get("/search/stream", tags=["search"])
+def search_stream(
+    request: Request,
+    q: str = _Q_QUERY,
+    mode: SearchMode = _Q_MODE,
+    backend: str = _Q_BACKEND,
+    limit: int = _Q_LIMIT,
+    simplify: bool = _Q_SIMPLIFY,
+    sources: str | None = _Q_SOURCES,
+    ids_only: bool = _Q_IDS_ONLY,
+) -> StreamingResponse:
+    """Stream search progress as NDJSON (one JSON object per line).
+
+    ``mode=nl`` (default) streams each pipeline stage (``places``,
+    ``candidates``, ``sql_attempt``, ``geojson``, ...) using ``backend``.
+    ``mode=fuzzy`` has no pipeline stages — it emits a single ``geojson`` or
+    ``ids`` event using ``limit``/``simplify``/``sources``/``ids_only``.
+    """
+    con = request.app.state.duckdb_con
+    generator = (
+        _run_fuzzy_stream(con, q, limit, simplify, sources, ids_only)
+        if mode == "fuzzy"
+        else _run_stream(con, q, backend)
+    )
+    return StreamingResponse(generator, media_type="application/x-ndjson")
+
+
+@app.get(
+    "/search",
+    response_model=NLSearchResult | FeatureCollection | FuzzyIdsResult,
+    tags=["search"],
+)
+def search(
+    request: Request,
+    q: str = _Q_QUERY,
+    mode: SearchMode = _Q_MODE,
+    backend: str = _Q_BACKEND,
+    limit: int = _Q_LIMIT,
+    simplify: bool = _Q_SIMPLIFY,
+    sources: str | None = _Q_SOURCES,
+    ids_only: bool = _Q_IDS_ONLY,
+) -> NLSearchResult | FeatureCollection | FuzzyIdsResult:
+    """Run a search, non-streaming.
+
+    ``mode=nl`` (default): natural-language query → LLM place-extraction →
+    fuzzy candidate matching → LLM-generated SQL. Uses ``backend``. Returns
+    ``{geojson, sql, places, dataframes}``.
+
+    ``mode=fuzzy``: direct place-name fuzzy match, no LLM — see
+    ``GET /search/fuzzy`` (this is the same logic, callable without the
+    separate path). Uses ``limit``/``simplify``/``sources``/``ids_only``.
+    """
+    con = request.app.state.duckdb_con
+    if mode == "fuzzy":
+        return _fuzzy_search(
+            con, q, limit=limit, simplify=simplify, sources=sources, ids_only=ids_only
+        )
+    return _nl_search(con, q, backend=backend)
+
+
+@app.get(
+    "/search/fuzzy",
+    response_model=FeatureCollection | FuzzyIdsResult,
+    deprecated=True,
+    tags=["search"],
+)
+def search_fuzzy(
+    request: Request,
+    q: str = Query(description="Bare place name to fuzzy-match, e.g. 'Lima'."),
+    limit: int = Query(5, description="Max results to return."),
+    simplify: bool = Query(True, description="Simplify geometry to GeoJSON."),
+    sources: str | None = Query(
+        None,
+        description="Comma-separated subset of divisions_area,natural_earth (defaults to both).",
+    ),
+    ids_only: bool = Query(
+        False,
+        description="Return lightweight id/bbox records instead of full geometry.",
+    ),
+) -> FeatureCollection | FuzzyIdsResult:
+    """Deprecated — use ``GET /search?mode=fuzzy`` instead. Kept for backward
+    compatibility; identical behavior."""
+    return _fuzzy_search(
+        request.app.state.duckdb_con,
+        q,
+        limit=limit,
+        simplify=simplify,
+        sources=sources,
+        ids_only=ids_only,
+    )
+
+
+@app.get("/geometry/{id}", response_model=Feature, tags=["geometry"])
 def get_geometry(
     request: Request,
     id: str,
-    source: str | None = None,
-    simplify: bool = True,
+    source: str | None = Query(
+        None,
+        description="Restrict lookup to 'divisions_area' or 'natural_earth'; inferred from id if omitted.",
+    ),
+    simplify: bool = Query(True, description="Simplify geometry to GeoJSON."),
 ) -> dict[str, Any]:
     """Fetch a single feature's geometry directly by ID — no fuzzy matching, no LLM.
 
