@@ -19,13 +19,18 @@ dependencies = [
     "httpx>=0.28.1",
     "sqlparse>=0.5.5",
 ]
-optional-dependencies = { demo = ["streamlit", "requests", "pydeck"], dev = ["ruff"] }
+optional-dependencies = { demo = ["streamlit", "requests", "pydeck"], dev = ["ruff", "pytest>=8.0", "pytest-asyncio>=0.24"] }
 
 [project.scripts]
 gazet-dataset = "dataset.scripts.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/gazet", "dataset"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = ["-ra", "--strict-markers"]
 
 [dependency-groups]
 dataset = [
