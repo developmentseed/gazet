@@ -15,9 +15,7 @@ class TestPreferNormalized:
         orig = tmp_path / "original.parquet"
         orig.touch()
 
-        result = config._prefer_normalized(
-            norm_dir / "test.parquet", orig
-        )
+        result = config._prefer_normalized(norm_dir / "test.parquet", orig)
         assert result == norm_dir / "test.parquet"
 
     def test_falls_back_to_original_when_normalized_missing(self, tmp_path):
@@ -36,9 +34,7 @@ class TestPreferNormalized:
         orig = tmp_path / "original.parquet"
         orig.touch()
 
-        result = config._prefer_normalized(
-            norm_dir / "*.parquet", orig
-        )
+        result = config._prefer_normalized(norm_dir / "*.parquet", orig)
         assert result == norm_dir / "*.parquet"
 
     def test_wildcard_falls_back_when_no_match(self, tmp_path):
@@ -47,9 +43,7 @@ class TestPreferNormalized:
         orig = tmp_path / "original.parquet"
         orig.touch()
 
-        result = config._prefer_normalized(
-            norm_dir / "*.parquet", orig
-        )
+        result = config._prefer_normalized(norm_dir / "*.parquet", orig)
         assert result == orig
 
     def test_respects_use_normalized_off(self, tmp_path, monkeypatch):
@@ -60,9 +54,7 @@ class TestPreferNormalized:
         orig = tmp_path / "original.parquet"
         orig.touch()
 
-        result = config._prefer_normalized(
-            norm_dir / "test.parquet", orig
-        )
+        result = config._prefer_normalized(norm_dir / "test.parquet", orig)
         # Should fall back because GAZET_USE_NORMALIZED_DATA is "0"
         assert result == orig
 

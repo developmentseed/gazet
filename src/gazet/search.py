@@ -14,7 +14,7 @@ def simple_fuzzy_search(
     path: str,
     source: str,
     place: Place,
-    name_expr: str = 'names.common.en',
+    name_expr: str = "names.common.en",
     extra_select: str = "",
     limit: int = 5,
     include_geometry: bool = False,
@@ -92,7 +92,7 @@ def search_divisions_area(
         DIVISIONS_AREA_PATH,
         "divisions_area",
         place,
-        name_expr='names.primary',
+        name_expr="names.primary",
         extra_select="division_id",
         limit=limit,
         include_geometry=include_geometry,
@@ -113,7 +113,7 @@ def search_natural_earth(
         NATURAL_EARTH_PATH,
         "natural_earth",
         place,
-        name_expr='names.primary',
+        name_expr="names.primary",
         limit=limit,
         include_geometry=include_geometry,
         include_bbox=include_bbox,
@@ -125,7 +125,7 @@ def fetch_by_id(
     path: str,
     source: str,
     id: str,
-    name_expr: str = 'names.common.en',
+    name_expr: str = "names.common.en",
     extra_select: str = "",
     include_geometry: bool = True,
 ) -> pd.DataFrame:
@@ -182,7 +182,7 @@ def get_natural_earth_by_id(
         NATURAL_EARTH_PATH,
         "natural_earth",
         id,
-        name_expr='names.primary',
+        name_expr="names.primary",
         include_geometry=include_geometry,
     )
 
@@ -209,8 +209,12 @@ def get_by_id(
     Natural Earth IDs are always prefixed ``ne_`` (see ``config.SCHEMA_INFO``);
     anything else is assumed to be a divisions_area ID.
     """
-    resolved_source = source or ("natural_earth" if id.startswith("ne_") else "divisions_area")
-    return _SOURCE_FETCH_FNS[resolved_source](con, id, include_geometry=include_geometry)
+    resolved_source = source or (
+        "natural_earth" if id.startswith("ne_") else "divisions_area"
+    )
+    return _SOURCE_FETCH_FNS[resolved_source](
+        con, id, include_geometry=include_geometry
+    )
 
 
 def search_candidates(

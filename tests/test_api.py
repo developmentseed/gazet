@@ -1,6 +1,5 @@
 """Tests for gazet.api — FastAPI endpoints and helpers."""
 
-
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient

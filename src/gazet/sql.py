@@ -5,7 +5,12 @@ from typing import Any, Generator, Optional
 import duckdb
 import pandas as pd
 
-from .config import DIVISIONS_AREA_PATH, MAX_SQL_ITERATIONS, NATURAL_EARTH_PATH, SCHEMA_INFO
+from .config import (
+    DIVISIONS_AREA_PATH,
+    MAX_SQL_ITERATIONS,
+    NATURAL_EARTH_PATH,
+    SCHEMA_INFO,
+)
 from .geometry import normalize_geometry_to_geojson
 from .lm import generate_sql, write_sql
 
@@ -107,7 +112,11 @@ def _execute_sql(
         result_df = normalize_geometry_to_geojson(con, result_df)
         if result_df.empty:
             logger.debug("[%s] Query returned no rows", label)
-            yield {"type": "sql_error", "error": "Query returned no rows", "iteration": iteration}
+            yield {
+                "type": "sql_error",
+                "error": "Query returned no rows",
+                "iteration": iteration,
+            }
             yield {"type": "result", "df": None, "sql": sql}
         else:
             logger.debug("[%s] Result (%d row(s))", label, len(result_df))
@@ -231,5 +240,7 @@ def run_geo_sql_dspy(
             logger.warning("SQL·DSPy execution error: %s", error)
             yield {"type": "sql_error", "error": error, "iteration": iteration}
 
-    logger.warning("SQL·DSPy exhausted %d iterations without a successful query", max_iterations)
+    logger.warning(
+        "SQL·DSPy exhausted %d iterations without a successful query", max_iterations
+    )
     yield {"type": "result", "df": None, "sql": ""}

@@ -30,6 +30,7 @@ class TestPlace:
 
     def test_rejects_missing_place(self):
         import pytest
+
         with pytest.raises(Exception):  # pydantic validation error
             Place()  # pragma: no cover
 

@@ -47,9 +47,7 @@ class ExtractPlaces(dspy.Signature):
     query: str = dspy.InputField(
         desc="Natural language query mentioning one or more place names"
     )
-    result: PlacesResult = dspy.OutputField(
-        desc="Extracted place names in query order"
-    )
+    result: PlacesResult = dspy.OutputField(desc="Extracted place names in query order")
 
 
 class WriteGeoSQL(dspy.Signature):
@@ -91,20 +89,20 @@ class WriteGeoSQL(dspy.Signature):
 
 
 place_extraction_lm = dspy.LM(
-    f"ollama_chat/{PLACE_EXTRACTION_MODEL}", 
-    api_base="http://localhost:11434", 
-    api_key="", 
-    temperature=0.1, 
+    f"ollama_chat/{PLACE_EXTRACTION_MODEL}",
+    api_base="http://localhost:11434",
+    api_key="",
+    temperature=0.1,
     cache=False,
 )
 
 sql_generation_lm = dspy.LM(
-    f"ollama_chat/{SQL_GENERATION_MODEL}", 
-    api_base="http://localhost:11434", 
-    api_key="", 
-    temperature=0.1, 
+    f"ollama_chat/{SQL_GENERATION_MODEL}",
+    api_base="http://localhost:11434",
+    api_key="",
+    temperature=0.1,
     cache=False,
-    think=False
+    think=False,
 )
 
 
@@ -113,7 +111,7 @@ class PlaceExtractor(dspy.Module):
         super().__init__()
         self.lm = lm
         self.predictor = dspy.Predict(ExtractPlaces)
-    
+
     def forward(self, query: str):
         with dspy.context(lm=self.lm):
             return self.predictor(query=query)
@@ -124,16 +122,22 @@ class SQLWriter(dspy.Module):
         super().__init__()
         self.lm = lm
         self.predictor = dspy.Predict(WriteGeoSQL)
-    
-    def forward(self, user_query: str, schema: str, candidates: str, 
-                previous_sql: str = "", execution_error: str = ""):
+
+    def forward(
+        self,
+        user_query: str,
+        schema: str,
+        candidates: str,
+        previous_sql: str = "",
+        execution_error: str = "",
+    ):
         with dspy.context(lm=self.lm):
             return self.predictor(
                 user_query=user_query,
                 schema=schema,
                 candidates=candidates,
                 previous_sql=previous_sql,
-                execution_error=execution_error
+                execution_error=execution_error,
             )
 
 
@@ -306,7 +310,9 @@ def generate_places(user_query: str) -> PlacesResult:
         data = json.loads(raw_output)
         return PlacesResult.model_validate(data)
     except Exception as exc:
-        logger.warning("generate_places: failed to parse output %r: %s", raw_output, exc)
+        logger.warning(
+            "generate_places: failed to parse output %r: %s", raw_output, exc
+        )
         # Best-effort: treat entire query as a single unnamed place
         return PlacesResult(places=[Place(place=user_query)])
 
@@ -329,7 +335,10 @@ def generate_sql(user_query: str, candidates_df: pd.DataFrame) -> str:
     )
 
     messages = [
-        {"role": "system", "content": _SYSTEM_PROMPT_TEMPLATE.format(schema=SCHEMA_INFO.strip())},
+        {
+            "role": "system",
+            "content": _SYSTEM_PROMPT_TEMPLATE.format(schema=SCHEMA_INFO.strip()),
+        },
         {"role": "user", "content": user_prompt},
     ]
     raw_output = _llama_chat_complete(messages)

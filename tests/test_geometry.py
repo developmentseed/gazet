@@ -53,23 +53,28 @@ class TestRoundCoords:
 class TestNormalizeGeometryToGeojson:
     def test_no_geometry_column(self, con):
         import pandas as pd
+
         df = pd.DataFrame({"id": [1], "name": ["test"]})
         result = normalize_geometry_to_geojson(con, df)
         assert "geometry" not in result.columns
 
     def test_empty_dataframe(self, con):
         import pandas as pd
+
         df = pd.DataFrame(columns=["geometry"])
         result = normalize_geometry_to_geojson(con, df)
         assert result.empty
 
     def test_geojson_string_simplified(self, con):
         import pandas as pd
+
         # A simple point — simplify should pass it through
-        point_geojson = json.dumps({
-            "type": "Point",
-            "coordinates": [12.1234567, 34.9876543],
-        })
+        point_geojson = json.dumps(
+            {
+                "type": "Point",
+                "coordinates": [12.1234567, 34.9876543],
+            }
+        )
         df = pd.DataFrame({"geometry": [point_geojson]})
         result = normalize_geometry_to_geojson(con, df)
         assert result["geometry"].iloc[0] is not None
@@ -82,12 +87,14 @@ class TestNormalizeGeometryToGeojson:
 
     def test_null_geometry_preserved(self, con):
         import pandas as pd
+
         df = pd.DataFrame({"geometry": [None, None]})
         result = normalize_geometry_to_geojson(con, df)
         assert pd.isna(result["geometry"]).all() or result["geometry"].isna().all()
 
     def test_mixed_geojson_and_null(self, con):
         import pandas as pd
+
         point = json.dumps({"type": "Point", "coordinates": [0.0, 0.0]})
         df = pd.DataFrame({"geometry": [point, None]})
         result = normalize_geometry_to_geojson(con, df)

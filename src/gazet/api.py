@@ -47,7 +47,14 @@ async def log_request(
     """Attach X-Request-Id header and log each request."""
     request_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
     response = await call_next(request)
-    logger.info("%s %s %d %s %s", request.method, request.url.path, response.status_code, request_id, request.query_params)
+    logger.info(
+        "%s %s %d %s %s",
+        request.method,
+        request.url.path,
+        response.status_code,
+        request_id,
+        request.query_params,
+    )
     return response
 
 
@@ -89,11 +96,17 @@ def _run_stream(
     """
     if backend == "gguf":
         from .lm import is_llama_server_available
+
         if not is_llama_server_available():
-            yield json.dumps({
-                "type": "warming_up",
-                "data": "Starting model server, this takes 30-60s on cold start",
-            }) + "\n"
+            yield (
+                json.dumps(
+                    {
+                        "type": "warming_up",
+                        "data": "Starting model server, this takes 30-60s on cold start",
+                    }
+                )
+                + "\n"
+            )
         places_result = generate_places(query)
     else:
         pred = extract(query=query)
@@ -183,11 +196,14 @@ def health(request: Request) -> dict[str, Any]:
     llama_ok = False
     try:
         from .lm import is_llama_server_available
+
         llama_ok = is_llama_server_available()
     except Exception:
         pass
 
-    status = "ok" if duckdb_ok and llama_ok else ("degraded" if duckdb_ok else "unhealthy")
+    status = (
+        "ok" if duckdb_ok and llama_ok else ("degraded" if duckdb_ok else "unhealthy")
+    )
     return {
         "status": status,
         "duckdb": "ok" if duckdb_ok else "error",
@@ -202,7 +218,10 @@ def sources(request: Request) -> dict[str, Any]:
     from .config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
 
     info = {}
-    for name, path in [("divisions_area", DIVISIONS_AREA_PATH), ("natural_earth", NATURAL_EARTH_PATH)]:
+    for name, path in [
+        ("divisions_area", DIVISIONS_AREA_PATH),
+        ("natural_earth", NATURAL_EARTH_PATH),
+    ]:
         try:
             row = con.execute(
                 f"SELECT COUNT(*) as count, MIN(names.primary) as min_name, MAX(names.primary) as max_name FROM read_parquet('{path}')"
@@ -322,9 +341,7 @@ def search_fuzzy(
         candidates_df = (
             pd.concat(candidate_dfs, ignore_index=True)
             .drop_duplicates(subset=["source", "id"])
-            .sort_values(
-                ["is_substring_match", "similarity"], ascending=[False, False]
-            )
+            .sort_values(["is_substring_match", "similarity"], ascending=[False, False])
             .head(limit)
             .reset_index(drop=True)
         )
@@ -371,7 +388,9 @@ def get_geometry(
     try:
         df = get_by_id(con, id, source=source, include_geometry=True)
         if df.empty:
-            raise HTTPException(status_code=404, detail=f"No feature found for id={id!r}")
+            raise HTTPException(
+                status_code=404, detail=f"No feature found for id={id!r}"
+            )
 
         if simplify:
             df = normalize_geometry_to_geojson(con, df)

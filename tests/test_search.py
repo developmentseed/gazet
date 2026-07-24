@@ -62,12 +62,16 @@ class TestSearchDivisionsArea:
         assert isinstance(df, pd.DataFrame)
 
     def test_include_geometry_flag(self, con):
-        df = search_divisions_area(con, Place(place="India"), include_geometry=True, limit=1)
+        df = search_divisions_area(
+            con, Place(place="India"), include_geometry=True, limit=1
+        )
         if not df.empty:
             assert "geometry" in df.columns
 
     def test_include_bbox_flag(self, con):
-        df = search_divisions_area(con, Place(place="India"), include_bbox=True, limit=1)
+        df = search_divisions_area(
+            con, Place(place="India"), include_bbox=True, limit=1
+        )
         if not df.empty:
             assert "bbox" in df.columns
 

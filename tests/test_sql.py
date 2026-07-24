@@ -64,7 +64,9 @@ class TestRewriteDataPaths:
         assert "/data/overture/division_area/foo.parquet" not in result
 
     def test_hallucinated_natural_earth_path(self):
-        sql = "SELECT * FROM read_parquet('/some/natural_earth_geoparquet/data.parquet')"
+        sql = (
+            "SELECT * FROM read_parquet('/some/natural_earth_geoparquet/data.parquet')"
+        )
         result = _rewrite_data_paths(sql)
         assert "/some/natural_earth_geoparquet/data.parquet" not in result
 
@@ -160,7 +162,9 @@ class TestRunGeoSqlDspy:
         mock_pred = MagicMock()
         mock_pred.sql = "SELECT 1 as id"
         mock_write.return_value = mock_pred
-        df = pd.DataFrame({"id": ["x1"], "name": ["test"], "source": ["divisions_area"]})
+        df = pd.DataFrame(
+            {"id": ["x1"], "name": ["test"], "source": ["divisions_area"]}
+        )
         events = list(run_geo_sql_dspy(con, "test", df, max_iterations=1))
         types = [e["type"] for e in events]
         assert "sql_attempt" in types
@@ -170,7 +174,9 @@ class TestRunGeoSqlDspy:
         mock_pred = MagicMock()
         mock_pred.sql = "INVALID SQL"  # will cause execution error
         mock_write.return_value = mock_pred
-        df = pd.DataFrame({"id": ["x1"], "name": ["test"], "source": ["divisions_area"]})
+        df = pd.DataFrame(
+            {"id": ["x1"], "name": ["test"], "source": ["divisions_area"]}
+        )
         events = list(run_geo_sql_dspy(con, "test", df, max_iterations=2))
         # Should exhaust iterations and yield final result
         assert events[-1]["type"] == "result"

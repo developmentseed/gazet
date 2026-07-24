@@ -116,11 +116,13 @@ class TestToFeatureCollection:
 
     def test_numpy_values_serialized(self):
         point = json.dumps({"type": "Point", "coordinates": [0.0, 0.0]})
-        df = pd.DataFrame({
-            "id": [np.int64(1)],
-            "score": [np.float64(3.14)],
-            "geometry": [point],
-        })
+        df = pd.DataFrame(
+            {
+                "id": [np.int64(1)],
+                "score": [np.float64(3.14)],
+                "geometry": [point],
+            }
+        )
         fc = to_feature_collection(df)
         props = fc["features"][0]["properties"]
         assert props["id"] == 1
@@ -129,11 +131,13 @@ class TestToFeatureCollection:
 
     def test_bytearray_property_becomes_null(self):
         point = json.dumps({"type": "Point", "coordinates": [0.0, 0.0]})
-        df = pd.DataFrame({
-            "id": ["x1"],
-            "data": [bytearray(b"raw")],
-            "geometry": [point],
-        })
+        df = pd.DataFrame(
+            {
+                "id": ["x1"],
+                "data": [bytearray(b"raw")],
+                "geometry": [point],
+            }
+        )
         fc = to_feature_collection(df)
         # bytearray should be converted to None via _to_serializable
         assert fc["features"][0]["properties"]["data"] is None
