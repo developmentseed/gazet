@@ -3,12 +3,17 @@ import pathlib
 
 # Data lives at project root (gazet/data/), not inside the package.
 # Override with GAZET_DATA_DIR env var for remote execution (e.g. Modal volume at /data).
-_DATA_DIR = pathlib.Path(os.environ.get("GAZET_DATA_DIR", str(
-    pathlib.Path(__file__).resolve().parent.parent.parent / "data"
-)))
+_DATA_DIR = pathlib.Path(
+    os.environ.get(
+        "GAZET_DATA_DIR",
+        str(pathlib.Path(__file__).resolve().parent.parent.parent / "data"),
+    )
+)
 
 
-def _prefer_normalized(path_normalized: pathlib.Path, path_original: pathlib.Path) -> pathlib.Path:
+def _prefer_normalized(
+    path_normalized: pathlib.Path, path_original: pathlib.Path
+) -> pathlib.Path:
     """Prefer normalized geodata copies when present."""
     use_normalized = os.environ.get("GAZET_USE_NORMALIZED_DATA", "1") != "0"
     if use_normalized:
@@ -30,7 +35,7 @@ DIVISIONS_AREA_PATH = str(
 NATURAL_EARTH_PATH = str(
     _prefer_normalized(
         _DATA_DIR / "natural_earth_normalized/ne_geography.parquet",
-        _DATA_DIR / "natural_earth_geoparquet/ne_geography.parquet",
+        _DATA_DIR / "natural_earth_geoparquet/test_ne_geography.parquet",
     )
 )
 

@@ -1,18 +1,60 @@
 import json
-import math
-from typing import Any, Generator
+import logging
+import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable, Generator
+from contextlib import asynccontextmanager
+from typing import Any
 
 import duckdb
 import pandas as pd
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import Response, StreamingResponse
 
 from .export import to_feature_collection
+from .geometry import normalize_geometry_to_geojson
 from .lm import extract, generate_places
-from .search import search_candidates
+from .schemas import Place
+from .search import get_by_id, search_candidates
 from .sql import run_geo_sql_dspy, run_geo_sql_gguf
 
-app = FastAPI()
+_FUZZY_SOURCES = ("divisions_area", "natural_earth")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Load the spatial extension once at startup; per-request handlers get
+    a cheap cursor() off this connection instead of paying the ~90ms
+    LOAD spatial cost on every call."""
+    con = duckdb.connect()
+    con.execute("INSTALL spatial")
+    con.execute("LOAD spatial")
+    app.state.duckdb_con = con
+    yield
+    con.close()
+
+
+app = FastAPI(lifespan=lifespan)
+
+logger = logging.getLogger(__name__)
+
+
+@app.middleware("http")
+async def log_request(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    """Attach X-Request-Id header and log each request."""
+    request_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
+    response = await call_next(request)
+    logger.info(
+        "%s %s %d %s %s",
+        request.method,
+        request.url.path,
+        response.status_code,
+        request_id,
+        request.query_params,
+    )
+    return response
 
 
 def _per_source_limit(num_places: int) -> int:
@@ -22,19 +64,25 @@ def _per_source_limit(num_places: int) -> int:
       1 place  → 5 per source → 10 total
       2 places → 4 per source → 16 total
       3 places → 3 per source → 18 total
-      4 places → 2 per source → 16 total
-      5 places → 2 per source → 20 total
+      4+ places → 3 per source → 12+ total (floors at reasonable minimum)
     """
-    table = {1: 5, 2: 4, 3: 3, 4: 2, 5: 2}
-    return table.get(num_places, max(1, math.ceil(5 / num_places)))
+    if num_places <= 1:
+        return 5
+    if num_places <= 2:
+        return 4
+    return 3
 
 
 def _df_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
     """Convert DataFrame to list of dicts for JSON; handle non-JSON-serializable types."""
-    return df.replace({float("nan"): None}).to_dict(orient="records")
+    # pandas-stubs types to_dict(orient="records") as list[dict[Hashable, Any]],
+    # but DataFrame column names are always strings, so the result is list[dict[str, Any]].
+    return df.replace({float("nan"): None}).to_dict(orient="records")  # type: ignore[return-value]
 
 
-def _run_stream(query: str, backend: str = "gguf") -> Generator[str, None, None]:
+def _run_stream(
+    base_con: duckdb.DuckDBPyConnection, query: str, backend: str = "gguf"
+) -> Generator[str]:
     """Yield NDJSON lines as each stage of the search completes.
 
     Event ``type`` values (in order of emission):
@@ -47,11 +95,17 @@ def _run_stream(query: str, backend: str = "gguf") -> Generator[str, None, None]
     """
     if backend == "gguf":
         from .lm import is_llama_server_available
+
         if not is_llama_server_available():
-            yield json.dumps({
-                "type": "warming_up",
-                "data": "Starting model server, this takes 30-60s on cold start",
-            }) + "\n"
+            yield (
+                json.dumps(
+                    {
+                        "type": "warming_up",
+                        "data": "Starting model server, this takes 30-60s on cold start",
+                    }
+                )
+                + "\n"
+            )
         places_result = generate_places(query)
     else:
         pred = extract(query=query)
@@ -59,9 +113,7 @@ def _run_stream(query: str, backend: str = "gguf") -> Generator[str, None, None]
 
     yield json.dumps({"type": "places", "data": places_result.model_dump()}) + "\n"
 
-    con = duckdb.connect()
-    con.execute("INSTALL spatial")
-    con.execute("LOAD spatial")
+    con = base_con.cursor()
 
     try:
         limit = _per_source_limit(len(places_result.places))
@@ -76,7 +128,10 @@ def _run_stream(query: str, backend: str = "gguf") -> Generator[str, None, None]
         candidates_df = (
             pd.concat(all_candidates, ignore_index=True)
             .drop_duplicates(subset=["source", "id"])
-            .sort_values(["similarity", "admin_level"], ascending=[False, True])
+            .sort_values(
+                ["is_substring_match", "similarity", "admin_level"],
+                ascending=[False, False, True],
+            )
             .reset_index(drop=True)
         )
 
@@ -126,14 +181,72 @@ def _run_stream(query: str, backend: str = "gguf") -> Generator[str, None, None]
         con.close()
 
 
+@app.get("/health")
+def health(request: Request) -> dict[str, Any]:
+    """Health check — DuckDB connection alive + llama-server status."""
+    con = request.app.state.duckdb_con
+    duckdb_ok = False
+    try:
+        con.execute("SELECT 1")
+        duckdb_ok = True
+    except Exception:
+        pass
+
+    llama_ok = False
+    try:
+        from .lm import is_llama_server_available
+
+        llama_ok = is_llama_server_available()
+    except Exception:
+        pass
+
+    status = (
+        "ok" if duckdb_ok and llama_ok else ("degraded" if duckdb_ok else "unhealthy")
+    )
+    return {
+        "status": status,
+        "duckdb": "ok" if duckdb_ok else "error",
+        "llama_server": "ok" if llama_ok else "unavailable",
+    }
+
+
+@app.get("/sources")
+def sources(request: Request) -> dict[str, Any]:
+    """List available data sources with row counts and name ranges."""
+    con = request.app.state.duckdb_con
+    from .config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
+
+    info = {}
+    for name, path in [
+        ("divisions_area", DIVISIONS_AREA_PATH),
+        ("natural_earth", NATURAL_EARTH_PATH),
+    ]:
+        try:
+            row = con.execute(
+                f"SELECT COUNT(*) as count, MIN(names.primary) as min_name, MAX(names.primary) as max_name FROM read_parquet('{path}')"
+            ).fetchone()
+            info[name] = {
+                "path": path,
+                "row_count": row[0],
+                "name_range": [row[1], row[2]],
+            }
+        except Exception as e:
+            info[name] = {"path": path, "error": str(e)}
+
+    return info
+
+
 @app.get("/search/stream")
-def search_stream(q: str, backend: str = "gguf") -> StreamingResponse:
+def search_stream(request: Request, q: str, backend: str = "gguf") -> StreamingResponse:
     """Stream search progress as NDJSON (one JSON object per line)."""
-    return StreamingResponse(_run_stream(q, backend), media_type="application/x-ndjson")
+    con = request.app.state.duckdb_con
+    return StreamingResponse(
+        _run_stream(con, q, backend), media_type="application/x-ndjson"
+    )
 
 
 @app.get("/search", response_model=None)
-def search(q: str, backend: str = "gguf") -> dict[str, Any]:
+def search(request: Request, q: str, backend: str = "gguf") -> dict[str, Any]:
     """Run geo search for natural-language query (non-streaming).
 
     Returns GeoJSON FeatureCollection, the executed SQL, and the identified
@@ -144,7 +257,8 @@ def search(q: str, backend: str = "gguf") -> dict[str, Any]:
     sql = ""
     geojson: dict | None = None
 
-    for line in _run_stream(q, backend):
+    con = request.app.state.duckdb_con
+    for line in _run_stream(con, q, backend):
         if not line.strip():
             continue
         event = json.loads(line)
@@ -167,3 +281,119 @@ def search(q: str, backend: str = "gguf") -> dict[str, Any]:
         "places": places,
         "dataframes": {"candidates": candidates},
     }
+
+
+@app.get("/search/fuzzy", response_model=None)
+def search_fuzzy(
+    request: Request,
+    q: str,
+    limit: int = 5,
+    simplify: bool = True,
+    sources: str | None = None,
+    ids_only: bool = False,
+) -> dict[str, Any]:
+    """Pure fuzzy-name search with geometry, no LLM involved.
+
+    ``q`` is a place-name string (not a natural-language query) — this
+    endpoint has no place-extraction step. Matches are ranked by
+    Jaro-Winkler similarity across the requested ``sources`` (comma-separated
+    subset of divisions_area/natural_earth; defaults to both), combined and
+    truncated to the top ``limit``. Returns a GeoJSON FeatureCollection.
+
+    Pass ``ids_only=true`` to skip fetching full geometry and get back
+    ``{"ids": [{"source", "id", "name", "country", "subtype", "admin_level", "bbox"}, ...]}``
+    instead — ``country``/``subtype``/``admin_level`` disambiguate same-named
+    places (e.g. multiple real-world "Loja"s across Ecuador and Spain, or
+    Ecuador's "Loja" region vs. its nested "Loja" county — same ``subtype``
+    can occur at different ``admin_level``s, and locality-type subtypes have
+    no ``admin_level`` at all). ``bbox`` is ``[minx, miny, maxx, maxy]``
+    computed via ST_XMin/YMin/XMax/YMax, a much smaller payload than full
+    geometry, giving minimal spatial context before fetching the full
+    geometry for one candidate via ``GET /geometry/{id}``.
+    """
+    requested_sources = (
+        tuple(s.strip() for s in sources.split(",")) if sources else _FUZZY_SOURCES
+    )
+    invalid = set(requested_sources) - set(_FUZZY_SOURCES)
+    if invalid:
+        raise HTTPException(
+            status_code=400, detail=f"Unknown source(s): {sorted(invalid)}"
+        )
+
+    con = request.app.state.duckdb_con.cursor()
+
+    try:
+        # Fetch a pool larger than `limit` per source so the combined,
+        # similarity-ranked top-`limit` isn't skewed by per-source cutoffs.
+        per_source_limit = max(limit * 3, 15)
+        candidate_dfs = search_candidates(
+            con,
+            Place(place=q),
+            limit=per_source_limit,
+            include_geometry=not ids_only,
+            include_bbox=ids_only,
+            sources=requested_sources,
+        )
+        if not candidate_dfs:
+            return to_feature_collection(pd.DataFrame())
+
+        candidates_df = (
+            pd.concat(candidate_dfs, ignore_index=True)
+            .drop_duplicates(subset=["source", "id"])
+            .sort_values(["is_substring_match", "similarity"], ascending=[False, False])
+            .head(limit)
+            .reset_index(drop=True)
+        )
+
+        if ids_only:
+            scalar_cols = ["source", "id", "name", "country", "subtype", "admin_level"]
+            ids_df = candidates_df[scalar_cols].copy()
+            ids_df = ids_df.astype(object).where(ids_df.notna(), None)
+            ids_df["bbox"] = candidates_df["bbox"].apply(
+                lambda arr: [float(x) for x in arr] if arr is not None else None
+            )
+            return {
+                "geojson": {"type": "FeatureCollection", "features": []},
+                "ids": ids_df.to_dict(orient="records"),
+            }
+
+        if simplify:
+            candidates_df = normalize_geometry_to_geojson(con, candidates_df)
+
+        return to_feature_collection(candidates_df)
+    finally:
+        con.close()
+
+
+@app.get("/geometry/{id}", response_model=None)
+def get_geometry(
+    request: Request,
+    id: str,
+    source: str | None = None,
+    simplify: bool = True,
+) -> dict[str, Any]:
+    """Fetch a single feature's geometry directly by ID — no fuzzy matching, no LLM.
+
+    ``source`` restricts the lookup to ``divisions_area`` or ``natural_earth``;
+    if omitted, it's inferred from the ID (Natural Earth IDs are prefixed
+    ``ne_``). Returns a single GeoJSON Feature, or 404 if the ID doesn't exist
+    in the resolved source.
+    """
+    if source is not None and source not in _FUZZY_SOURCES:
+        raise HTTPException(status_code=400, detail=f"Unknown source: {source}")
+
+    con = request.app.state.duckdb_con.cursor()
+
+    try:
+        df = get_by_id(con, id, source=source, include_geometry=True)
+        if df.empty:
+            raise HTTPException(
+                status_code=404, detail=f"No feature found for id={id!r}"
+            )
+
+        if simplify:
+            df = normalize_geometry_to_geojson(con, df)
+
+        return to_feature_collection(df)["features"][0]
+    finally:
+        con.close()

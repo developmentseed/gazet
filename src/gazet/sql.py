@@ -1,7 +1,21 @@
-import json
+import logging
 import re
-from typing import Any, Generator, Optional
+from collections.abc import Generator
+from typing import Any
 
+import duckdb
+import pandas as pd
+
+from .config import (
+    DIVISIONS_AREA_PATH,
+    MAX_SQL_ITERATIONS,
+    NATURAL_EARTH_PATH,
+    SCHEMA_INFO,
+)
+from .geometry import normalize_geometry_to_geojson
+from .lm import generate_sql, write_sql
+
+logger = logging.getLogger(__name__)
 
 _CANDIDATE_PROMPT_COLS = [
     "source",
@@ -12,73 +26,6 @@ _CANDIDATE_PROMPT_COLS = [
     "region",
     "admin_level",
 ]
-
-import duckdb
-import pandas as pd
-from shapely import wkb
-from shapely.geometry import mapping
-
-from .config import DIVISIONS_AREA_PATH, MAX_SQL_ITERATIONS, NATURAL_EARTH_PATH, SCHEMA_INFO
-from .lm import generate_sql, write_sql
-
-
-SIMPLIFY_TOLERANCE = 0.001  # ~100m; adequate for web map display
-COORD_PRECISION = 5  # ~1.1m; sufficient for web maps, shrinks payload 30-50%
-
-
-def _round_coords(obj: Any, precision: int) -> Any:
-    """Recursively round numeric coordinates in a GeoJSON geometry dict."""
-    if isinstance(obj, float):
-        return round(obj, precision)
-    if isinstance(obj, list):
-        return [_round_coords(x, precision) for x in obj]
-    if isinstance(obj, dict):
-        return {k: _round_coords(v, precision) for k, v in obj.items()}
-    return obj
-
-
-def _normalize_geometry_to_geojson(
-    result_df: pd.DataFrame,
-) -> pd.DataFrame:
-    """Simplify geometries and convert to compact GeoJSON text.
-
-    Accepts either binary WKB blobs or GeoJSON strings in the `geometry` column.
-    Runs ST_SimplifyPreserveTopology then rounds coordinates to reduce payload.
-    """
-    if "geometry" not in result_df.columns or result_df.empty:
-        return result_df
-
-    sample = result_df["geometry"].dropna().head(5)
-    if sample.empty:
-        return result_df
-
-    con = duckdb.connect()
-    con.execute("INSTALL spatial")
-    con.execute("LOAD spatial")
-
-    def _simplify(val: Any) -> Optional[str]:
-        if val is None:
-            return None
-        if isinstance(val, (bytes, bytearray, memoryview)):
-            geom_expr = "ST_GeomFromWKB(?::BLOB)"
-            arg: Any = bytes(val)
-        elif isinstance(val, str) and val.lstrip().startswith('{"'):
-            geom_expr = "ST_GeomFromGeoJSON(?)"
-            arg = val
-        else:
-            return val
-        row = con.execute(
-            f"SELECT ST_AsGeoJSON(ST_SimplifyPreserveTopology({geom_expr}, ?))",
-            [arg, SIMPLIFY_TOLERANCE],
-        ).fetchone()
-        if not row or not row[0]:
-            return None
-        return json.dumps(_round_coords(json.loads(row[0]), COORD_PRECISION))
-
-    normalized_df = result_df.copy()
-    normalized_df["geometry"] = normalized_df["geometry"].apply(_simplify)
-    con.close()
-    return normalized_df
 
 
 def _rewrite_data_paths(sql: str) -> str:
@@ -145,7 +92,7 @@ def _normalize_ne_subtypes(sql: str) -> str:
     return sql
 
 
-def _strip_fences(sql: Optional[str]) -> str:
+def _strip_fences(sql: str | None) -> str:
     """Remove markdown code fences that the LM may wrap the SQL in."""
     if not sql:
         return ""
@@ -159,21 +106,25 @@ def _execute_sql(
     sql: str,
     label: str,
     iteration: int,
-) -> Generator[dict[str, Any], None, None]:
+) -> Generator[dict[str, Any]]:
     """Execute SQL and yield result/error events. Shared by both paths."""
     try:
         result_df = con.execute(sql).fetchdf()
-        result_df = _normalize_geometry_to_geojson(result_df)
+        result_df = normalize_geometry_to_geojson(con, result_df)
         if result_df.empty:
-            print(f"[{label}] Query returned no rows.")
-            yield {"type": "sql_error", "error": "Query returned no rows", "iteration": iteration}
+            logger.debug("[%s] Query returned no rows", label)
+            yield {
+                "type": "sql_error",
+                "error": "Query returned no rows",
+                "iteration": iteration,
+            }
             yield {"type": "result", "df": None, "sql": sql}
         else:
-            print(f"[{label}] Result ({len(result_df)} row(s))")
+            logger.debug("[%s] Result (%d row(s))", label, len(result_df))
             yield {"type": "result", "df": result_df, "sql": sql}
     except Exception as exc:
         error = str(exc)
-        print(f"[{label}] Execution error: {error}")
+        logger.warning("[%s] Execution error: %s", label, error)
         yield {"type": "sql_error", "error": error, "iteration": iteration}
         yield {"type": "result", "df": None, "sql": sql}
 
@@ -185,7 +136,7 @@ def run_geo_sql_gguf(
     con: duckdb.DuckDBPyConnection,
     user_query: str,
     candidates_df: pd.DataFrame,
-) -> Generator[dict[str, Any], None, None]:
+) -> Generator[dict[str, Any]]:
     """Single-shot text-to-SQL via the finetuned GGUF model (llama-server).
 
     Event types:
@@ -194,7 +145,7 @@ def run_geo_sql_gguf(
     - ``result``       – ``{"type": "result", "df": DataFrame | None, "sql": str}``
     """
     if candidates_df.empty:
-        print("\n[SQL·GGUF] No candidates to work with — skipping.")
+        logger.debug("SQL·GGUF: no candidates to work with — skipping.")
         yield {"type": "result", "df": None, "sql": ""}
         return
 
@@ -202,20 +153,20 @@ def run_geo_sql_gguf(
         sql = generate_sql(user_query, candidates_df)
     except Exception as exc:
         error = f"GGUF generation failed: {exc}"
-        print(f"[SQL·GGUF] {error}")
+        logger.error("SQL·GGUF: %s", error)
         yield {"type": "sql_error", "error": error, "iteration": 1}
         yield {"type": "result", "df": None, "sql": ""}
         return
 
     if not sql:
-        print("[SQL·GGUF] Model returned empty SQL.")
+        logger.error("SQL·GGUF: model returned empty SQL")
         yield {"type": "sql_error", "error": "Empty SQL response", "iteration": 1}
         yield {"type": "result", "df": None, "sql": ""}
         return
 
     sql = _rewrite_data_paths(sql)
     sql = _normalize_ne_subtypes(sql)
-    print(f"\n[SQL·GGUF] Generated:\n{sql}\n")
+    logger.debug("SQL·GGUF generated:\n%s", sql)
     yield {"type": "sql_attempt", "sql": sql, "iteration": 1}
     yield from _execute_sql(con, sql, "SQL·GGUF", iteration=1)
 
@@ -228,13 +179,13 @@ def run_geo_sql_dspy(
     user_query: str,
     candidates_df: pd.DataFrame,
     max_iterations: int = MAX_SQL_ITERATIONS,
-) -> Generator[dict[str, Any], None, None]:
+) -> Generator[dict[str, Any]]:
     """Code-act retry loop using the DSPy SQL writer (Ollama / cloud LM).
 
     Same event types as ``run_geo_sql_gguf``.
     """
     if candidates_df.empty:
-        print("\n[SQL·DSPy] No candidates to work with — skipping.")
+        logger.debug("SQL·DSPy: no candidates to work with — skipping.")
         yield {"type": "result", "df": None, "sql": ""}
         return
 
@@ -244,8 +195,7 @@ def run_geo_sql_dspy(
     error = ""
 
     for iteration in range(1, max_iterations + 1):
-        print(f"\n{'=' * 60}")
-        print(f"[SQL·DSPy] Iteration {iteration}/{max_iterations}")
+        logger.debug("SQL·DSPy iteration %d/%d", iteration, max_iterations)
 
         try:
             pred = write_sql(
@@ -260,39 +210,38 @@ def run_geo_sql_dspy(
             sql = _normalize_ne_subtypes(sql)
         except Exception as exc:
             error = f"LM generation failed: {exc}"
-            print(f"Generation error: {error}")
+            logger.error("SQL·DSPy generation error: %s", error)
             yield {"type": "sql_error", "error": error, "iteration": iteration}
             continue
 
         if not sql:
             error = "LM returned an empty SQL response."
-            print(f"Generation error: {error}")
+            logger.error("SQL·DSPy generation error: %s", error)
             yield {"type": "sql_error", "error": error, "iteration": iteration}
             continue
 
-        print(f"\nGenerated SQL:\n{sql}\n")
+        logger.debug("SQL·DSPy generated:\n%s", sql)
         yield {"type": "sql_attempt", "sql": sql, "iteration": iteration}
 
         try:
             result_df = con.execute(sql).fetchdf()
-            result_df = _normalize_geometry_to_geojson(result_df)
+            result_df = normalize_geometry_to_geojson(con, result_df)
             if result_df.empty:
                 error = "The query executed successfully but returned no rows. Revise the query to return at least one result."
                 previous_sql = sql
-                print(f"Empty result: {error}")
+                logger.warning("SQL·DSPy empty result: %s", error)
                 yield {"type": "sql_error", "error": error, "iteration": iteration}
                 continue
-            print(f"Result ({len(result_df)} row(s)):")
-            print(result_df.to_string(index=False, max_colwidth=120))
+            logger.debug("SQL·DSPy result (%d row(s))", len(result_df))
             yield {"type": "result", "df": result_df, "sql": sql}
             return
         except Exception as exc:
             error = str(exc)
             previous_sql = sql
-            print(f"Execution error: {error}")
+            logger.warning("SQL·DSPy execution error: %s", error)
             yield {"type": "sql_error", "error": error, "iteration": iteration}
 
-    print(
-        f"\n[SQL·DSPy] Exhausted {max_iterations} iterations without a successful query."
+    logger.warning(
+        "SQL·DSPy exhausted %d iterations without a successful query", max_iterations
     )
     yield {"type": "result", "df": None, "sql": ""}

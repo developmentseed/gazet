@@ -1,0 +1,7 @@
+target-version = "py313"
+
+[lint]
+# BLE001 – catching Exception is intentional in health checks and error-handling paths
+# S110 – try/except/pass is intentional for health probes that must not crash
+# B017 – pytest.raises(Exception) is acceptable for pydantic validation error checks
+ignore = ["BLE001", "S110", "B017"]

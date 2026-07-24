@@ -19,13 +19,46 @@ dependencies = [
     "httpx>=0.28.1",
     "sqlparse>=0.5.5",
 ]
-optional-dependencies = { demo = ["streamlit", "requests", "pydeck"], dev = ["ruff"] }
+optional-dependencies = { demo = ["streamlit", "requests", "pydeck"], dev = ["ruff", "mypy>=1.15", "pandas-stubs>=2.0", "pytest>=8.0", "pytest-asyncio>=0.24"] }
 
 [project.scripts]
 gazet-dataset = "dataset.scripts.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/gazet", "dataset"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = ["-ra", "--strict-markers"]
+
+[tool.mypy]
+python_version = "3.13"
+mypy_path = "src"
+strict = true
+disallow_any_generics = false  # pandas-stubs use Any heavily
+warn_return_any = false  # dspy returns Any; noisy without value
+disallow_untyped_defs = false  # too noisy on test files
+
+[[tool.mypy.overrides]]
+module = "dspy.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "duckdb.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+check_untyped_defs = false
+disallow_untyped_defs = false
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = "gazet.lm"
+# dspy has no stubs — its classes (Signature, Module, Predict, LM) are all typed as Any.
+# Suppressing the resulting noise while keeping the rest of the codebase strict.
+disable_error_code = ["misc", "no-untyped-def", "no-untyped-call"]
 
 [dependency-groups]
 dataset = [

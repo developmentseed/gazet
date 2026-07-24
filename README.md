@@ -58,6 +58,11 @@ For now, gazet relies on [ollama](https://ollama.com/). For remote (cloud) model
 ```bash
 python -m gazet
 # then GET http://localhost:8000/search?q=Border%20between%20Loja%20and%20Piura
+# pure fuzzy match, no LLM, raw geometry only:
+# GET http://localhost:8000/search/fuzzy?q=Loja&limit=5
+# cheap ID-only search, then fetch geometry for just the one you want:
+# GET http://localhost:8000/search/fuzzy?q=Loja&limit=5&ids_only=true
+# GET http://localhost:8000/geometry/25f85439-e054-44e3-9ad4-9fbf755e3183
 ```
 
 ### API + Streamlit demo
@@ -77,13 +82,18 @@ uv run streamlit run gazet_demo.py   # demo UI
 | `schemas.py` | `SUBTYPES`, `COUNTRIES`, `Place`, `PlacesResult` |
 | `lm.py` | DSPy signatures + LM init (`extract`, `write_sql`) |
 | `search.py` | fuzzy search against `divisions_area` / `natural_earth` |
+| `geometry.py` | geometry simplification / GeoJSON normalization (no LLM dependency) |
 | `sql.py` | code-act SQL generation loop |
 | `export.py` | GeoJSON FeatureCollection writer |
-| `api.py` | FastAPI app with `/search?q=...` returning GeoJSON FeatureCollection |
+| `api.py` | FastAPI app: `/search` (LLM), `/search/fuzzy` (fuzzy-only), `/geometry/{id}` (direct ID lookup) |
 
 ## Design notes
 
-- `api.py` exposes GET `/search?q=<query>`; returns GeoJSON FeatureCollection and logs intermediate output.
+- `api.py` exposes GET `/search?q=<query>`; returns GeoJSON FeatureCollection and logs intermediate output. This path runs two LLM calls (place extraction, then SQL generation for candidate selection/disambiguation and GIS ops).
+- `api.py` also exposes GET `/search/fuzzy?q=<place name>&limit=5&simplify=true&sources=divisions_area,natural_earth` — pure Jaro-Winkler fuzzy match with no LLM involved. `q` is a place-name string, not a natural-language query (there's no place-extraction step). Returns the combined top-`limit` matches across sources as a GeoJSON FeatureCollection with raw (or simplified, if `simplify=true`) geometry attached. Pass `ids_only=true` to skip full geometry and get back `{"ids": [{"source", "id", "name", "country", "subtype", "admin_level", "bbox"}, ...]}` — `country`/`subtype`/`admin_level` disambiguate same-named places (e.g. multiple real "Loja"s across Ecuador and Spain, or Ecuador's "Loja" region vs. its nested "Loja" county), and `bbox` is `[minx, miny, maxx, maxy]`, a much smaller payload than full geometry, for picking a candidate before fetching its full geometry.
+- Fuzzy matching (`search.py`) ranks exact-substring matches (query literally contained in the name, e.g. "Loja" in "Loja Province") ahead of pure edit-distance near-misses (e.g. "Lodja"), even when the near-miss scores a slightly higher raw Jaro-Winkler similarity. `divisions_area` matches against `names.primary` (not `names.common.en`, which is null for 77% of rows and would otherwise exclude most of the dataset from every fuzzy search).
+- `api.py` also exposes GET `/geometry/{id}?source=divisions_area&simplify=true` — fetch a single feature's geometry directly by ID, no fuzzy matching or LLM involved. `source` is inferred from the ID if omitted (Natural Earth IDs are prefixed `ne_`). Returns a single GeoJSON Feature, 404 if not found.
+- The spatial extension is loaded once at API startup (FastAPI `lifespan`) onto a shared DuckDB connection stored on `app.state`; each request gets a cheap `cursor()` off it instead of paying DuckDB's ~90ms `LOAD spatial` cost per call.
 - LM is initialised at import time in `lm.py`, suitable for a long-lived server process.
 - Data lives in `data/overture/` and `data/natural_earth_geoparquet/` (not tracked in git).
 

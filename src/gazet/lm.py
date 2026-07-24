@@ -11,6 +11,7 @@ from .config import (
     LLAMA_SERVER_URL,
     LLAMA_TEMPERATURE,
     PLACE_EXTRACTION_MODEL,
+    SCHEMA_INFO,
     SQL_GENERATION_MODEL,
 )
 from .schemas import Place, PlacesResult
@@ -46,9 +47,7 @@ class ExtractPlaces(dspy.Signature):
     query: str = dspy.InputField(
         desc="Natural language query mentioning one or more place names"
     )
-    result: PlacesResult = dspy.OutputField(
-        desc="Extracted place names in query order"
-    )
+    result: PlacesResult = dspy.OutputField(desc="Extracted place names in query order")
 
 
 class WriteGeoSQL(dspy.Signature):
@@ -90,20 +89,20 @@ class WriteGeoSQL(dspy.Signature):
 
 
 place_extraction_lm = dspy.LM(
-    f"ollama_chat/{PLACE_EXTRACTION_MODEL}", 
-    api_base="http://localhost:11434", 
-    api_key="", 
-    temperature=0.1, 
+    f"ollama_chat/{PLACE_EXTRACTION_MODEL}",
+    api_base="http://localhost:11434",
+    api_key="",
+    temperature=0.1,
     cache=False,
 )
 
 sql_generation_lm = dspy.LM(
-    f"ollama_chat/{SQL_GENERATION_MODEL}", 
-    api_base="http://localhost:11434", 
-    api_key="", 
-    temperature=0.1, 
+    f"ollama_chat/{SQL_GENERATION_MODEL}",
+    api_base="http://localhost:11434",
+    api_key="",
+    temperature=0.1,
     cache=False,
-    think=False
+    think=False,
 )
 
 
@@ -112,7 +111,7 @@ class PlaceExtractor(dspy.Module):
         super().__init__()
         self.lm = lm
         self.predictor = dspy.Predict(ExtractPlaces)
-    
+
     def forward(self, query: str):
         with dspy.context(lm=self.lm):
             return self.predictor(query=query)
@@ -123,16 +122,22 @@ class SQLWriter(dspy.Module):
         super().__init__()
         self.lm = lm
         self.predictor = dspy.Predict(WriteGeoSQL)
-    
-    def forward(self, user_query: str, schema: str, candidates: str, 
-                previous_sql: str = "", execution_error: str = ""):
+
+    def forward(
+        self,
+        user_query: str,
+        schema: str,
+        candidates: str,
+        previous_sql: str = "",
+        execution_error: str = "",
+    ):
         with dspy.context(lm=self.lm):
             return self.predictor(
                 user_query=user_query,
                 schema=schema,
                 candidates=candidates,
                 previous_sql=previous_sql,
-                execution_error=execution_error
+                execution_error=execution_error,
             )
 
 
@@ -142,39 +147,12 @@ write_sql = SQLWriter(lm=sql_generation_lm)
 
 # ── GGUF SQL generation via llama-server ──────────────────────────────────────
 
-_SYSTEM_PROMPT = """You are a text to SQL query translator that helps in natural language geocoding.
+_SYSTEM_PROMPT_TEMPLATE = """You are a text to SQL query translator that helps in natural language geocoding.
 
 You have access to two DuckDB parquet tables. Given a set of candidate entities and a user query, generate the SQL to retrieve the desired geometry.
 
 <SCHEMA>
-1. divisions_area  -- Overture polygon/multipolygon admin boundaries
-   query: read_parquet('divisions_area')
-   columns:
-     id VARCHAR              -- unique feature id
-     names STRUCT("primary" VARCHAR, ...)
-     country VARCHAR         -- ISO 3166-1 alpha-2
-     subtype VARCHAR         -- country | region | county
-     class VARCHAR
-     region VARCHAR
-     admin_level INTEGER
-     division_id VARCHAR
-     is_land BOOLEAN
-     is_territorial BOOLEAN
-     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
-
-2. natural_earth  -- Natural Earth geography polygons (oceans, seas, rivers, terrain)
-   query: read_parquet('natural_earth')
-   columns:
-     id VARCHAR              -- unique feature id prefixed 'ne_'
-     names STRUCT("primary" VARCHAR, ...)
-     country VARCHAR
-     subtype VARCHAR         -- e.g. 'ocean', 'sea', 'bay', 'range/mtn', 'island group'
-     class VARCHAR
-     region VARCHAR
-     admin_level INTEGER
-     is_land BOOLEAN
-     is_territorial BOOLEAN
-     geometry GEOMETRY       -- WGS-84 polygon/multipolygon (spatial ext loaded)
+{schema}
 </SCHEMA>
 
 The candidates table has a 'source' column: 'divisions_area' or 'natural_earth'.
@@ -196,8 +174,7 @@ def _postprocess_sql(text: str) -> str:
     cleaned = text.strip()
     if "```sql" in cleaned:
         cleaned = cleaned.split("```sql", 1)[1]
-    if cleaned.startswith("```"):
-        cleaned = cleaned[3:]
+    cleaned = cleaned.removeprefix("```")
     if "```" in cleaned:
         cleaned = cleaned.split("```", 1)[0]
     return cleaned.strip()
@@ -324,15 +301,16 @@ def generate_places(user_query: str) -> PlacesResult:
     # Strip markdown fences if the model wrapped the JSON
     if raw_output.startswith("```"):
         raw_output = raw_output.split("```")[1]
-        if raw_output.startswith("json"):
-            raw_output = raw_output[4:]
+        raw_output = raw_output.removeprefix("json")
         raw_output = raw_output.strip()
 
     try:
         data = json.loads(raw_output)
         return PlacesResult.model_validate(data)
     except Exception as exc:
-        logger.warning("generate_places: failed to parse output %r: %s", raw_output, exc)
+        logger.warning(
+            "generate_places: failed to parse output %r: %s", raw_output, exc
+        )
         # Best-effort: treat entire query as a single unnamed place
         return PlacesResult(places=[Place(place=user_query)])
 
@@ -355,7 +333,10 @@ def generate_sql(user_query: str, candidates_df: pd.DataFrame) -> str:
     )
 
     messages = [
-        {"role": "system", "content": _SYSTEM_PROMPT},
+        {
+            "role": "system",
+            "content": _SYSTEM_PROMPT_TEMPLATE.format(schema=SCHEMA_INFO.strip()),
+        },
         {"role": "user", "content": user_prompt},
     ]
     raw_output = _llama_chat_complete(messages)

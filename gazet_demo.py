@@ -295,7 +295,7 @@ approach on a different domain? Reach out:
     st.caption("Built by")
     st.image(DEVSEED_LOGO_PATH, width=180)
 
-backend = "gguf"
+backend = os.environ.get("GAZET_BACKEND", "gguf")
 
 if "run_q" not in st.session_state:
     st.session_state.run_q = None
