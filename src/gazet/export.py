@@ -62,14 +62,15 @@ def to_feature_collection(result_df: pd.DataFrame) -> dict:
     Expects the ``geometry`` column to already be normalized to GeoJSON
     strings. Remaining columns become properties.
     """
-    if "geometry" not in result_df.columns:
+    if "geometry" not in result_df.columns or result_df.empty:
         return {"type": "FeatureCollection", "features": []}
 
     prop_cols = [c for c in result_df.columns if c != "geometry"]
+    records = result_df.to_dict(orient="records")
 
     features = []
-    for _, row in result_df.iterrows():
-        raw = row["geometry"]
+    for record in records:
+        raw = record.pop("geometry", None)
         geometry = None
         if raw and isinstance(raw, str):
             try:
@@ -79,12 +80,12 @@ def to_feature_collection(result_df: pd.DataFrame) -> dict:
 
         properties = {}
         for c in prop_cols:
-            v = row[c]
+            v = record.get(c)
             try:
-                if not pd.notna(v):
+                if v is None or pd.isna(v):
                     continue
-            except ValueError:
-                pass  # pd.notna fails on arrays — treat as present
+            except (ValueError, TypeError):
+                pass  # pd.isna fails on arrays — treat as present
             properties[c] = _to_serializable(v)
 
         features.append(
