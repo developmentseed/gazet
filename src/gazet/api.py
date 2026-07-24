@@ -148,6 +148,32 @@ def _run_stream(
         con.close()
 
 
+@app.get("/health")
+def health(request: Request) -> dict[str, Any]:
+    """Health check — DuckDB connection alive + llama-server status."""
+    con = request.app.state.duckdb_con
+    duckdb_ok = False
+    try:
+        con.execute("SELECT 1")
+        duckdb_ok = True
+    except Exception:
+        pass
+
+    llama_ok = False
+    try:
+        from .lm import is_llama_server_available
+        llama_ok = is_llama_server_available()
+    except Exception:
+        pass
+
+    status = "ok" if duckdb_ok and llama_ok else ("degraded" if duckdb_ok else "unhealthy")
+    return {
+        "status": status,
+        "duckdb": "ok" if duckdb_ok else "error",
+        "llama_server": "ok" if llama_ok else "unavailable",
+    }
+
+
 @app.get("/search/stream")
 def search_stream(request: Request, q: str, backend: str = "gguf") -> StreamingResponse:
     """Stream search progress as NDJSON (one JSON object per line)."""
