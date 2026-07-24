@@ -2,7 +2,9 @@ import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, Generator
+from fastapi.responses import Response
 
 import duckdb
 import pandas as pd
@@ -20,7 +22,7 @@ _FUZZY_SOURCES = ("divisions_area", "natural_earth")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Load the spatial extension once at startup; per-request handlers get
     a cheap cursor() off this connection instead of paying the ~90ms
     LOAD spatial cost on every call."""
@@ -38,7 +40,10 @@ logger = logging.getLogger(__name__)
 
 
 @app.middleware("http")
-async def log_request(request: Request, call_next):
+async def log_request(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
     """Attach X-Request-Id header and log each request."""
     request_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
     response = await call_next(request)
@@ -64,7 +69,9 @@ def _per_source_limit(num_places: int) -> int:
 
 def _df_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
     """Convert DataFrame to list of dicts for JSON; handle non-JSON-serializable types."""
-    return df.replace({float("nan"): None}).to_dict(orient="records")
+    # pandas-stubs types to_dict(orient="records") as list[dict[Hashable, Any]],
+    # but DataFrame column names are always strings, so the result is list[dict[str, Any]].
+    return df.replace({float("nan"): None}).to_dict(orient="records")  # type: ignore[return-value]
 
 
 def _run_stream(

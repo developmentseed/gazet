@@ -6,8 +6,8 @@ from gazet.lm import (
     _PLACES_SYSTEM_PROMPT,
     _SYSTEM_PROMPT_TEMPLATE,
     _USER_PROMPT_TEMPLATE,
-    PlacesResult,
 )
+from gazet.schemas import PlacesResult
 
 
 class TestPostprocessSql:

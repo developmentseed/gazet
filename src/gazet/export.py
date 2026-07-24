@@ -2,6 +2,7 @@ import json
 import logging
 import pathlib
 import re
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -9,7 +10,7 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def _to_serializable(val):
+def _to_serializable(val: Any) -> Any:
     """Convert a value to a JSON-serializable Python type."""
     if isinstance(val, (bytearray, bytes)):
         return None
@@ -27,7 +28,7 @@ def _to_serializable(val):
 def _is_geojson_col(series: pd.Series) -> bool:
     """Heuristic: a string column whose non-null values start with '{"type":'."""
     sample = series.dropna().head(5)
-    return (
+    return bool(
         sample.apply(
             lambda v: isinstance(v, str) and v.lstrip().startswith('{"type":')
         ).all()
