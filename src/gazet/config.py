@@ -35,7 +35,7 @@ DIVISIONS_AREA_PATH = str(
 NATURAL_EARTH_PATH = str(
     _prefer_normalized(
         _DATA_DIR / "natural_earth_normalized/ne_geography.parquet",
-        _DATA_DIR / "natural_earth_geoparquet/ne_geography.parquet",
+        _DATA_DIR / "natural_earth_geoparquet/test_ne_geography.parquet",
     )
 )
 
