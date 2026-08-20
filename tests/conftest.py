@@ -68,6 +68,16 @@ _EXONYM_ROWS = [
 ]
 
 
+def _literal(value):
+    """A string as a SQL literal, or NULL where there is no value."""
+    return "NULL" if value is None else f"'{value}'"
+
+
+def _name_map(english):
+    """``names.common``: the English name where there is one, otherwise empty."""
+    return "MAP([], [])" if english is None else f"MAP(['en'], ['{english}'])"
+
+
 @pytest.fixture(scope="session")
 def exonym_parquet(tmp_path_factory):
     """Write the exonym rows to a parquet with the divisions_area schema."""
@@ -76,17 +86,8 @@ def exonym_parquet(tmp_path_factory):
     c.execute("INSTALL spatial")
     c.execute("LOAD spatial")
     rows = ",\n".join(
-        "(%s, %s, %s, '%s', '%s', %d, %f, %f)"
-        % (
-            f"'{id}'",
-            "NULL" if primary is None else f"'{primary}'",
-            "MAP([], [])" if english is None else f"MAP(['en'], ['{english}'])",
-            country,
-            subtype,
-            admin_level,
-            lon,
-            lat,
-        )
+        f"({_literal(id)}, {_literal(primary)}, {_name_map(english)}, "
+        f"{_literal(country)}, {_literal(subtype)}, {admin_level}, {lon}, {lat})"
         for id, primary, english, country, subtype, admin_level, lon, lat in _EXONYM_ROWS
     )
     c.execute(
