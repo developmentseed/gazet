@@ -40,15 +40,25 @@ class FuzzyIdItem(BaseModel):
     "Loja" region vs. its nested "Loja" county). ``bbox`` is
     ``[minx, miny, maxx, maxy]``, a much smaller payload than full geometry —
     fetch the full geometry for one candidate via ``GET /geometry/{id}``.
+
+    ``name`` is the record's English name where it has one and its own name
+    otherwise; ``matched_name`` is the one the query actually matched, which
+    is how a search for "Copenhagen" can return a record titled "Københavns
+    Kommune". ``similarity`` and ``is_substring_match`` are the ranking
+    itself: Jaro-Winkler always returns a best row, so a caller with no score
+    cannot tell a hit from the closest thing to a miss.
     """
 
     source: str
     id: str
     name: str | None = None
+    matched_name: str | None = None
     country: str | None = None
     subtype: str | None = None
     admin_level: int | None = None
     bbox: list[float] | None = None
+    similarity: float | None = None
+    is_substring_match: bool | None = None
 
 
 class FuzzyIdsResult(BaseModel):
