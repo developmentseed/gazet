@@ -3,6 +3,7 @@ import logging
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
+from importlib.metadata import version
 from typing import Any, Literal
 
 import duckdb
@@ -25,6 +26,11 @@ from .schemas import (
 )
 from .search import get_by_id, search_candidates
 from .sql import run_geo_sql_dspy, run_geo_sql_gguf
+
+#: The installed package's version, served at ``/openapi.json``. A caller
+#: comparing it against a release tells which build answered — the health
+#: endpoint reports the backends, not the code.
+API_VERSION = version("gazet")
 
 _FUZZY_SOURCES = ("divisions_area", "natural_earth")
 
@@ -103,7 +109,7 @@ app = FastAPI(
         "and Natural Earth parquet datasets. See `GET /search` for the main "
         "entrypoint (natural-language or fuzzy-name modes)."
     ),
-    version="0.1.0",
+    version=API_VERSION,
     lifespan=lifespan,
     openapi_tags=_TAGS_METADATA,
 )
