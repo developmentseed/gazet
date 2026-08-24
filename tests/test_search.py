@@ -194,3 +194,73 @@ class TestGetById:
             result = get_by_id(con, rid, source="divisions_area")
             assert not result.empty
             assert result["source"].iloc[0] == "divisions_area"
+
+
+class TestEnglishNames:
+    """A place is reachable by its English name as well as its own.
+
+    Fuzzy search matched only ``names.primary``, so "Copenhagen" scored
+    against "Københavns Kommune" and lost to unrelated places that happen to
+    start with "Cop-"; the English name was on the record the whole time.
+    """
+
+    def test_english_exonym_finds_the_place(self, con, exonym_source):
+        df = search_divisions_area(con, Place(place="Copenhagen"), limit=3)
+        assert df.iloc[0]["id"] == "cph"
+
+    def test_local_name_still_finds_the_place(self, con, exonym_source):
+        df = search_divisions_area(con, Place(place="København"), limit=3)
+        assert df.iloc[0]["id"] == "cph"
+
+    def test_the_two_names_agree_on_one_record(self, con, exonym_source):
+        english = search_divisions_area(con, Place(place="Copenhagen"), limit=1)
+        local = search_divisions_area(con, Place(place="København"), limit=1)
+        assert english.iloc[0]["id"] == local.iloc[0]["id"]
+
+    def test_the_wrong_place_no_longer_wins(self, con, exonym_source):
+        # "Coper" (Colombia) is what the top hit for "Copenhagen" used to be.
+        df = search_divisions_area(con, Place(place="Copenhagen"), limit=5)
+        assert df.iloc[0]["id"] != "coper"
+
+    def test_geometry_is_the_right_one(self, con, exonym_source):
+        df = search_divisions_area(
+            con, Place(place="Copenhagen"), limit=1, include_bbox=True
+        )
+        # Denmark is east of Greenwich; the county this used to resolve to is
+        # in the Americas, and a bbox is the only part of the answer a caller
+        # passing it on to a data request ever reads.
+        assert df.iloc[0]["bbox"][0] > 0
+
+    def test_matched_name_reports_which_name_hit(self, con, exonym_source):
+        df = search_divisions_area(con, Place(place="København"), limit=1)
+        assert df.iloc[0]["matched_name"] == "Københavns Kommune"
+        assert df.iloc[0]["name"] == "Copenhagen Municipality"
+
+    def test_record_without_an_english_name_still_matches(self, con, exonym_source):
+        df = search_divisions_area(con, Place(place="Coper"), limit=1)
+        assert df.iloc[0]["id"] == "coper"
+        assert df.iloc[0]["name"] == "Coper"
+        assert df.iloc[0]["similarity"] == 1.0
+
+    def test_record_with_only_an_english_name_is_reachable(self, con, exonym_source):
+        df = search_divisions_area(con, Place(place="Ratnapura"), limit=1)
+        assert df.iloc[0]["id"] == "ratnapura"
+
+    def test_blank_english_name_is_not_a_name(self, con, exonym_source):
+        df = search_divisions_area(con, Place(place="Genève"), limit=1)
+        assert df.iloc[0]["name"] == "Genève"
+
+    def test_search_and_fetch_agree_on_the_name(self, con, exonym_source):
+        found = search_divisions_area(con, Place(place="Copenhagen"), limit=1)
+        fetched = get_division_by_id(con, found.iloc[0]["id"], include_geometry=False)
+        assert fetched.iloc[0]["name"] == found.iloc[0]["name"]
+
+    def test_exact_english_match_scores_one(self, con, exonym_source):
+        df = search_divisions_area(con, Place(place="Munich"), limit=1)
+        assert df.iloc[0]["similarity"] == 1.0
+        assert bool(df.iloc[0]["is_substring_match"]) is True
+
+    def test_a_miss_scores_low(self, con, exonym_source):
+        df = search_divisions_area(con, Place(place="Xyzz98765"), limit=1)
+        assert df.iloc[0]["similarity"] < 0.5
+        assert bool(df.iloc[0]["is_substring_match"]) is False

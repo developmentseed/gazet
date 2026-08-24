@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gazet"
-version = "0.1.0"
+version = "0.2.0"
 description = "Lean natural-language geocoder with GIS operations over Overture and Natural Earth parquet datasets"
 requires-python = ">=3.13.0, <3.14"
 dependencies = [

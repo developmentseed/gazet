@@ -114,6 +114,63 @@ class TestSearchFuzzy:
             # Known limitation: masked bbox arrays + nan in JSON encoding
             pass
 
+    def test_ids_carry_the_score_they_were_ranked_on(self, client, exonym_source):
+        resp = client.get(
+            "/search",
+            params={"q": "Munich", "mode": "fuzzy", "ids_only": "true", "limit": 1},
+        )
+        assert resp.status_code == 200
+        item = resp.json()["ids"][0]
+        assert item["similarity"] == 1.0
+        assert item["is_substring_match"] is True
+
+    def test_a_miss_is_visible_as_a_low_score(self, client, exonym_source):
+        resp = client.get(
+            "/search",
+            params={"q": "Xyzz98765", "mode": "fuzzy", "ids_only": "true", "limit": 1},
+        )
+        assert resp.status_code == 200
+        item = resp.json()["ids"][0]
+        # Jaro-Winkler always returns a best row, so this is a full miss
+        # returned as a ranked list — only the score says so.
+        assert item["similarity"] < 0.5
+        assert item["is_substring_match"] is False
+
+    def test_english_name_resolves_over_the_wire(self, client, exonym_source):
+        resp = client.get(
+            "/search",
+            params={"q": "Copenhagen", "mode": "fuzzy", "ids_only": "true", "limit": 3},
+        )
+        assert resp.status_code == 200
+        top = resp.json()["ids"][0]
+        assert top["id"] == "cph"
+        assert top["name"] == "Copenhagen Municipality"
+
+    def test_local_name_returns_the_same_record(self, client, exonym_source):
+        resp = client.get(
+            "/search",
+            params={
+                "q": "K\u00f8benhavn",
+                "mode": "fuzzy",
+                "ids_only": "true",
+                "limit": 3,
+            },
+        )
+        assert resp.status_code == 200
+        top = resp.json()["ids"][0]
+        assert top["id"] == "cph"
+        assert top["matched_name"] == "K\u00f8benhavns Kommune"
+
+    def test_geometry_response_carries_the_score(self, client, exonym_source):
+        resp = client.get(
+            "/search",
+            params={"q": "Copenhagen", "mode": "fuzzy", "limit": 1},
+        )
+        assert resp.status_code == 200
+        properties = resp.json()["features"][0]["properties"]
+        assert properties["id"] == "cph"
+        assert properties["similarity"] > 0.8
+
     def test_fuzzy_search_with_sources(self, client):
         try:
             resp = client.get(

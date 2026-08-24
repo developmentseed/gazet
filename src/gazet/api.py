@@ -3,6 +3,7 @@ import logging
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
+from importlib.metadata import version
 from typing import Any, Literal
 
 import duckdb
@@ -25,6 +26,11 @@ from .schemas import (
 )
 from .search import get_by_id, search_candidates
 from .sql import run_geo_sql_dspy, run_geo_sql_gguf
+
+#: The installed package's version, served at ``/openapi.json``. A caller
+#: comparing it against a release tells which build answered — the health
+#: endpoint reports the backends, not the code.
+API_VERSION = version("gazet")
 
 _FUZZY_SOURCES = ("divisions_area", "natural_earth")
 
@@ -62,8 +68,8 @@ _Q_SOURCES = Query(
 _Q_IDS_ONLY = Query(
     False,
     description=(
-        "For mode=fuzzy: return lightweight id/bbox records instead of full "
-        "geometry; ignored for mode=nl."
+        "For mode=fuzzy: return lightweight id/bbox/similarity records "
+        "instead of full geometry; ignored for mode=nl."
     ),
 )
 
@@ -74,7 +80,8 @@ _TAGS_METADATA = [
             "`mode=nl` (default) runs the full natural-language pipeline: "
             "LLM place-extraction, fuzzy candidate matching, then LLM-generated "
             "SQL. `mode=fuzzy` skips the LLM entirely and does a direct "
-            "Jaro-Winkler name match — `q` is a place name, not a sentence."
+            "Jaro-Winkler name match, against each record's own name and its "
+            "English one — `q` is a place name, not a sentence."
         ),
     },
     {"name": "geometry", "description": "Direct, non-fuzzy geometry lookups by ID."},
@@ -102,7 +109,7 @@ app = FastAPI(
         "and Natural Earth parquet datasets. See `GET /search` for the main "
         "entrypoint (natural-language or fuzzy-name modes)."
     ),
-    version="0.1.0",
+    version=API_VERSION,
     lifespan=lifespan,
     openapi_tags=_TAGS_METADATA,
 )
@@ -356,13 +363,15 @@ def _fuzzy_search(
     place-extraction step. Matches are ranked by Jaro-Winkler similarity
     across the requested ``sources`` (comma-separated subset of
     divisions_area/natural_earth; defaults to both), combined and truncated
-    to the top ``limit``.
+    to the top ``limit``. Each record is matched under both its own name and
+    its English one, so "Copenhagen" and "København" find the same place.
 
     Pass ``ids_only=true`` to skip fetching full geometry and get back
-    lightweight candidates (id/name/country/subtype/admin_level/bbox)
-    instead — enough to disambiguate same-named places (e.g. multiple
-    real-world "Loja"s across Ecuador and Spain) before fetching the full
-    geometry for one candidate via ``GET /geometry/{id}``.
+    lightweight candidates (id/name/country/subtype/admin_level/bbox, plus
+    the ``similarity`` they were ranked on) instead — enough to disambiguate
+    same-named places (e.g. multiple real-world "Loja"s across Ecuador and
+    Spain), and to reject the lot, before fetching the full geometry for one
+    candidate via ``GET /geometry/{id}``.
     """
     requested_sources = (
         tuple(s.strip() for s in sources.split(",")) if sources else _FUZZY_SOURCES
@@ -399,7 +408,17 @@ def _fuzzy_search(
         )
 
         if ids_only:
-            scalar_cols = ["source", "id", "name", "country", "subtype", "admin_level"]
+            scalar_cols = [
+                "source",
+                "id",
+                "name",
+                "matched_name",
+                "country",
+                "subtype",
+                "admin_level",
+                "similarity",
+                "is_substring_match",
+            ]
             ids_df = candidates_df[scalar_cols].copy()
             ids_df = ids_df.astype(object).where(ids_df.notna(), None)
             ids_df["bbox"] = candidates_df["bbox"].apply(
