@@ -6,6 +6,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from gazet.search import DIVISIONS_AREA_SEARCH_NAMES, SEARCH_NAMES_COLUMN
+
 # Force data dir to project root for tests
 os.environ["GAZET_DATA_DIR"] = str(Path(__file__).resolve().parent.parent / "data")
 # Prefer original (non-normalized) paths — test suite ships without normalized copies
@@ -66,7 +68,16 @@ _EXONYM_ROWS = [
     ("ratnapura", None, "Ratnapura District", "LK", "county", 2, 80.4, 6.7),
     ("gva", "Genève", "", "CH", "county", 2, 6.1, 46.2),
     ("manas", "Manas", None, "KG", "county", 2, 72.9, 42.5),
+    # Reachable only by an alternate name, or only once accents are folded;
+    # the near-homographs beside them are what those queries used to hit.
+    ("ctg", "Chattogram District", None, "BD", "county", 2, 91.8, 22.3),
+    ("chitato", "Chitato", None, "AO", "county", 2, 20.8, -7.4),
+    ("bog", "Bogotá, D.c.", None, "CO", "county", 2, -74.1, 4.6),
+    ("bobota", "Bobota", None, "RO", "county", 2, 22.8, 47.4),
 ]
+
+#: ``names.rules`` values: alternate, short and official names.
+_EXONYM_RULES = {"ctg": ["Chittagong"]}
 
 #: Cities, shaped like the localities file: never trained on, so only fuzzy
 #: search may return them.
@@ -85,13 +96,26 @@ def _name_map(english):
     return "MAP([], [])" if english is None else f"MAP(['en'], ['{english}'])"
 
 
+def _rules(id):
+    """``names.rules``: the record's alternate names, as Overture shapes them."""
+    values = _EXONYM_RULES.get(id, [])
+    if not values:
+        return "CAST([] AS STRUCT(variant VARCHAR, language VARCHAR, value VARCHAR)[])"
+    items = ", ".join(
+        f"{{'variant': 'alternate', 'language': NULL, 'value': '{value}'}}"
+        for value in values
+    )
+    return f"[{items}]"
+
+
 def _write_divisions(path, rows):
-    """Write rows to a parquet with the divisions_area schema."""
+    """Write rows to a parquet with the normalised divisions_area schema,
+    search names stored as normalize_geodata stores them."""
     c = duckdb.connect()
     c.execute("INSTALL spatial")
     c.execute("LOAD spatial")
     values = ",\n".join(
-        f"({_literal(id)}, {_literal(primary)}, {_name_map(english)}, "
+        f"({_literal(id)}, {_literal(primary)}, {_name_map(english)}, {_rules(id)}, "
         f"{_literal(country)}, {_literal(subtype)}, "
         f"{'NULL' if admin_level is None else admin_level}, {lon}, {lat})"
         for id, primary, english, country, subtype, admin_level, lon, lat in rows
@@ -99,6 +123,8 @@ def _write_divisions(path, rows):
     c.execute(
         f"""
         COPY (
+            SELECT *, {DIVISIONS_AREA_SEARCH_NAMES} AS {SEARCH_NAMES_COLUMN}
+            FROM (
             SELECT
                 id,
                 ST_AsWKB(
@@ -114,7 +140,7 @@ def _write_divisions(path, rows):
                 country,
                 subtype,
                 'land' AS class,
-                {{'primary': primary_name, 'common': common}} AS names,
+                {{'primary': primary_name, 'common': common, 'rules': rules}} AS names,
                 NULL AS region,
                 CAST(admin_level AS INTEGER) AS admin_level,
                 true AS is_land,
@@ -122,7 +148,10 @@ def _write_divisions(path, rows):
                 id AS division_id
             FROM (VALUES
                 {values}
-            ) AS t(id, primary_name, common, country, subtype, admin_level, lon, lat)
+            ) AS t(
+                id, primary_name, common, rules, country, subtype, admin_level, lon, lat
+            )
+            )
         ) TO '{path}' (FORMAT PARQUET)
         """
     )

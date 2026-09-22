@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+from gazet import search
 from gazet.schemas import Place
 from gazet.search import (
     get_by_id,
@@ -266,6 +267,27 @@ class TestEnglishNames:
         assert bool(df.iloc[0]["is_substring_match"]) is False
 
 
+class TestOtherNames:
+    """A place is reachable by any name Overture holds for it, with or
+    without accents: "Chittagong" is an alternate name of Chattogram
+    District, and "Bogota" is how "Bogotá" is typed without the accent."""
+
+    def test_alternate_name_finds_the_place(self, con, exonym_source):
+        df = search_divisions_area(con, Place(place="Chittagong"), limit=3)
+        assert df.iloc[0]["id"] == "ctg"
+        assert df.iloc[0]["matched_name"] == "Chittagong"
+        assert df.iloc[0]["name"] == "Chattogram District"
+
+    def test_unaccented_query_finds_the_accented_name(self, con, exonym_source):
+        df = search_divisions_area(con, Place(place="Bogota"), limit=3)
+        assert df.iloc[0]["id"] == "bog"
+        assert df.iloc[0]["matched_name"] == "Bogotá, D.c."
+
+    def test_accented_query_finds_the_unaccented_name(self, con, exonym_source):
+        df = search_divisions_area(con, Place(place="Chattógram"), limit=1)
+        assert df.iloc[0]["id"] == "ctg"
+
+
 class TestLocalities:
     """Cities are searchable by fuzzy name, and kept from the
     natural-language pipeline, whose model was never trained on them."""
@@ -292,3 +314,22 @@ class TestLocalities:
     def test_a_locality_id_resolves(self, con, localities_source):
         df = get_by_id(con, "manaus", include_geometry=False)
         assert df.iloc[0]["name"] == "Manaus"
+
+
+class TestStoredSearchNames:
+    """normalize_geodata stores each record's folded names; a file without
+    them, such as a raw Overture download, is searched all the same."""
+
+    def test_the_stored_names_are_read(self, exonym_source):
+        assert search._search_names(exonym_source, "computed") == "search_names"
+
+    def test_a_raw_file_falls_back_to_computing_them(self):
+        assert (
+            search._search_names(search.DIVISIONS_AREA_PATH, "computed") == "computed"
+        )
+
+    def test_both_find_the_same_record(self, con, exonym_source, monkeypatch):
+        stored = search_divisions_area(con, Place(place="Chittagong"), limit=1)
+        monkeypatch.setattr(search, "_search_names", lambda path, computed: computed)
+        computed = search_divisions_area(con, Place(place="Chittagong"), limit=1)
+        assert stored.iloc[0]["id"] == computed.iloc[0]["id"] == "ctg"

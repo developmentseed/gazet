@@ -18,6 +18,10 @@ Cities and towns (Overture ``locality`` and ``localadmin``) go to their own
 file. Fuzzy search reads it; the training pipeline and the natural-language
 search read only ``divisions_area``, because the model was not trained on
 those subtypes.
+
+Both Overture files also store ``search_names``: every name a record
+answers to, folded for comparison, so fuzzy search does not rebuild and
+fold them on every query.
 """
 
 from pathlib import Path
@@ -25,6 +29,7 @@ from pathlib import Path
 import duckdb
 
 from gazet.config import _DATA_DIR
+from gazet.search import DIVISIONS_AREA_SEARCH_NAMES, SEARCH_NAMES_COLUMN
 
 #: The subtypes the natural-language model was trained on.
 TRAINED_SUBTYPES = ("country", "region", "county")
@@ -63,9 +68,9 @@ def normalize_geodata(output_root: Path | None = None) -> dict[str, str]:
         con.execute(
             f"""
             COPY (
-                SELECT * REPLACE (
-                    ST_GeomFromWKB(ST_AsWKB(geometry)) AS geometry
-                )
+                SELECT
+                    * REPLACE (ST_GeomFromWKB(ST_AsWKB(geometry)) AS geometry),
+                    {DIVISIONS_AREA_SEARCH_NAMES} AS {SEARCH_NAMES_COLUMN}
                 FROM read_parquet('{root / "overture/divisions_area/*.parquet"}')
                 WHERE geometry IS NOT NULL
                   AND subtype IN {subtypes}
