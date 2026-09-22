@@ -395,6 +395,7 @@ def _fuzzy_search(
             include_geometry=not ids_only,
             include_bbox=ids_only,
             sources=requested_sources,
+            include_localities=True,
         )
         if not candidate_dfs:
             return FeatureCollection()

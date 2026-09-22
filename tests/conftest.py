@@ -65,6 +65,13 @@ _EXONYM_ROWS = [
     ("coper", "Coper", None, "CO", "county", 2, -74.0, 5.4),
     ("ratnapura", None, "Ratnapura District", "LK", "county", 2, 80.4, 6.7),
     ("gva", "Genève", "", "CH", "county", 2, 6.1, 46.2),
+    ("manas", "Manas", None, "KG", "county", 2, 72.9, 42.5),
+]
+
+#: Cities, shaped like the localities file: never trained on, so only fuzzy
+#: search may return them.
+_LOCALITY_ROWS = [
+    ("manaus", "Manaus", None, "BR", "locality", None, -60.0, -3.1),
 ]
 
 
@@ -78,17 +85,16 @@ def _name_map(english):
     return "MAP([], [])" if english is None else f"MAP(['en'], ['{english}'])"
 
 
-@pytest.fixture(scope="session")
-def exonym_parquet(tmp_path_factory):
-    """Write the exonym rows to a parquet with the divisions_area schema."""
-    path = tmp_path_factory.mktemp("exonym") / "divisions_area.parquet"
+def _write_divisions(path, rows):
+    """Write rows to a parquet with the divisions_area schema."""
     c = duckdb.connect()
     c.execute("INSTALL spatial")
     c.execute("LOAD spatial")
-    rows = ",\n".join(
+    values = ",\n".join(
         f"({_literal(id)}, {_literal(primary)}, {_name_map(english)}, "
-        f"{_literal(country)}, {_literal(subtype)}, {admin_level}, {lon}, {lat})"
-        for id, primary, english, country, subtype, admin_level, lon, lat in _EXONYM_ROWS
+        f"{_literal(country)}, {_literal(subtype)}, "
+        f"{'NULL' if admin_level is None else admin_level}, {lon}, {lat})"
+        for id, primary, english, country, subtype, admin_level, lon, lat in rows
     )
     c.execute(
         f"""
@@ -109,12 +115,12 @@ def exonym_parquet(tmp_path_factory):
                 'land' AS class,
                 {{'primary': primary_name, 'common': common}} AS names,
                 NULL AS region,
-                admin_level,
+                CAST(admin_level AS INTEGER) AS admin_level,
                 true AS is_land,
                 false AS is_territorial,
                 id AS division_id
             FROM (VALUES
-                {rows}
+                {values}
             ) AS t(id, primary_name, common, country, subtype, admin_level, lon, lat)
         ) TO '{path}' (FORMAT PARQUET)
         """
@@ -123,8 +129,29 @@ def exonym_parquet(tmp_path_factory):
     return str(path)
 
 
+@pytest.fixture(scope="session")
+def exonym_parquet(tmp_path_factory):
+    """Write the exonym rows to a parquet with the divisions_area schema."""
+    path = tmp_path_factory.mktemp("exonym") / "divisions_area.parquet"
+    return _write_divisions(path, _EXONYM_ROWS)
+
+
+@pytest.fixture(scope="session")
+def localities_parquet(tmp_path_factory):
+    """Write the locality rows to a parquet with the divisions_area schema."""
+    path = tmp_path_factory.mktemp("localities") / "localities.parquet"
+    return _write_divisions(path, _LOCALITY_ROWS)
+
+
 @pytest.fixture()
 def exonym_source(monkeypatch, exonym_parquet):
     """Point divisions_area at the exonym parquet for the duration of a test."""
     monkeypatch.setattr("gazet.search.DIVISIONS_AREA_PATH", exonym_parquet)
     return exonym_parquet
+
+
+@pytest.fixture()
+def localities_source(monkeypatch, exonym_source, localities_parquet):
+    """Add the localities file beside the exonym divisions_area."""
+    monkeypatch.setattr("gazet.search.LOCALITIES_PATH", localities_parquet)
+    return localities_parquet

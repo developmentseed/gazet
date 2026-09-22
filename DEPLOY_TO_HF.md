@@ -89,8 +89,13 @@ Ensure normalized data exists locally:
 
 ```bash
 data/overture_normalized/divisions_area/*.parquet
+data/overture_normalized/localities/*.parquet
 data/natural_earth_normalized/ne_geography.parquet
 ```
+
+`localities/` holds cities and towns. Only fuzzy search reads it; the
+natural-language pipeline reads `divisions_area/` alone, because the model
+was not trained on those subtypes.
 
 ### Upload dataset
 
@@ -115,7 +120,9 @@ The HF repo will only contain:
 ```bash
 gazet-geodata/
 ├── overture_normalized/
-│   └── divisions_area/
+│   ├── divisions_area/
+│   │   └── *.parquet
+│   └── localities/
 │       └── *.parquet
 └── natural_earth_normalized/
     └── ne_geography.parquet

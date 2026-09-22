@@ -264,3 +264,31 @@ class TestEnglishNames:
         df = search_divisions_area(con, Place(place="Xyzz98765"), limit=1)
         assert df.iloc[0]["similarity"] < 0.5
         assert bool(df.iloc[0]["is_substring_match"]) is False
+
+
+class TestLocalities:
+    """Cities are searchable by fuzzy name, and kept from the
+    natural-language pipeline, whose model was never trained on them."""
+
+    def test_not_searched_by_default(self, con, localities_source):
+        df = search_divisions_area(con, Place(place="Manaus"), limit=3)
+        assert "manaus" not in df["id"].tolist()
+
+    def test_searched_when_asked_for(self, con, localities_source):
+        df = search_divisions_area(
+            con, Place(place="Manaus"), limit=3, include_localities=True
+        )
+        assert df.iloc[0]["id"] == "manaus"
+        assert df.iloc[0]["subtype"] == "locality"
+
+    def test_candidates_leave_them_out_by_default(self, con, localities_source):
+        ids = [
+            id
+            for df in search_candidates(con, Place(place="Manaus"))
+            for id in df["id"]
+        ]
+        assert "manaus" not in ids
+
+    def test_a_locality_id_resolves(self, con, localities_source):
+        df = get_by_id(con, "manaus", include_geometry=False)
+        assert df.iloc[0]["name"] == "Manaus"

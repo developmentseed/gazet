@@ -171,6 +171,16 @@ class TestSearchFuzzy:
         assert properties["id"] == "cph"
         assert properties["similarity"] > 0.8
 
+    def test_fuzzy_search_reaches_localities(self, client, localities_source):
+        resp = client.get(
+            "/search",
+            params={"q": "Manaus", "mode": "fuzzy", "ids_only": "true", "limit": 1},
+        )
+        assert resp.status_code == 200
+        top = resp.json()["ids"][0]
+        assert top["id"] == "manaus"
+        assert top["subtype"] == "locality"
+
     def test_fuzzy_search_with_sources(self, client):
         try:
             resp = client.get(

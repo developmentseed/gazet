@@ -1,9 +1,10 @@
 import logging
+from functools import partial
 
 import duckdb
 import pandas as pd
 
-from .config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
+from .config import DIVISIONS_AREA_PATH, LOCALITIES_PATH, NATURAL_EARTH_PATH
 from .schemas import Place
 
 logger = logging.getLogger(__name__)
@@ -21,9 +22,20 @@ def _readable(expr: str) -> str:
     return f"NULLIF(trim({expr}), '')"
 
 
+def _divisions_area_paths(include_localities: bool) -> str | list[str]:
+    """The divisions_area file, and the localities beside it where asked for.
+
+    Localities are kept apart from the file the natural-language pipeline
+    reads, because its model was not trained on them.
+    """
+    if include_localities and LOCALITIES_PATH:
+        return [DIVISIONS_AREA_PATH, LOCALITIES_PATH]
+    return DIVISIONS_AREA_PATH
+
+
 def simple_fuzzy_search(
     con: duckdb.DuckDBPyConnection,
-    path: str,
+    path: str | list[str],
     source: str,
     place: Place,
     name_expr: str = PRIMARY_NAME,
@@ -147,6 +159,7 @@ def search_divisions_area(
     limit: int = 5,
     include_geometry: bool = False,
     include_bbox: bool = False,
+    include_localities: bool = False,
 ) -> pd.DataFrame:
     """Fuzzy-match a place against divisions_area (Overture admin boundaries).
 
@@ -155,10 +168,13 @@ def search_divisions_area(
     every search if English were the only match field, while ``names.primary``
     on its own leaves a place unreachable by the English name it is usually
     asked for.
+
+    ``include_localities`` searches cities and towns as well. Only the fuzzy
+    endpoint passes it; see :func:`_divisions_area_paths`.
     """
     return simple_fuzzy_search(
         con,
-        DIVISIONS_AREA_PATH,
+        _divisions_area_paths(include_localities),
         "divisions_area",
         place,
         english_name_expr=DIVISIONS_AREA_ENGLISH_NAME,
@@ -191,7 +207,7 @@ def search_natural_earth(
 
 def fetch_by_id(
     con: duckdb.DuckDBPyConnection,
-    path: str,
+    path: str | list[str],
     source: str,
     id: str,
     name_expr: str = PRIMARY_NAME,
@@ -237,10 +253,14 @@ def fetch_by_id(
 def get_division_by_id(
     con: duckdb.DuckDBPyConnection, id: str, include_geometry: bool = True
 ) -> pd.DataFrame:
-    """Look up a single divisions_area record by exact ID."""
+    """Look up a single divisions_area record by exact ID, localities included.
+
+    A locality's ID only ever comes from a fuzzy search, so looking it up
+    here does not open localities to the natural-language pipeline.
+    """
     return fetch_by_id(
         con,
-        DIVISIONS_AREA_PATH,
+        _divisions_area_paths(include_localities=True),
         "divisions_area",
         id,
         english_name_expr=DIVISIONS_AREA_ENGLISH_NAME,
@@ -300,16 +320,21 @@ def search_candidates(
     include_geometry: bool = False,
     include_bbox: bool = False,
     sources: tuple[str, ...] = ("divisions_area", "natural_earth"),
+    include_localities: bool = False,
 ) -> list[pd.DataFrame]:
     """Return candidate DataFrames for a place from the requested sources.
 
     Defaults to always searching divisions_area and natural_earth to avoid
     missing natural features when the model assigns an incorrect admin
-    subtype. Pass ``sources`` to restrict to a subset.
+    subtype. Pass ``sources`` to restrict to a subset, and
+    ``include_localities`` to search cities and towns too.
     """
     results = []
     for source in sources:
-        df = _SOURCE_SEARCH_FNS[source](
+        search = _SOURCE_SEARCH_FNS[source]
+        if source == "divisions_area" and include_localities:
+            search = partial(search_divisions_area, include_localities=True)
+        df = search(
             con,
             place,
             limit=limit,
