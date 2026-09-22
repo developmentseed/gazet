@@ -15,6 +15,14 @@ logger = logging.getLogger(__name__)
 PRIMARY_NAME = "names.primary"
 DIVISIONS_AREA_ENGLISH_NAME = "names.common.en"
 NATURAL_EARTH_ENGLISH_NAME = "names.en"
+#: ``[minx, miny, maxx, maxy]`` computed from the geometry, for a source
+#: without a bbox of its own.
+GEOMETRY_BBOX = (
+    "[ST_XMin(geometry), ST_YMin(geometry), ST_XMax(geometry), ST_YMax(geometry)]"
+)
+#: Overture stores each record's bbox beside its geometry. Reading it leaves
+#: the geometry column unopened, which is most of the cost of a bbox search.
+DIVISIONS_AREA_BBOX = "[bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax]"
 
 
 def _readable(expr: str) -> str:
@@ -44,6 +52,7 @@ def simple_fuzzy_search(
     limit: int = 5,
     include_geometry: bool = False,
     include_bbox: bool = False,
+    bbox_expr: str = GEOMETRY_BBOX,
 ) -> pd.DataFrame:
     """Jaro-Winkler similarity search using only the place name.
 
@@ -66,21 +75,17 @@ def simple_fuzzy_search(
 
     ``include_geometry``/``include_bbox`` require the spatial extension to
     already be loaded on ``con`` (``INSTALL spatial; LOAD spatial;``).
-    ``include_bbox`` computes ``[minx, miny, maxx, maxy]`` via
-    ST_XMin/YMin/XMax/YMax — a much smaller payload than full geometry
-    (no coordinate arrays or GeoJSON serialization), for lightweight
-    context (e.g. ``ids_only`` responses).
+    ``include_bbox`` returns ``[minx, miny, maxx, maxy]`` from ``bbox_expr``
+    — a much smaller payload than full geometry (no coordinate arrays or
+    GeoJSON serialization), for lightweight context (e.g. ``ids_only``
+    responses).
     """
     params = [path, place.place, place.place, place.place, place.place, limit]
 
     english_expr = english_name_expr or "CAST(NULL AS VARCHAR)"
     extra_clause = f", {extra_select}" if extra_select else ""
     geometry_clause = ", ST_AsGeoJSON(geometry) AS geometry" if include_geometry else ""
-    bbox_clause = (
-        ", [ST_XMin(geometry), ST_YMin(geometry), ST_XMax(geometry), ST_YMax(geometry)] AS bbox"
-        if include_bbox
-        else ""
-    )
+    bbox_clause = f", {bbox_expr} AS bbox" if include_bbox else ""
     # Geometry and bbox are computed in the first stage, so the final select
     # only has to name them.
     carried_clause = (", geometry" if include_geometry else "") + (
@@ -182,6 +187,7 @@ def search_divisions_area(
         limit=limit,
         include_geometry=include_geometry,
         include_bbox=include_bbox,
+        bbox_expr=DIVISIONS_AREA_BBOX,
     )
 
 

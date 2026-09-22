@@ -110,6 +110,7 @@ def _write_divisions(path, rows):
                                     || lon || ' ' || lat || '))'
                     )
                 ) AS geometry,
+                {{'xmin': lon, 'xmax': lon + 0.1, 'ymin': lat, 'ymax': lat + 0.1}} AS bbox,
                 country,
                 subtype,
                 'land' AS class,
