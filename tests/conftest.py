@@ -83,6 +83,10 @@ _EXONYM_RULES = {"ctg": ["Chittagong"]}
 #: search may return them.
 _LOCALITY_ROWS = [
     ("manaus", "Manaus", None, "BR", "locality", None, -60.0, -3.1),
+    # Same name, no admin_level: they tie on every score. Written in
+    # reverse id order, so a search only returns them sorted if it sorts.
+    ("lisbon-b", "Lisbon", None, "US", "locality", None, -70.1, 44.0),
+    ("lisbon-a", "Lisbon", None, "US", "locality", None, -83.2, 42.9),
 ]
 
 

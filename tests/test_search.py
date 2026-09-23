@@ -311,6 +311,12 @@ class TestLocalities:
         ]
         assert "manaus" not in ids
 
+    def test_ties_come_back_in_id_order(self, con, localities_source):
+        df = search_divisions_area(
+            con, Place(place="Lisbon"), limit=2, include_localities=True
+        )
+        assert df["id"].tolist() == ["lisbon-a", "lisbon-b"]
+
     def test_a_locality_id_resolves(self, con, localities_source):
         df = get_by_id(con, "manaus", include_geometry=False)
         assert df.iloc[0]["name"] == "Manaus"

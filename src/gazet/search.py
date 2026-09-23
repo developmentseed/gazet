@@ -189,7 +189,10 @@ def simple_fuzzy_search(
         ),
         ranked AS (
             SELECT * FROM scored
-            ORDER BY best.substring DESC, best.similarity DESC, admin_level ASC
+            -- id last, so rows that tie on everything else (such as
+            -- same-named towns, which have no admin_level) come back
+            -- in the same order on every run.
+            ORDER BY best.substring DESC, best.similarity DESC, admin_level ASC, id
             LIMIT $3
         )
         SELECT
@@ -206,7 +209,7 @@ def simple_fuzzy_search(
             best.similarity AS similarity,
             best.substring AS is_substring_match
         FROM ranked
-        ORDER BY is_substring_match DESC, similarity DESC, admin_level ASC
+        ORDER BY is_substring_match DESC, similarity DESC, admin_level ASC, id
         """,
         [place.place, path, limit],
     )
