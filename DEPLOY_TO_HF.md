@@ -91,11 +91,13 @@ Ensure normalized data exists locally:
 data/overture_normalized/divisions_area/*.parquet
 data/overture_normalized/localities/*.parquet
 data/natural_earth_normalized/ne_geography.parquet
+data/urban_centres_normalized/*.parquet
 ```
 
-`localities/` holds cities and towns. Only fuzzy search reads it; the
-natural-language pipeline reads `divisions_area/` alone, because the model
-was not trained on those subtypes.
+`localities/` holds cities and towns, and `urban_centres_normalized/` the
+GHSL urban centres. Only fuzzy search reads them; the natural-language
+pipeline reads `divisions_area/` alone, because the model was not trained on
+those subtypes.
 
 ### Upload dataset
 
@@ -113,6 +115,13 @@ hf upload developmentseed/gazet-geodata \
     /natural_earth_normalized \
     --repo-type dataset \
     --commit-message <message>
+
+# Upload GHSL urban centres
+hf upload developmentseed/gazet-geodata \
+    ./data/urban_centres_normalized \
+    /urban_centres_normalized \
+    --repo-type dataset \
+    --commit-message <message>
 ```
 
 The HF repo will only contain:
@@ -124,8 +133,10 @@ gazet-geodata/
 │   │   └── *.parquet
 │   └── localities/
 │       └── *.parquet
-└── natural_earth_normalized/
-    └── ne_geography.parquet
+├── natural_earth_normalized/
+│   └── ne_geography.parquet
+└── urban_centres_normalized/
+    └── *.parquet
 ```
 
 This keeps the repo size minimal - only what's needed for deployment.
@@ -216,6 +227,12 @@ hf upload developmentseed/gazet-geodata \
 hf upload developmentseed/gazet-geodata \
     ./data/natural_earth_normalized \
     /natural_earth_normalized \
+    --repo-type dataset \
+    --commit-message <message>
+
+hf upload developmentseed/gazet-geodata \
+    ./data/urban_centres_normalized \
+    /urban_centres_normalized \
     --repo-type dataset \
     --commit-message <message>
 ```

@@ -32,7 +32,8 @@ from .sql import run_geo_sql_dspy, run_geo_sql_gguf
 #: endpoint reports the backends, not the code.
 API_VERSION = version("gazet")
 
-_FUZZY_SOURCES = ("divisions_area", "natural_earth")
+#: urban_centres is fuzzy-only: the natural-language model was not trained on it.
+_FUZZY_SOURCES = ("divisions_area", "natural_earth", "urban_centres")
 
 SearchMode = Literal["nl", "fuzzy"]
 
@@ -61,8 +62,8 @@ _Q_SIMPLIFY = Query(
 _Q_SOURCES = Query(
     None,
     description=(
-        "Comma-separated subset of divisions_area,natural_earth for mode=fuzzy "
-        "(defaults to both); ignored for mode=nl."
+        "Comma-separated subset of divisions_area,natural_earth,urban_centres "
+        "for mode=fuzzy (defaults to all); ignored for mode=nl."
     ),
 )
 _Q_IDS_ONLY = Query(
@@ -293,13 +294,16 @@ def health(request: Request) -> dict[str, Any]:
 def sources(request: Request) -> dict[str, Any]:
     """List available data sources with row counts and name ranges."""
     con = request.app.state.duckdb_con
-    from .config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
+    from .config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH, URBAN_CENTRES_PATH
 
     info = {}
     for name, path in [
         ("divisions_area", DIVISIONS_AREA_PATH),
         ("natural_earth", NATURAL_EARTH_PATH),
+        ("urban_centres", URBAN_CENTRES_PATH),
     ]:
+        if not path:
+            continue
         try:
             row = con.execute(
                 f"SELECT COUNT(*) as count, MIN(names.primary) as min_name, MAX(names.primary) as max_name FROM read_parquet('{path}')"
@@ -362,9 +366,10 @@ def _fuzzy_search(
     ``q`` is a place-name string (not a natural-language query) — no
     place-extraction step. Matches are ranked by Jaro-Winkler similarity
     across the requested ``sources`` (comma-separated subset of
-    divisions_area/natural_earth; defaults to both), combined and truncated
-    to the top ``limit``. Each record is matched under both its own name and
-    its English one, so "Copenhagen" and "København" find the same place.
+    divisions_area/natural_earth/urban_centres; defaults to all), combined
+    and truncated to the top ``limit``, the more populous place first among
+    equal scores. Each record is matched under both its own name and its
+    English one, so "Copenhagen" and "København" find the same place.
 
     Pass ``ids_only=true`` to skip fetching full geometry and get back
     lightweight candidates (id/name/country/subtype/admin_level/bbox, plus
@@ -403,7 +408,13 @@ def _fuzzy_search(
         candidates_df = (
             pd.concat(candidate_dfs, ignore_index=True)
             .drop_duplicates(subset=["source", "id"])
-            .sort_values(["is_substring_match", "similarity"], ascending=[False, False])
+            # Stable, so rows that tie on all three keep each source's order.
+            .sort_values(
+                ["is_substring_match", "similarity", "population"],
+                ascending=[False, False, False],
+                na_position="last",
+                kind="stable",
+            )
             .head(limit)
             .reset_index(drop=True)
         )
@@ -533,7 +544,7 @@ def search_fuzzy(
     simplify: bool = Query(True, description="Simplify geometry to GeoJSON."),
     sources: str | None = Query(
         None,
-        description="Comma-separated subset of divisions_area,natural_earth (defaults to both).",
+        description="Comma-separated subset of divisions_area,natural_earth,urban_centres (defaults to all).",
     ),
     ids_only: bool = Query(
         False,
@@ -558,16 +569,17 @@ def get_geometry(
     id: str,
     source: str | None = Query(
         None,
-        description="Restrict lookup to 'divisions_area' or 'natural_earth'; inferred from id if omitted.",
+        description="Restrict lookup to 'divisions_area', 'natural_earth' or 'urban_centres'; inferred from id if omitted.",
     ),
     simplify: bool = Query(True, description="Simplify geometry to GeoJSON."),
 ) -> dict[str, Any]:
     """Fetch a single feature's geometry directly by ID — no fuzzy matching, no LLM.
 
-    ``source`` restricts the lookup to ``divisions_area`` or ``natural_earth``;
-    if omitted, it's inferred from the ID (Natural Earth IDs are prefixed
-    ``ne_``). Returns a single GeoJSON Feature, or 404 if the ID doesn't exist
-    in the resolved source.
+    ``source`` restricts the lookup to ``divisions_area``, ``natural_earth``
+    or ``urban_centres``; if omitted, it's inferred from the ID (Natural
+    Earth IDs are prefixed ``ne_``, urban centre IDs ``ghsl_``). Returns a
+    single GeoJSON Feature, or 404 if the ID doesn't exist in the resolved
+    source.
     """
     if source is not None and source not in _FUZZY_SOURCES:
         raise HTTPException(status_code=400, detail=f"Unknown source: {source}")
