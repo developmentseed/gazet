@@ -181,6 +181,30 @@ class TestSearchFuzzy:
         assert top["id"] == "manaus"
         assert top["subtype"] == "locality"
 
+    def test_fuzzy_search_puts_the_largest_london_first(
+        self, client, localities_source, urban_centres_source
+    ):
+        # Every candidate matches "London" exactly; population alone orders
+        # them, across sources.
+        resp = client.get(
+            "/search",
+            params={"q": "London", "mode": "fuzzy", "ids_only": "true", "limit": 4},
+        )
+        assert resp.status_code == 200
+        ids = resp.json()["ids"]
+        assert [i["id"] for i in ids] == [
+            "ghsl_5816",
+            "ghsl_2255",
+            "london-oh",
+            "london-ky",
+        ]
+        assert ids[0]["source"] == "urban_centres"
+
+    def test_urban_centre_geometry_by_id(self, client, urban_centres_source):
+        resp = client.get("/geometry/ghsl_5816")
+        assert resp.status_code == 200
+        assert resp.json()["properties"]["name"] == "London"
+
     def test_fuzzy_search_with_sources(self, client):
         try:
             resp = client.get(

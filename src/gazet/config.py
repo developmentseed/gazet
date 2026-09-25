@@ -32,16 +32,24 @@ DIVISIONS_AREA_PATH = str(
         _DATA_DIR / "overture/divisions_area/*.parquet",
     )
 )
+
+
+def _normalized_only(glob: pathlib.Path) -> str:
+    """A dataset that exists only as a normalized copy; empty where it was never built."""
+    if os.environ.get("GAZET_USE_NORMALIZED_DATA", "1") == "0":
+        return ""
+    return str(glob) if any(glob.parent.glob(glob.name)) else ""
+
+
 # Cities and towns (Overture locality and localadmin), kept out of
 # DIVISIONS_AREA_PATH because the natural-language model was not trained on
-# them. Only fuzzy search reads them; empty where they were never built.
-_LOCALITIES_GLOB = _DATA_DIR / "overture_normalized/localities/*.parquet"
-LOCALITIES_PATH = (
-    str(_LOCALITIES_GLOB)
-    if os.environ.get("GAZET_USE_NORMALIZED_DATA", "1") != "0"
-    and any(_LOCALITIES_GLOB.parent.glob(_LOCALITIES_GLOB.name))
-    else ""
+# them. Only fuzzy search reads them.
+LOCALITIES_PATH = _normalized_only(
+    _DATA_DIR / "overture_normalized/localities/*.parquet"
 )
+# GHSL urban centres: named city polygons for places Overture has only as a
+# point, such as London. Only fuzzy search reads them.
+URBAN_CENTRES_PATH = _normalized_only(_DATA_DIR / "urban_centres_normalized/*.parquet")
 NATURAL_EARTH_PATH = str(
     _prefer_normalized(
         _DATA_DIR / "natural_earth_normalized/ne_geography.parquet",

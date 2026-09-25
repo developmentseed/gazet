@@ -11,6 +11,7 @@ from gazet.search import (
     search_candidates,
     search_divisions_area,
     search_natural_earth,
+    search_urban_centres,
 )
 
 
@@ -320,6 +321,42 @@ class TestLocalities:
     def test_a_locality_id_resolves(self, con, localities_source):
         df = get_by_id(con, "manaus", include_geometry=False)
         assert df.iloc[0]["name"] == "Manaus"
+
+    def test_the_more_populous_of_equal_matches_comes_first(
+        self, con, localities_source
+    ):
+        df = search_divisions_area(
+            con, Place(place="London"), limit=2, include_localities=True
+        )
+        assert df["id"].tolist() == ["london-oh", "london-ky"]
+
+
+class TestUrbanCentres:
+    """GHSL urban centres give a polygon to cities Overture has only as a
+    point, such as London; fuzzy search only."""
+
+    def test_the_largest_london_comes_first(self, con, urban_centres_source):
+        df = search_urban_centres(con, Place(place="London"), limit=2)
+        assert df["id"].tolist() == ["ghsl_5816", "ghsl_2255"]
+        assert df.iloc[0]["population"] == 10_408_332
+
+    def test_not_among_default_candidates(self, con, urban_centres_source):
+        ids = [
+            id
+            for df in search_candidates(con, Place(place="London"))
+            for id in df["id"]
+        ]
+        assert "ghsl_5816" not in ids
+
+    def test_an_id_resolves_to_its_source(self, con, urban_centres_source):
+        df = get_by_id(con, "ghsl_5816", include_geometry=False)
+        assert df.iloc[0]["source"] == "urban_centres"
+        assert df.iloc[0]["country"] == "United Kingdom"
+
+    def test_nothing_when_never_built(self, con, monkeypatch):
+        monkeypatch.setattr(search, "URBAN_CENTRES_PATH", "")
+        assert search_urban_centres(con, Place(place="London")).empty
+        assert get_by_id(con, "ghsl_5816", include_geometry=False).empty
 
 
 class TestStoredSearchNames:

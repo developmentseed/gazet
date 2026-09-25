@@ -87,7 +87,26 @@ _LOCALITY_ROWS = [
     # reverse id order, so a search only returns them sorted if it sorts.
     ("lisbon-b", "Lisbon", None, "US", "locality", None, -70.1, 44.0),
     ("lisbon-a", "Lisbon", None, "US", "locality", None, -83.2, 42.9),
+    # Same name, but populations tell them apart: the larger comes first,
+    # whatever its id.
+    ("london-ky", "London", None, "US", "locality", None, -84.1, 37.1),
+    ("london-oh", "London", None, "US", "locality", None, -83.4, 39.9),
 ]
+
+#: GHSL urban centres, shaped like the normalized urban_centres file. The
+#: UK's London is the place Overture has only as a point.
+_URBAN_CENTRE_ROWS = [
+    ("ghsl_2255", "London", None, "Canada", "urban_centre", None, -81.3, 42.9),
+    ("ghsl_5816", "London", None, "United Kingdom", "urban_centre", None, -0.5, 51.3),
+]
+
+#: ``population`` where the fixture has one; every other row has none.
+_POPULATION = {
+    "london-ky": 7_000,
+    "london-oh": 10_000,
+    "ghsl_2255": 365_269,
+    "ghsl_5816": 10_408_332,
+}
 
 
 def _literal(value):
@@ -121,7 +140,8 @@ def _write_divisions(path, rows):
     values = ",\n".join(
         f"({_literal(id)}, {_literal(primary)}, {_name_map(english)}, {_rules(id)}, "
         f"{_literal(country)}, {_literal(subtype)}, "
-        f"{'NULL' if admin_level is None else admin_level}, {lon}, {lat})"
+        f"{'NULL' if admin_level is None else admin_level}, {lon}, {lat}, "
+        f"{_POPULATION.get(id, 'NULL')})"
         for id, primary, english, country, subtype, admin_level, lon, lat in rows
     )
     c.execute(
@@ -149,11 +169,13 @@ def _write_divisions(path, rows):
                 CAST(admin_level AS INTEGER) AS admin_level,
                 true AS is_land,
                 false AS is_territorial,
-                id AS division_id
+                id AS division_id,
+                CAST(population AS BIGINT) AS population
             FROM (VALUES
                 {values}
             ) AS t(
-                id, primary_name, common, rules, country, subtype, admin_level, lon, lat
+                id, primary_name, common, rules, country, subtype, admin_level,
+                lon, lat, population
             )
             )
         ) TO '{path}' (FORMAT PARQUET)
@@ -175,6 +197,20 @@ def localities_parquet(tmp_path_factory):
     """Write the locality rows to a parquet with the divisions_area schema."""
     path = tmp_path_factory.mktemp("localities") / "localities.parquet"
     return _write_divisions(path, _LOCALITY_ROWS)
+
+
+@pytest.fixture(scope="session")
+def urban_centres_parquet(tmp_path_factory):
+    """Write the urban centre rows to a parquet with stored search names."""
+    path = tmp_path_factory.mktemp("urban_centres") / "urban_centres.parquet"
+    return _write_divisions(path, _URBAN_CENTRE_ROWS)
+
+
+@pytest.fixture()
+def urban_centres_source(monkeypatch, urban_centres_parquet):
+    """Point urban_centres at the fixture parquet for the duration of a test."""
+    monkeypatch.setattr("gazet.search.URBAN_CENTRES_PATH", urban_centres_parquet)
+    return urban_centres_parquet
 
 
 @pytest.fixture()

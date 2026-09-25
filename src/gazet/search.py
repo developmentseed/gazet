@@ -4,7 +4,12 @@ from functools import cache, partial
 import duckdb
 import pandas as pd
 
-from .config import DIVISIONS_AREA_PATH, LOCALITIES_PATH, NATURAL_EARTH_PATH
+from .config import (
+    DIVISIONS_AREA_PATH,
+    LOCALITIES_PATH,
+    NATURAL_EARTH_PATH,
+    URBAN_CENTRES_PATH,
+)
 from .schemas import Place
 
 logger = logging.getLogger(__name__)
@@ -73,22 +78,35 @@ DIVISIONS_AREA_SEARCH_NAMES = search_names_sql(
 NATURAL_EARTH_SEARCH_NAMES = search_names_sql(PRIMARY_NAME, NATURAL_EARTH_ENGLISH_NAME)
 
 
+#: The column normalize_geodata stores a place's population in, where its
+#: source has one: Overture joined from its ``division`` records, GHSL from
+#: its own. Ranks a city above a same-named village.
+POPULATION_COLUMN = "population"
+NO_POPULATION = "CAST(NULL AS BIGINT)"
+
+
 @cache
-def _stores_search_names(path: str) -> bool:
-    """Whether a parquet file (or glob) carries the stored search names."""
+def _stored_columns(path: str) -> frozenset[str]:
+    """The columns a parquet file (or glob) carries."""
     columns = duckdb.connect().execute("DESCRIBE SELECT * FROM read_parquet(?)", [path])
-    return SEARCH_NAMES_COLUMN in {row[0] for row in columns.fetchall()}
+    return frozenset(row[0] for row in columns.fetchall())
+
+
+def _stored(path: str | list[str], column: str, computed: str) -> str:
+    """``column`` where every file stores it, else ``computed``.
+
+    Raw Overture downloads, files normalized before a column was added, and
+    the test fixtures may lack one.
+    """
+    paths = [path] if isinstance(path, str) else path
+    if all(column in _stored_columns(p) for p in paths):
+        return column
+    return computed
 
 
 def _search_names(path: str | list[str], computed: str) -> str:
-    """The stored search names where every file has them, else ``computed``.
-
-    Raw Overture downloads and the test fixtures have no stored column.
-    """
-    paths = [path] if isinstance(path, str) else path
-    if all(_stores_search_names(p) for p in paths):
-        return SEARCH_NAMES_COLUMN
-    return computed
+    """The stored search names where every file has them, else ``computed``."""
+    return _stored(path, SEARCH_NAMES_COLUMN, computed)
 
 
 def _divisions_area_paths(include_localities: bool) -> str | list[str]:
@@ -115,6 +133,7 @@ def simple_fuzzy_search(
     include_geometry: bool = False,
     include_bbox: bool = False,
     bbox_expr: str = GEOMETRY_BBOX,
+    population_expr: str = NO_POPULATION,
 ) -> pd.DataFrame:
     """Jaro-Winkler similarity search using only the place name.
 
@@ -136,6 +155,10 @@ def simple_fuzzy_search(
     (e.g. "Lodja"), even when the near-miss scores a slightly higher raw
     Jaro-Winkler similarity — substring containment is a stronger signal of
     a true match than character-level similarity alone.
+
+    Among equal scores, the larger ``population_expr`` comes first, so
+    "London" puts the city of ten million above a village of the same name.
+    A place with no population sorts after every place that has one.
 
     ``include_geometry``/``include_bbox`` require the spatial extension to
     already be loaded on ``con`` (``INSTALL spatial; LOAD spatial;``).
@@ -163,6 +186,7 @@ def simple_fuzzy_search(
                 admin_level,
                 is_land,
                 is_territorial{extra_clause}{bbox_clause}{carried_geometry},
+                CAST({population_expr} AS BIGINT) AS population,
                 {_readable(name_expr)} AS primary_name,
                 {_readable(english_expr)} AS english_name,
                 {search_names_expr} AS search_names
@@ -192,7 +216,8 @@ def simple_fuzzy_search(
             -- id last, so rows that tie on everything else (such as
             -- same-named towns, which have no admin_level) come back
             -- in the same order on every run.
-            ORDER BY best.substring DESC, best.similarity DESC, admin_level ASC, id
+            ORDER BY best.substring DESC, best.similarity DESC,
+                population DESC NULLS LAST, admin_level ASC, id
             LIMIT $3
         )
         SELECT
@@ -205,11 +230,13 @@ def simple_fuzzy_search(
             admin_level,
             is_land,
             is_territorial{extra_clause}{", bbox" if include_bbox else ""}{geometry_clause},
+            population,
             best.name AS matched_name,
             best.similarity AS similarity,
             best.substring AS is_substring_match
         FROM ranked
-        ORDER BY is_substring_match DESC, similarity DESC, admin_level ASC, id
+        ORDER BY is_substring_match DESC, similarity DESC,
+            population DESC NULLS LAST, admin_level ASC, id
         """,
         [place.place, path, limit],
     )
@@ -254,6 +281,35 @@ def search_divisions_area(
         include_geometry=include_geometry,
         include_bbox=include_bbox,
         bbox_expr=DIVISIONS_AREA_BBOX,
+        population_expr=_stored(path, POPULATION_COLUMN, NO_POPULATION),
+    )
+
+
+def search_urban_centres(
+    con: duckdb.DuckDBPyConnection,
+    place: Place,
+    limit: int = 5,
+    include_geometry: bool = False,
+    include_bbox: bool = False,
+) -> pd.DataFrame:
+    """Fuzzy-match a place against GHSL urban centres (named city polygons).
+
+    Matched on each centre's main name and its alternates. Returns an empty
+    frame where the urban centres were never built.
+    """
+    if not URBAN_CENTRES_PATH:
+        return pd.DataFrame()
+    return simple_fuzzy_search(
+        con,
+        URBAN_CENTRES_PATH,
+        "urban_centres",
+        place,
+        SEARCH_NAMES_COLUMN,
+        limit=limit,
+        include_geometry=include_geometry,
+        include_bbox=include_bbox,
+        bbox_expr=DIVISIONS_AREA_BBOX,
+        population_expr=POPULATION_COLUMN,
     )
 
 
@@ -356,15 +412,31 @@ def get_natural_earth_by_id(
     )
 
 
+def get_urban_centre_by_id(
+    con: duckdb.DuckDBPyConnection, id: str, include_geometry: bool = True
+) -> pd.DataFrame:
+    """Look up a single GHSL urban centre by exact ID; empty where none were built."""
+    if not URBAN_CENTRES_PATH:
+        return pd.DataFrame()
+    return fetch_by_id(
+        con, URBAN_CENTRES_PATH, "urban_centres", id, include_geometry=include_geometry
+    )
+
+
 _SOURCE_SEARCH_FNS = {
     "divisions_area": search_divisions_area,
     "natural_earth": search_natural_earth,
+    "urban_centres": search_urban_centres,
 }
 
 _SOURCE_FETCH_FNS = {
     "divisions_area": get_division_by_id,
     "natural_earth": get_natural_earth_by_id,
+    "urban_centres": get_urban_centre_by_id,
 }
+
+#: ID prefixes that name their source; any other ID is a divisions_area one.
+_ID_PREFIXES = {"ne_": "natural_earth", "ghsl_": "urban_centres"}
 
 
 def get_by_id(
@@ -375,11 +447,13 @@ def get_by_id(
 ) -> pd.DataFrame:
     """Look up a single record by ID, inferring the source if not given.
 
-    Natural Earth IDs are always prefixed ``ne_`` (see ``config.SCHEMA_INFO``);
-    anything else is assumed to be a divisions_area ID.
+    Natural Earth IDs are always prefixed ``ne_`` (see ``config.SCHEMA_INFO``)
+    and urban centre IDs ``ghsl_``; anything else is assumed to be a
+    divisions_area ID.
     """
-    resolved_source = source or (
-        "natural_earth" if id.startswith("ne_") else "divisions_area"
+    resolved_source = source or next(
+        (src for prefix, src in _ID_PREFIXES.items() if id.startswith(prefix)),
+        "divisions_area",
     )
     return _SOURCE_FETCH_FNS[resolved_source](
         con, id, include_geometry=include_geometry
