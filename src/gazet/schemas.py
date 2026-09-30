@@ -59,6 +59,7 @@ class FuzzyIdItem(BaseModel):
     bbox: list[float] | None = None
     similarity: float | None = None
     is_substring_match: bool | None = None
+    match_type: str | None = None
 
 
 class FuzzyIdsResult(BaseModel):

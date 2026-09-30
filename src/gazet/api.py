@@ -24,6 +24,7 @@ from .schemas import (
     Place,
     SourceInfo,
 )
+from .qualifiers import parse_qualified_query, strip_directional, token_score
 from .search import get_by_id, search_candidates
 from .sql import run_geo_sql_dspy, run_geo_sql_gguf
 
@@ -33,6 +34,8 @@ from .sql import run_geo_sql_dspy, run_geo_sql_gguf
 API_VERSION = version("gazet")
 
 _FUZZY_SOURCES = ("divisions_area", "natural_earth")
+#: Lowest word-level Jaro-Winkler (see ``qualifiers.token_score``) a fuzzy hit may have.
+_MIN_TOKEN_SCORE = 0.8
 
 SearchMode = Literal["nl", "fuzzy"]
 
@@ -385,24 +388,70 @@ def _fuzzy_search(
     cur = con.cursor()
 
     try:
+        name, area = parse_qualified_query(cur, q)
         # Fetch a pool larger than `limit` per source so the combined,
         # similarity-ranked top-`limit` isn't skewed by per-source cutoffs.
         per_source_limit = max(limit * 3, 15)
-        candidate_dfs = search_candidates(
-            cur,
-            Place(place=q),
-            limit=per_source_limit,
-            include_geometry=not ids_only,
-            include_bbox=ids_only,
-            sources=requested_sources,
-        )
-        if not candidate_dfs:
+
+        def _search(term: str) -> pd.DataFrame:
+            dfs = search_candidates(
+                cur,
+                Place(place=term),
+                limit=per_source_limit,
+                include_geometry=not ids_only,
+                include_bbox=ids_only,
+                sources=requested_sources,
+                area=area,
+            )
+            if not dfs:
+                return pd.DataFrame()
+            df = pd.concat(dfs, ignore_index=True).drop_duplicates(subset=["source", "id"])
+            # Jaro-Winkler always returns a best row; drop rows whose words
+            # don't match the query's ("Mount Etna" -> "Mount Eba").
+            words_match = df.apply(
+                lambda r: token_score(
+                    term,
+                    r["name"],
+                    r["matched_name"],
+                    drop_generic=r["source"] == "natural_earth",
+                )
+                >= _MIN_TOKEN_SCORE,
+                axis=1,
+            )
+            return df[df["is_substring_match"] | words_match]
+
+        match_type = "name"
+        candidates_df = _search(name)
+        if candidates_df.empty and (remainder := strip_directional(name)):
+            match_type = "directional_fallback"
+            candidates_df = _search(remainder)
+        if candidates_df.empty and area is not None:
+            # The name isn't in the gazetteer, but the area it was placed in
+            # is: better than the closest spelling anywhere in the world.
+            match_type = "qualifier_fallback"
+            candidates_df = get_by_id(
+                cur, area.id, source="divisions_area", include_geometry=not ids_only
+            ).assign(
+                matched_name=None,
+                similarity=0.0,
+                is_substring_match=False,
+                bbox=[list(area.bbox)],
+            )
+        if candidates_df.empty:
+            if ids_only:
+                return FuzzyIdsResult(geojson=FeatureCollection(), ids=[])
             return FeatureCollection()
 
         candidates_df = (
-            pd.concat(candidate_dfs, ignore_index=True)
-            .drop_duplicates(subset=["source", "id"])
-            .sort_values(["is_substring_match", "similarity"], ascending=[False, False])
+            candidates_df.assign(match_type=match_type)
+            # Stable, so ties keep the per-source order (divisions first, then
+            # by admin level) that search_candidates returned them in.
+            .sort_values(
+                ["is_substring_match", "similarity"],
+                ascending=[False, False],
+                kind="mergesort",
+            )
+            .drop(columns=[] if ids_only else ["bbox"], errors="ignore")
             .head(limit)
             .reset_index(drop=True)
         )
@@ -418,6 +467,7 @@ def _fuzzy_search(
                 "admin_level",
                 "similarity",
                 "is_substring_match",
+                "match_type",
             ]
             ids_df = candidates_df[scalar_cols].copy()
             ids_df = ids_df.astype(object).where(ids_df.notna(), None)

@@ -124,17 +124,15 @@ class TestSearchFuzzy:
         assert item["similarity"] == 1.0
         assert item["is_substring_match"] is True
 
-    def test_a_miss_is_visible_as_a_low_score(self, client, exonym_source):
+    def test_a_miss_returns_no_candidates(self, client, exonym_source):
         resp = client.get(
             "/search",
             params={"q": "Xyzz98765", "mode": "fuzzy", "ids_only": "true", "limit": 1},
         )
         assert resp.status_code == 200
-        item = resp.json()["ids"][0]
-        # Jaro-Winkler always returns a best row, so this is a full miss
-        # returned as a ranked list — only the score says so.
-        assert item["similarity"] < 0.5
-        assert item["is_substring_match"] is False
+        # Jaro-Winkler always returns a best row; a row whose words don't
+        # match the query's is dropped rather than returned as a hit.
+        assert resp.json()["ids"] == []
 
     def test_english_name_resolves_over_the_wire(self, client, exonym_source):
         resp = client.get(

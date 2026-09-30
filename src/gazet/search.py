@@ -4,6 +4,7 @@ import duckdb
 import pandas as pd
 
 from .config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
+from .qualifiers import AreaFilter
 from .schemas import Place
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,8 @@ def simple_fuzzy_search(
     limit: int = 5,
     include_geometry: bool = False,
     include_bbox: bool = False,
+    area: AreaFilter | None = None,
+    area_by_codes: bool = True,
 ) -> pd.DataFrame:
     """Jaro-Winkler similarity search using only the place name.
 
@@ -58,8 +61,20 @@ def simple_fuzzy_search(
     ST_XMin/YMin/XMax/YMax — a much smaller payload than full geometry
     (no coordinate arrays or GeoJSON serialization), for lightweight
     context (e.g. ``ids_only`` responses).
+
+    ``area`` restricts the search to one admin area: by its country/region
+    codes when ``area_by_codes`` (divisions carry them), otherwise by overlap
+    with its bounding box (Natural Earth features mostly have no codes).
     """
-    params = [path, place.place, place.place, place.place, place.place, limit]
+    area_clause = ""
+    area_params: list = []
+    if area is not None and area_by_codes:
+        area_clause = "WHERE country = ?" + (" AND region = ?" if area.region else "")
+        area_params = [area.country] + ([area.region] if area.region else [])
+    elif area is not None:
+        area_clause = "WHERE ST_Intersects(geometry, ST_MakeEnvelope(?, ?, ?, ?))"
+        area_params = list(area.bbox)
+    params = [path, *area_params, place.place, place.place, place.place, place.place, limit]
 
     english_expr = english_name_expr or "CAST(NULL AS VARCHAR)"
     extra_clause = f", {extra_select}" if extra_select else ""
@@ -89,6 +104,7 @@ def simple_fuzzy_search(
                 {_readable(name_expr)} AS primary_name,
                 {_readable(english_expr)} AS english_name
             FROM read_parquet(?)
+            {area_clause}
         ),
         scored AS (
             SELECT
@@ -147,6 +163,7 @@ def search_divisions_area(
     limit: int = 5,
     include_geometry: bool = False,
     include_bbox: bool = False,
+    area: AreaFilter | None = None,
 ) -> pd.DataFrame:
     """Fuzzy-match a place against divisions_area (Overture admin boundaries).
 
@@ -166,6 +183,7 @@ def search_divisions_area(
         limit=limit,
         include_geometry=include_geometry,
         include_bbox=include_bbox,
+        area=area,
     )
 
 
@@ -175,6 +193,7 @@ def search_natural_earth(
     limit: int = 5,
     include_geometry: bool = False,
     include_bbox: bool = False,
+    area: AreaFilter | None = None,
 ) -> pd.DataFrame:
     """Fuzzy-match a place against Natural Earth geography polygons."""
     return simple_fuzzy_search(
@@ -186,6 +205,8 @@ def search_natural_earth(
         limit=limit,
         include_geometry=include_geometry,
         include_bbox=include_bbox,
+        area=area,
+        area_by_codes=False,
     )
 
 
@@ -299,6 +320,7 @@ def search_candidates(
     limit: int = 5,
     include_geometry: bool = False,
     include_bbox: bool = False,
+    area: AreaFilter | None = None,
     sources: tuple[str, ...] = ("divisions_area", "natural_earth"),
 ) -> list[pd.DataFrame]:
     """Return candidate DataFrames for a place from the requested sources.
@@ -315,6 +337,7 @@ def search_candidates(
             limit=limit,
             include_geometry=include_geometry,
             include_bbox=include_bbox,
+            area=area,
         )
         if not df.empty:
             results.append(df)
