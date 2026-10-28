@@ -1,0 +1,1 @@
+{"id": "s23_031", "tables": ["lisbon_buildings"], "skill": "spatial join with aggregation (e.g. count/sum points per polygon)", "difficulty": "medium", "style": "questions phrased as tasks ('give me', 'list', 'map', 'compare')", "k": 6}

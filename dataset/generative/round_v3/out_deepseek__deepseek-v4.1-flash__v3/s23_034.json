@@ -1,0 +1,38 @@
+[
+  {
+    "question": "How many airports, including Riga itself, lie within a 50-kilometre buffer centred on Riga? Return the count.",
+    "sql": "WITH origin AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32634', always_xy := true) AS geom FROM airports WHERE name = 'Riga'), buff AS (SELECT ST_Buffer(geom, 50000) AS geom FROM origin), candidates AS (SELECT name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:32634', always_xy := true) AS geom FROM airports) SELECT COUNT(*) AS airport_count FROM candidates c, buff b WHERE ST_Intersects(c.geom, b.geom);",
+    "skills": ["ST_Buffer", "ST_Intersects", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For the five airports named Bareilly, Katunayake Int'l, Khartoum, Riga, and Luis Muñoz Marin, what is the area in square kilometres of their convex hull? Return one row with the area rounded to the nearest whole square kilometre.",
+    "sql": "WITH selected AS (SELECT list(geometry) AS geoms FROM airports WHERE name IN ('Bareilly', 'Katunayake Int''l', 'Khartoum', 'Riga', 'Luis Muñoz Marin')) SELECT ROUND(ST_Area_Spheroid(ST_ConvexHull(ST_Collect(geoms))) / 1000000.0, 0) AS hull_area_km2 FROM selected;",
+    "skills": ["ST_ConvexHull", "ST_Collect", "ST_Area_Spheroid"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Consider two 75-kilometre circular buffers in a local metric CRS: one centred on Riga and one centred on the point at longitude 24.5, latitude 57.0. What is the area in square kilometres of their intersection? Round to one decimal place.",
+    "sql": "WITH riga AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32635', always_xy := true) AS geom FROM airports WHERE name = 'Riga'), other AS (SELECT ST_Transform(ST_Point(24.5, 57.0), 'EPSG:4326', 'EPSG:32635', always_xy := true) AS geom), buffers AS (SELECT ST_Buffer(riga.geom, 75000) AS riga_buf, ST_Buffer(other.geom, 75000) AS other_buf FROM riga, other) SELECT ROUND(ST_Area(ST_Intersection(riga_buf, other_buf)) / 1000000.0, 1) AS overlap_km2 FROM buffers;",
+    "skills": ["ST_Buffer", "ST_Intersection", "ST_Transform", "ST_Area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For Khartoum, compute the area in square kilometres that lies inside a 100-kilometre buffer centred on the airport but outside a 40-kilometre buffer centred on the point at longitude 32.9, latitude 15.6. Round to one decimal place.",
+    "sql": "WITH khartoum AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32636', always_xy := true) AS geom FROM airports WHERE name = 'Khartoum'), other AS (SELECT ST_Transform(ST_Point(32.9, 15.6), 'EPSG:4326', 'EPSG:32636', always_xy := true) AS geom), buffers AS (SELECT ST_Buffer(khartoum.geom, 100000) AS big_buf, ST_Buffer(other.geom, 40000) AS small_buf FROM khartoum, other) SELECT ROUND(ST_Area(ST_Difference(big_buf, small_buf)) / 1000000.0, 1) AS ring_area_km2 FROM buffers;",
+    "skills": ["ST_Buffer", "ST_Difference", "ST_Transform", "ST_Area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the centroid longitude and latitude of all airports classified as major with a rank of 4 or lower? Return longitude and latitude rounded to four decimal places.",
+    "sql": "WITH major_pts AS (SELECT list(geometry) AS geoms FROM airports WHERE type = 'major' AND scalerank <= 4) SELECT ROUND(ST_X(ST_Centroid(ST_Collect(geoms))), 4) AS centroid_lon, ROUND(ST_Y(ST_Centroid(ST_Collect(geoms))), 4) AS centroid_lat FROM major_pts;",
+    "skills": ["ST_Centroid", "ST_Collect"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the total area in square kilometres covered by 25-kilometre buffers around all airports classified as military that lie between longitudes 78 and 84 and latitudes 25 and 30, dissolving overlapping buffers? Round to the nearest whole square kilometre.",
+    "sql": "WITH military_in_region AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32644', always_xy := true) AS geom FROM airports WHERE type = 'military' AND ST_X(geometry) BETWEEN 78 AND 84 AND ST_Y(geometry) BETWEEN 25 AND 30), buffered AS (SELECT ST_Buffer(geom, 25000) AS geom FROM military_in_region) SELECT ROUND(ST_Area(ST_Union_Agg(geom)) / 1000000.0, 0) AS dissolved_area_km2 FROM buffered;",
+    "skills": ["ST_Buffer", "ST_Union_Agg", "ST_Transform", "ST_Area"],
+    "difficulty": "medium"
+  }
+]

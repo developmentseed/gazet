@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the 5 open restaurants closest to the point (-9.1410, 38.7138), with their distance in metres.",
+    "sql": "SELECT names.primary AS name, ST_Distance_Sphere(geometry, ST_Point(-9.1410, 38.7138)) AS distance_m FROM lisbon_places WHERE basic_category = 'restaurant' AND operating_status = 'open' ORDER BY distance_m, id LIMIT 5;",
+    "skills": ["nearest_neighbour", "ST_Distance_Sphere", "top_k"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List every museum within 400 metres of the point (-9.1410, 38.7138), sorted from closest to farthest, including the specific museum type.",
+    "sql": "SELECT names.primary AS name, taxonomy.primary AS museum_type, ST_Distance_Sphere(geometry, ST_Point(-9.1410, 38.7138)) AS distance_m FROM lisbon_places WHERE basic_category = 'museum' AND operating_status = 'open' AND ST_DWithin_Spheroid(geometry, ST_Point(-9.1410, 38.7138), 400) ORDER BY distance_m, id;",
+    "skills": ["radius_filter", "ST_DWithin_Spheroid", "ST_Distance_Sphere"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each of the places named 'Unikka', 'House of Fun', 'Continental', 'Saint George Castle Portugal' and 'Uma Churrasqueira', find the nearest drivable road (not footways or paths) and show how far away it is in metres.",
+    "sql": "SELECT p.names.primary AS place_name, r.names.primary AS road_name, r.class AS road_class, ST_Distance(ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true)) AS distance_m FROM lisbon_places p JOIN LATERAL (SELECT names, class, geometry FROM lisbon_roads WHERE class IN ('primary', 'secondary', 'tertiary', 'residential', 'living_street', 'unclassified') ORDER BY ST_Distance(ST_Transform(geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true)) LIMIT 1) r ON true WHERE p.names.primary IN ('Unikka', 'House of Fun', 'Continental', 'Saint George Castle Portugal', 'Uma Churrasqueira') ORDER BY distance_m, place_name;",
+    "skills": ["LATERAL", "point_to_line_distance", "ST_Transform", "nearest_neighbour"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare how far the restaurants 'Continental' and 'Uma Churrasqueira' each are from the point (-9.1652, 38.7153), in metres, so I can see which one is closer.",
+    "sql": "SELECT names.primary AS name, ST_Distance_Sphere(geometry, ST_Point(-9.1652, 38.7153)) AS distance_m FROM lisbon_places WHERE names.primary IN ('Continental', 'Uma Churrasqueira') AND basic_category = 'restaurant' ORDER BY distance_m, id;",
+    "skills": ["distance_comparison", "ST_Distance_Sphere"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map out what kinds of places are within 250 metres of the point (-9.1290, 38.7220): give me a count of open places per category, largest count first.",
+    "sql": "SELECT basic_category, COUNT(*) AS nearby_places FROM lisbon_places WHERE operating_status = 'open' AND ST_DWithin_Spheroid(geometry, ST_Point(-9.1290, 38.7220), 250) GROUP BY basic_category ORDER BY nearby_places DESC, basic_category;",
+    "skills": ["radius_filter", "ST_DWithin_Spheroid", "aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For the restaurants 'Continental' and 'Uma Churrasqueira', list the 2 closest open clothing and fashion shops to each one, with the distance in metres.",
+    "sql": "SELECT r.names.primary AS restaurant, p.names.primary AS shop_name, ST_Distance_Sphere(p.geometry, r.geometry) AS distance_m FROM lisbon_places r JOIN LATERAL (SELECT names, geometry FROM lisbon_places p2 WHERE p2.basic_category = 'fashion_and_apparel_store' AND p2.operating_status = 'open' ORDER BY ST_Distance_Sphere(p2.geometry, r.geometry), p2.id LIMIT 2) p ON true WHERE r.names.primary IN ('Continental', 'Uma Churrasqueira') AND r.basic_category = 'restaurant' ORDER BY restaurant, distance_m, shop_name;",
+    "skills": ["LATERAL", "knn_per_entity", "ST_Distance_Sphere"],
+    "difficulty": "medium"
+  }
+]

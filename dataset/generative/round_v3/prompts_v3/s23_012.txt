@@ -1,0 +1,58 @@
+You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
+
+Below are the tables available. Each is a DuckDB view with exactly the columns shown.
+
+TABLE nyc_taxi_trips  -- Sample of NYC yellow taxi trips, Jan 2024. PULocationID/DOLocationID reference nyc_taxi_zones.location_id. No geometry. rows=200000
+  VendorID INTEGER  -- range=[1, 6]
+  tpep_pickup_datetime TIMESTAMP  -- range=[2009-01-01 23:30:39, 2024-01-31 23:58:56]
+  tpep_dropoff_datetime TIMESTAMP  -- range=[2009-01-02 00:01:39, 2024-02-01 18:47:04]
+  passenger_count BIGINT  -- range=[0, 8]
+  trip_distance DOUBLE  -- range=[0.0, 38131.83]
+  RatecodeID BIGINT  -- range=[1, 99]
+  PULocationID INTEGER  -- range=[1, 265]
+  DOLocationID INTEGER  -- range=[1, 265]
+  payment_type BIGINT  -- range=[0, 4]
+  fare_amount DOUBLE  -- range=[-404.1, 5000.0]
+  extra DOUBLE  -- range=[-7.5, 14.25]
+  mta_tax DOUBLE  -- range=[-0.5, 4.0]
+  tip_amount DOUBLE  -- range=[-3.9, 140.0]
+  tolls_amount DOUBLE  -- range=[-60.0, 115.92]
+  improvement_surcharge DOUBLE  -- range=[-1.0, 1.0]
+  total_amount DOUBLE  -- range=[-426.54, 5000.0]
+  congestion_surcharge DOUBLE  -- range=[-2.5, 2.5]
+  Airport_fee DOUBLE  -- range=[-1.75, 1.75]
+
+Real data to ground the questions in (use these names, categories and coordinates as literals):
+
+REAL ROWS from nyc_taxi_trips (random sample; centroid lon/lat):
+  VendorID=2, tpep_pickup_datetime=2024-01-02 11:32:44, tpep_dropoff_datetime=2024-01-02 11:54:35, passenger_count=1, trip_distance=8.25, RatecodeID=1, PULocationID=75, DOLocationID=242, payment_type=1, fare_amount=35.2, extra=0.0, mta_tax=0.5, tip_amount=7.34, tolls_amount=0.0, improvement_surcharge=1.0, total_amount=44.04, congestion_surcharge=0.0, Airport_fee=0.0
+  VendorID=2, tpep_pickup_datetime=2024-01-19 19:32:07, tpep_dropoff_datetime=2024-01-19 19:36:31, passenger_count=4, trip_distance=0.69, RatecodeID=1, PULocationID=239, DOLocationID=238, payment_type=2, fare_amount=6.5, extra=2.5, mta_tax=0.5, tip_amount=0.0, tolls_amount=0.0, improvement_surcharge=1.0, total_amount=13.0, congestion_surcharge=2.5, Airport_fee=0.0
+  VendorID=2, tpep_pickup_datetime=2024-01-22 10:39:21, tpep_dropoff_datetime=2024-01-22 10:55:21, passenger_count=6, trip_distance=1.75, RatecodeID=1, PULocationID=48, DOLocationID=170, payment_type=2, fare_amount=14.9, extra=0.0, mta_tax=0.5, tip_amount=0.0, tolls_amount=0.0, improvement_surcharge=1.0, total_amount=18.9, congestion_surcharge=2.5, Airport_fee=0.0
+  VendorID=1, tpep_pickup_datetime=2024-01-30 00:56:55, tpep_dropoff_datetime=2024-01-30 01:08:35, passenger_count=1, trip_distance=3.3, RatecodeID=1, PULocationID=186, DOLocationID=236, payment_type=1, fare_amount=15.6, extra=3.5, mta_tax=0.5, tip_amount=10.0, tolls_amount=0.0, improvement_surcharge=1.0, total_amount=30.6, congestion_surcharge=2.5, Airport_fee=0.0
+  VendorID=2, tpep_pickup_datetime=2024-01-20 18:46:05, tpep_dropoff_datetime=2024-01-20 18:52:17, passenger_count=1, trip_distance=1.5, RatecodeID=1, PULocationID=263, DOLocationID=75, payment_type=4, fare_amount=-9.3, extra=0.0, mta_tax=-0.5, tip_amount=0.0, tolls_amount=0.0, improvement_surcharge=-1.0, total_amount=-13.3, congestion_surcharge=-2.5, Airport_fee=0.0
+
+Write 6 diverse (question, sql) pairs for these tables.
+- Focus skill: distance and nearest-neighbour queries (ST_Distance_Sphere / ST_DWithin, ORDER BY distance LIMIT k, LATERAL)
+- Difficulty: easy
+- Question style: full natural sentences from a non-technical user who does not know column names
+
+Rules:
+- SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
+- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Only use literal values (names, categories, codes) that appear in the real rows, value lists or top values above. The query should return at least one row.
+- Do not name places, neighbourhoods or landmarks that are not in the data. If a question needs an area or point that is not a row in the data, give its coordinates explicitly in the question.
+- Never measure distances, buffers or areas in EPSG:3857 (Web Mercator) or EPSG:6933; their scale is wrong away from the equator. Use the spheroid functions or a local metric CRS (UTM zone or national grid).
+- Results must be deterministic: no current_date, now() or random(); whenever you use LIMIT, ORDER BY columns that make the order unique.
+- Watch join fan-out: do not SUM a per-country (or per-parent) value after joining to many child rows.
+- Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
+- Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
+- Make the 6 pairs differ in intent, not just in literal values.
+
+DuckDB spatial is NOT PostGIS. `SET geometry_always_xy = true` is active (lon/lat order). Differences that matter:
+- No SRID arguments and no ST_SetSRID: ST_MakeEnvelope(xmin, ymin, xmax, ymax), ST_GeomFromText(wkt), ST_Point(lon, lat).
+- ST_Transform takes CRS strings, not integers: ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true).
+- No GEOGRAPHY type and no 'spheroid' / use_spheroid argument on ST_Distance or ST_Area. For metres use ST_Distance_Sphere / ST_Distance_Spheroid / ST_DWithin_Spheroid (POINT inputs only), ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS. For distances involving lines or polygons, transform to a metric CRS first.
+- ST_Collect takes a list: ST_Collect(list(geom)). Aggregates are ST_Union_Agg(geom) and ST_Extent_Agg(geom).
+
+Return ONLY a JSON array, no markdown fences:
+[{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "easy"}]

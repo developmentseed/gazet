@@ -1,0 +1,38 @@
+[
+  {
+    "question": "pickup/dropoff point within box 100,100,200,200",
+    "sql": "SELECT * FROM nyc_taxi_trips WHERE ST_Within(ST_Point(PULocationID, DOLocationID), ST_MakeEnvelope(100, 100, 200, 200));",
+    "skills": ["spatial_predicate", "ST_Within"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "pickup/dropoff point intersects polygon ((100 100, 200 100, 200 200, 100 200, 100 100))",
+    "sql": "SELECT * FROM nyc_taxi_trips WHERE ST_Intersects(ST_Point(PULocationID, DOLocationID), ST_GeomFromText('POLYGON((100 100, 200 100, 200 200, 100 200, 100 100))'));",
+    "skills": ["spatial_predicate", "ST_Intersects"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "box 100,100,200,200 contains pickup/dropoff point",
+    "sql": "SELECT * FROM nyc_taxi_trips WHERE ST_Contains(ST_MakeEnvelope(100, 100, 200, 200), ST_Point(PULocationID, DOLocationID));",
+    "skills": ["spatial_predicate", "ST_Contains"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "pickup/dropoff point touches box 100,100,114,148",
+    "sql": "SELECT * FROM nyc_taxi_trips WHERE ST_Touches(ST_Point(PULocationID, DOLocationID), ST_MakeEnvelope(100, 100, 114, 148));",
+    "skills": ["spatial_predicate", "ST_Touches"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "pickup point within box 100,-1,200,1",
+    "sql": "SELECT * FROM nyc_taxi_trips WHERE ST_Within(ST_Point(PULocationID, 0), ST_MakeEnvelope(100, -1, 200, 1));",
+    "skills": ["spatial_predicate", "ST_Within"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "dropoff point within box 100,-1,200,1",
+    "sql": "SELECT * FROM nyc_taxi_trips WHERE ST_Within(ST_Point(DOLocationID, 0), ST_MakeEnvelope(100, -1, 200, 1));",
+    "skills": ["spatial_predicate", "ST_Within"],
+    "difficulty": "easy"
+  }
+]

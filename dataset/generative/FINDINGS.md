@@ -128,7 +128,7 @@ x hand-graded correct (blind, 10-12 graded pairs per model).
 
 Total OpenRouter spend for the pilot: about $2.8.
 
-## Experiment 4 (in progress): grounded generation (v3)
+## Experiment 4: grounded generation (v3, `round_v3/`)
 
 Prompt changes based on the bake-off failures:
 
@@ -139,8 +139,27 @@ Prompt changes based on the bake-off failures:
   - never measure in EPSG:3857/6933;
   - deterministic results (no `current_date`; unique `ORDER BY` with `LIMIT`);
   - watch join fan-out.
-- **Scale:** 48 scenarios x 6 pairs with DeepSeek-V4.1-Flash and GLM-5.3-Flash (~576 pairs);
-  results go to `runs/` and will be snapshotted once graded.
+
+48 new scenarios x 6 pairs per model (576 pairs, $0.47 total). Blind grading of 24 pairs per model:
+
+| Generator | Correct (pilot -> v3) | Executes | Executes, excluding the spheroid CRS quirk | Usable | Usable with the cast rule |
+|---|---|---|---|---|---|
+| DeepSeek-V4.1-Flash | 83% -> 96% | 86% | 94% | 83% | ~90% |
+| GLM-5.3-Flash | 92% -> 92% | 75% | 91% | 68% | ~84% |
+
+- **Grounding works.** Questions now use real names (Avenida das Tulipas, Maiduguri, Teatro Nacional de
+  São Carlos) and real categories. No EPSG:3857/6933 measurement and no `current_date` appear in any of
+  the 576 queries, and there are zero PostGIS-dialect errors. The queries are also richer:
+  per-group ranking, cumulative shares, land/water splits, local UTM zones (EPSG:32718 for Cusco).
+- **The "use spheroid functions" rule exposed a DuckDB 2.0 quirk.** `ST_Distance_Spheroid` and
+  `ST_DWithin_Spheroid` reject CRS-typed columns (`GEOMETRY('OGC:CRS84')`), even when both sides share
+  the same CRS; `geometry::GEOMETRY` fixes it. This caused 25 DeepSeek and 55 GLM failures.
+  Real GeoParquet carries a CRS too, so the cast is now a prompt rule and the small model should learn it.
+- **The two remaining wrong pairs:**
+  - a UTM zone applied to global data ("countries near the Dnipro" puts Brazil at 0 km); now a prompt rule;
+  - a nonsense question that builds points from taxi-zone IDs.
+- **DeepSeek-V4.1-Flash is the primary generator:** higher yield and fewer reasoning tokens.
+  GLM-5.3-Flash stays as the second family for diversity.
 
 ## Environment gotchas
 
@@ -148,14 +167,20 @@ Prompt changes based on the bake-off failures:
 - `/tmp` on the ChromeOS Linux container is RAM (tmpfs): model files there starved llama.cpp of memory.
 - llama.cpp with all 8 threads collapsed decode about tenfold (71 -> 7 tok/s) because of VM thread
   contention; use fewer threads than cores.
-- The validator needs a per-query timeout (30 s, enforced by interrupting the connection); some
-  generated spatial joins run for many minutes.
+- **Each query is validated in its own process** (`harness.py exec1`, 4 in parallel, 30 s timeout,
+  2 GB memory limit). A shared long-lived connection was silently killed after ~180 heavy spatial
+  queries. In-process interrupts can't stop crashes. Isolated, 288 queries validate in ~30 s.
+- **DuckDB 2.0 segfault:** an ordered aggregate together with `ST_Extent_Agg` in one query, e.g.
+  `SELECT string_agg(name, '; ' ORDER BY name), ST_AsGeoJSON(ST_Extent_Agg(geometry)) FROM countries
+  WHERE subregion = 'Caribbean'`, crashes the process in most runs. Either aggregate alone is fine.
+  Worth reporting upstream.
 
 ## Next steps
 
-1. Grade the v3 round and compare it with v2. If grounding works, add rules as new failure modes show up.
+1. Done: v3 grounding improved correctness. The spheroid-cast and UTM-scope rules are added for the
+   next round.
 2. **Judge step.** Build an LLM judge from a different model family (MiniMax-M3 is a candidate) and
-   check it against the ~170 hand labels. Add a self-consistency check: a second model writes SQL from
+   check it against the ~220 hand labels (Haiku pilot, bake-off, v3). Add a self-consistency check: a second model writes SQL from
    the question alone, and the pair is kept only when the result sets match.
 3. **Gold evaluation set.** ~300-500 pairs on held-out datasets (never used in training), with
    deterministic ordering, reviewed by hand.

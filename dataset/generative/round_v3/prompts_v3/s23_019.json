@@ -1,0 +1,1 @@
+{"id": "s23_019", "tables": ["lisbon_places", "lisbon_buildings"], "skill": "output shaping: ST_AsGeoJSON, ST_AsText, ST_X/ST_Y, ROUND, string formatting of results", "difficulty": "medium", "style": "questions phrased as tasks ('give me', 'list', 'map', 'compare')", "k": 6}

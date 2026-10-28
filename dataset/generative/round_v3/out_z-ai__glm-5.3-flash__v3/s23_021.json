@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me a count of places with a maximum population over 1,000,000 that fall inside the bounding box covering Europe from lon -10 to 30 and lat 35 to 60, broken down by country, largest counts first.",
+    "sql": "SELECT country, COUNT(*) AS big_cities FROM populated_places WHERE pop_max > 1000000 AND ST_Within(geometry, ST_MakeEnvelope(-10, 35, 30, 60)) GROUP BY country ORDER BY big_cities DESC, country;",
+    "skills": ["spatial join with aggregation", "bounding box filter"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Count how many places lie within 500 km of the point (114.5801, -3.33) on Kalimantan, and break the total down by feature class.",
+    "sql": "SELECT feature_class, COUNT(*) AS places FROM populated_places WHERE ST_DWithin_Spheroid(geometry, ST_Point(114.5801, -3.33), 500000) GROUP BY feature_class ORDER BY places DESC, feature_class;",
+    "skills": ["spatial join with aggregation", "spheroid distance"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the top 5 countries by combined maximum population of places located within 1000 km of the point (8.675, 50.1) in central Germany.",
+    "sql": "SELECT country, SUM(pop_max) AS total_pop FROM populated_places WHERE ST_DWithin_Spheroid(geometry, ST_Point(8.675, 50.1), 1000000) GROUP BY country ORDER BY total_pop DESC, country LIMIT 5;",
+    "skills": ["spatial join with aggregation", "spheroid distance"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Compare the number of capital and non-capital places inside the bounding box from lon 125 to 146 and lat 30 to 46 (Japan and surrounding area).",
+    "sql": "SELECT is_capital, COUNT(*) AS n FROM populated_places WHERE ST_Within(geometry, ST_MakeEnvelope(125, 30, 146, 46)) GROUP BY is_capital ORDER BY is_capital;",
+    "skills": ["spatial join with aggregation", "bounding box filter"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For the Nordic region box from lon 4 to 32 and lat 55 to 71, give me each country code with the number of places found there and their combined maximum population.",
+    "sql": "SELECT iso_a2, COUNT(*) AS places, SUM(pop_max) AS total_pop FROM populated_places WHERE ST_Within(geometry, ST_MakeEnvelope(4, 55, 32, 71)) GROUP BY iso_a2 ORDER BY places DESC, iso_a2;",
+    "skills": ["spatial join with aggregation", "bounding box filter"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Count the world cities within 2000 km of the point (108.8931, 34.277) in central China, grouped by country.",
+    "sql": "SELECT country, COUNT(*) AS world_cities FROM populated_places WHERE is_world_city AND ST_DWithin_Spheroid(geometry, ST_Point(108.8931, 34.277), 2000000) GROUP BY country ORDER BY world_cities DESC, country;",
+    "skills": ["spatial join with aggregation", "spheroid distance"],
+    "difficulty": "easy"
+  }
+]

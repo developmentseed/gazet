@@ -1,0 +1,51 @@
+You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
+
+Below are the tables available. Each is a DuckDB view with exactly the columns shown.
+
+TABLE lisbon_buildings  -- Overture Maps building footprints (polygons) in Lisbon. EPSG:4326. height in metres. rows=94538
+  id VARCHAR  -- distinct~98996 e.g. ['69ad8dde-fdec-4587-886d-def92b425f7c', 'c0356c48-5c77-4560-800f-3e33bda26763']
+  names STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[])  -- example={'primary': 'Torre VTS de Algés', 'common': {'en': 'Lisbon Harbor Control Tower'}, 'rules': [{'variant': 'alternate', 'language': None, 'perspectives': None,...
+  subtype VARCHAR  -- distinct~12 top=['residential', 'commercial', 'outbuilding', 'education', 'civic', 'industrial']
+  class VARCHAR  -- distinct~65 top=['apartments', 'residential', 'house', 'semidetached_house', 'roof', 'school']
+  height DOUBLE  -- range=[1.0, 190.5]
+  num_floors INTEGER  -- range=[1, 26]
+  roof_shape VARCHAR  -- distinct~11 top=['gabled', 'flat', 'hipped', 'pyramidal', 'gambrel', 'skillion']
+  geometry GEOMETRY('OGC:CRS84')  -- types=['MULTIPOLYGON', 'POLYGON'] extent=[-9.25, 38.68, -9.086, 38.8]
+
+Real data to ground the questions in (use these names, categories and coordinates as literals):
+
+REAL ROWS from lisbon_buildings (random sample; centroid lon/lat):
+  names.primary=Mini Mercado, height=8.0, lon=-9.1936, lat=38.7105
+  names.primary=Palácio dos Marqueses de Angeja, subtype=residential, class=house, lon=-9.1953, lat=38.6972
+  names.primary=A Igreja de Jesus Cristo dos Santos d..., subtype=religious, class=church, lon=-9.2416, lat=38.758
+  names.primary=Jazigo da Família Mantero, lon=-9.1717, lat=38.7151
+  names.primary=Massimo Dutti, num_floors=3, lon=-9.1475, lat=38.7216
+ALL VALUES in lisbon_buildings:
+  subtype: ['agricultural', 'civic', 'commercial', 'education', 'entertainment', 'industrial', 'medical', 'military', 'outbuilding', 'religious', 'residential', 'service', 'transportation']
+  roof_shape: ['dome', 'flat', 'gabled', 'gambrel', 'hipped', 'mansard', 'onion', 'pyramidal', 'round', 'saltbox', 'skillion']
+
+Write 6 diverse (question, sql) pairs for these tables.
+- Focus skill: spatial join with aggregation (e.g. count/sum points per polygon)
+- Difficulty: medium
+- Question style: questions phrased as tasks ('give me', 'list', 'map', 'compare')
+
+Rules:
+- SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
+- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Only use literal values (names, categories, codes) that appear in the real rows, value lists or top values above. The query should return at least one row.
+- Do not name places, neighbourhoods or landmarks that are not in the data. If a question needs an area or point that is not a row in the data, give its coordinates explicitly in the question.
+- Never measure distances, buffers or areas in EPSG:3857 (Web Mercator) or EPSG:6933; their scale is wrong away from the equator. Use the spheroid functions or a local metric CRS (UTM zone or national grid).
+- Results must be deterministic: no current_date, now() or random(); whenever you use LIMIT, ORDER BY columns that make the order unique.
+- Watch join fan-out: do not SUM a per-country (or per-parent) value after joining to many child rows.
+- Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
+- Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
+- Make the 6 pairs differ in intent, not just in literal values.
+
+DuckDB spatial is NOT PostGIS. `SET geometry_always_xy = true` is active (lon/lat order). Differences that matter:
+- No SRID arguments and no ST_SetSRID: ST_MakeEnvelope(xmin, ymin, xmax, ymax), ST_GeomFromText(wkt), ST_Point(lon, lat).
+- ST_Transform takes CRS strings, not integers: ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true).
+- No GEOGRAPHY type and no 'spheroid' / use_spheroid argument on ST_Distance or ST_Area. For metres use ST_Distance_Sphere / ST_Distance_Spheroid / ST_DWithin_Spheroid (POINT inputs only), ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS. For distances involving lines or polygons, transform to a metric CRS first.
+- ST_Collect takes a list: ST_Collect(list(geom)). Aggregates are ST_Union_Agg(geom) and ST_Extent_Agg(geom).
+
+Return ONLY a JSON array, no markdown fences:
+[{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "medium"}]

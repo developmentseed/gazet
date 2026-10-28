@@ -1,0 +1,38 @@
+[
+  {
+    "question": "What is the land area of Burkina Faso in square kilometres, measured on the spheroid?",
+    "sql": "SELECT name, ROUND(ST_Area_Spheroid(geometry) / 1000000.0, 1) AS area_km2 FROM countries WHERE iso_a3 = 'BFA';",
+    "skills": ["measurement in real units", "ST_Area_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Using the Dutch national grid (EPSG:28992), what is the area of the Netherlands in square kilometres?",
+    "sql": "SELECT name, ROUND(ST_Area(ST_Transform(geometry, 'EPSG:4326', 'EPSG:28992', always_xy := true)) / 1000000.0, 1) AS area_km2 FROM countries WHERE iso_a3 = 'NLD';",
+    "skills": ["measurement in real units", "ST_Transform to metric CRS"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the Western African countries with a spheroid-measured area smaller than 100,000 square kilometres, showing the area in km2 sorted from smallest to largest.",
+    "sql": "SELECT name, ROUND(ST_Area_Spheroid(geometry) / 1000000.0, 1) AS area_km2 FROM countries WHERE subregion = 'Western Africa' AND ST_Area_Spheroid(geometry) < 100000000000.0 ORDER BY area_km2 ASC, name ASC;",
+    "skills": ["measurement in real units", "ST_Area_Spheroid", "threshold filter"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "What is the total perimeter of eSwatini's border in kilometres, computed on the spheroid?",
+    "sql": "SELECT name, ROUND(ST_Length_Spheroid(ST_Boundary(geometry)) / 1000.0, 1) AS perimeter_km FROM countries WHERE iso_a3 = 'SWZ';",
+    "skills": ["measurement in real units", "ST_Length_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Which is larger in area on the spheroid, the Federated States of Micronesia or the Cayman Islands, and by how many square kilometres?",
+    "sql": "SELECT name, ROUND(ST_Area_Spheroid(geometry) / 1000000.0, 1) AS area_km2 FROM countries WHERE iso_a3 IN ('FSM', 'CYM') ORDER BY ST_Area_Spheroid(geometry) DESC, name ASC;",
+    "skills": ["measurement in real units", "ST_Area_Spheroid", "comparison"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For the high-income OECD countries in Western Europe, compute the area in square kilometres using a suitable UTM projection and show the five smallest, ordered by area.",
+    "sql": "WITH measured AS (SELECT name, ST_Area(ST_Transform(geometry, 'EPSG:4326', 'EPSG:32632', always_xy := true)) / 1000000.0 AS area_km2 FROM countries WHERE income_grp = '1. High income: OECD' AND subregion = 'Western Europe') SELECT name, ROUND(area_km2, 1) AS area_km2 FROM measured ORDER BY area_km2 ASC, name ASC LIMIT 5;",
+    "skills": ["measurement in real units", "ST_Transform to metric CRS", "top-N with deterministic order"],
+    "difficulty": "easy"
+  }
+]

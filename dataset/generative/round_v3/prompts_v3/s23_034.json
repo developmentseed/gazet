@@ -1,0 +1,1 @@
+{"id": "s23_034", "tables": ["airports"], "skill": "geometry construction and overlay (ST_Buffer, ST_Union_Agg, ST_Intersection, ST_Difference, ST_ConvexHull, ST_Centroid)", "difficulty": "medium", "style": "precise analyst questions that mention units and thresholds", "k": 6}

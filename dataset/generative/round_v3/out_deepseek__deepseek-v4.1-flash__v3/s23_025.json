@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which places have 'Lis' in their main name, and what is their main category and confidence?",
+    "sql": "SELECT names.primary AS place_name, basic_category, confidence FROM lisbon_places WHERE names.primary ILIKE '%Lis%' ORDER BY confidence DESC, names.primary, id;",
+    "skills": ["struct field access", "string filter", "ordering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For places that list phone numbers, show the place's main name and each phone number, sorted by place name.",
+    "sql": "SELECT p.names.primary AS place_name, ph.phone FROM lisbon_places p, UNNEST(p.phones) AS ph(phone) WHERE p.phones IS NOT NULL ORDER BY p.names.primary, ph.phone, p.id LIMIT 20;",
+    "skills": ["UNNEST list", "struct field access", "ordering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which places have websites, and how many websites does each have? Show the most first.",
+    "sql": "SELECT names.primary AS place_name, len(websites) AS website_count FROM lisbon_places WHERE websites IS NOT NULL AND len(websites) > 0 ORDER BY website_count DESC, names.primary, id LIMIT 10;",
+    "skills": ["list function", "struct field access", "ordering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For open places, list the main name and the locality from each address they have.",
+    "sql": "SELECT p.names.primary AS place_name, a.locality FROM lisbon_places p, UNNEST(p.addresses) AS a WHERE p.operating_status = 'open' AND p.addresses IS NOT NULL ORDER BY p.names.primary, a.locality, p.id LIMIT 15;",
+    "skills": ["UNNEST list of structs", "struct field access", "filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show the main name, main category, and full category hierarchy for places whose main category is a bar or a dance club.",
+    "sql": "SELECT names.primary AS place_name, taxonomy.primary AS main_category, taxonomy.hierarchy AS category_hierarchy FROM lisbon_places WHERE taxonomy.primary IN ('bar', 'dance_club') ORDER BY names.primary, id;",
+    "skills": ["struct field access", "array field", "IN filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which open places are within 1 kilometre of the point at longitude -9.1347 and latitude 38.7216, and what is their main name and distance in metres?",
+    "sql": "SELECT names.primary AS place_name, ST_Distance_Sphere(geometry, ST_Point(-9.1347, 38.7216)) AS distance_m FROM lisbon_places WHERE operating_status = 'open' AND ST_DWithin_Spheroid(geometry, ST_Point(-9.1347, 38.7216), 1000) ORDER BY distance_m, id;",
+    "skills": ["spatial distance", "struct field access", "filter"],
+    "difficulty": "medium"
+  }
+]

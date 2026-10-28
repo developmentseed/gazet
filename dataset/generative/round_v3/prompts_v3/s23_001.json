@@ -1,0 +1,1 @@
+{"id": "s23_001", "tables": ["lisbon_places", "lisbon_buildings"], "skill": "spatial join with aggregation (e.g. count/sum points per polygon)", "difficulty": "medium", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}

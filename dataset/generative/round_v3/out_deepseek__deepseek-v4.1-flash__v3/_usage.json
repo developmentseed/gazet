@@ -1,0 +1,434 @@
+[
+ {
+  "scenario": "s23_000",
+  "provider": "Baidu",
+  "wall_s": 43.8,
+  "prompt_tokens": 2391,
+  "completion_tokens": 7365,
+  "reasoning_tokens": 6695,
+  "cost": 0.0013950738
+ },
+ {
+  "scenario": "s23_001",
+  "provider": "InferenceNet",
+  "wall_s": 40.6,
+  "prompt_tokens": 2305,
+  "completion_tokens": 6385,
+  "reasoning_tokens": 5628,
+  "cost": 0.004019775
+ },
+ {
+  "scenario": "s23_002",
+  "provider": "Morph",
+  "wall_s": 46.6,
+  "prompt_tokens": 2083,
+  "completion_tokens": 5673,
+  "reasoning_tokens": 4550,
+  "cost": 0.002264411
+ },
+ {
+  "scenario": "s23_003",
+  "provider": "DeepInfra",
+  "wall_s": 89.3,
+  "prompt_tokens": 1531,
+  "completion_tokens": 9981,
+  "reasoning_tokens": 8951,
+  "cost": 0.00440636
+ },
+ {
+  "scenario": "s23_004",
+  "provider": "InferenceNet",
+  "wall_s": 56.6,
+  "prompt_tokens": 2466,
+  "completion_tokens": 10322,
+  "reasoning_tokens": 8807,
+  "cost": 0.006447198
+ },
+ {
+  "scenario": "s23_005",
+  "provider": "CoreWeave",
+  "wall_s": 27.9,
+  "prompt_tokens": 2667,
+  "completion_tokens": 10266,
+  "reasoning_tokens": 9087,
+  "cost": 0.00701961
+ },
+ {
+  "scenario": "s23_006",
+  "provider": "CoreWeave",
+  "wall_s": 13.9,
+  "prompt_tokens": 2303,
+  "completion_tokens": 5414,
+  "reasoning_tokens": 4450,
+  "cost": 0.003769338
+ },
+ {
+  "scenario": "s23_007",
+  "provider": "InferenceNet",
+  "wall_s": 65.1,
+  "prompt_tokens": 1643,
+  "completion_tokens": 11131,
+  "reasoning_tokens": 9616,
+  "cost": 0.006799189
+ },
+ {
+  "scenario": "s23_008",
+  "provider": "CoreWeave",
+  "wall_s": 25.6,
+  "prompt_tokens": 2253,
+  "completion_tokens": 9201,
+  "reasoning_tokens": 8205,
+  "cost": 0.00627354
+ },
+ {
+  "scenario": "s23_009",
+  "provider": "CoreWeave",
+  "wall_s": 14.6,
+  "prompt_tokens": 1606,
+  "completion_tokens": 3946,
+  "reasoning_tokens": 3253,
+  "cost": 0.00277368
+ },
+ {
+  "scenario": "s23_010",
+  "provider": "CoreWeave",
+  "wall_s": 15.5,
+  "prompt_tokens": 2543,
+  "completion_tokens": 5754,
+  "reasoning_tokens": 5293,
+  "cost": 0.004021538
+ },
+ {
+  "scenario": "s23_011",
+  "provider": "CoreWeave",
+  "wall_s": 27.1,
+  "prompt_tokens": 2277,
+  "completion_tokens": 9944,
+  "reasoning_tokens": 8848,
+  "cost": 0.00675961
+ },
+ {
+  "scenario": "s23_012",
+  "provider": "AtlasCloud",
+  "wall_s": 65.3,
+  "prompt_tokens": 2019,
+  "completion_tokens": 10696,
+  "reasoning_tokens": 9688,
+  "cost": 0.006048405
+ },
+ {
+  "scenario": "s23_013",
+  "provider": "CoreWeave",
+  "wall_s": 9.8,
+  "prompt_tokens": 1480,
+  "completion_tokens": 4073,
+  "reasoning_tokens": 3500,
+  "cost": 0.00283985
+ },
+ {
+  "scenario": "s23_014",
+  "provider": "CoreWeave",
+  "wall_s": 35.7,
+  "prompt_tokens": 2628,
+  "completion_tokens": 15243,
+  "reasoning_tokens": 13847,
+  "cost": 0.010200438
+ },
+ {
+  "scenario": "s23_015",
+  "provider": "CoreWeave",
+  "wall_s": 27.0,
+  "prompt_tokens": 1955,
+  "completion_tokens": 8240,
+  "reasoning_tokens": 7490,
+  "cost": 0.00561015
+ },
+ {
+  "scenario": "s23_016",
+  "provider": "Baidu",
+  "wall_s": 34.6,
+  "prompt_tokens": 1362,
+  "completion_tokens": 5912,
+  "reasoning_tokens": 4572,
+  "cost": 0.001095438
+ },
+ {
+  "scenario": "s23_017",
+  "provider": "CoreWeave",
+  "wall_s": 23.8,
+  "prompt_tokens": 2305,
+  "completion_tokens": 10566,
+  "reasoning_tokens": 9047,
+  "cost": 0.007102014
+ },
+ {
+  "scenario": "s23_018",
+  "provider": "Baidu",
+  "wall_s": 19.4,
+  "prompt_tokens": 2390,
+  "completion_tokens": 3275,
+  "reasoning_tokens": 2561,
+  "cost": 0.000656484912
+ },
+ {
+  "scenario": "s23_019",
+  "provider": "InferenceNet",
+  "wall_s": 40.6,
+  "prompt_tokens": 2336,
+  "completion_tokens": 6180,
+  "reasoning_tokens": 5115,
+  "cost": 0.003863488
+ },
+ {
+  "scenario": "s23_020",
+  "provider": "Morph",
+  "wall_s": 31.9,
+  "prompt_tokens": 2075,
+  "completion_tokens": 5383,
+  "reasoning_tokens": 4521,
+  "cost": 0.002152989
+ },
+ {
+  "scenario": "s23_021",
+  "provider": "DeepInfra",
+  "wall_s": 52.2,
+  "prompt_tokens": 1499,
+  "completion_tokens": 5636,
+  "reasoning_tokens": 4721,
+  "cost": 0.0025248328
+ },
+ {
+  "scenario": "s23_022",
+  "provider": "InferenceNet",
+  "wall_s": 80.2,
+  "prompt_tokens": 2443,
+  "completion_tokens": 12728,
+  "reasoning_tokens": 11266,
+  "cost": 0.007791149
+ },
+ {
+  "scenario": "s23_023",
+  "provider": "CoreWeave",
+  "wall_s": 24.9,
+  "prompt_tokens": 2675,
+  "completion_tokens": 10041,
+  "reasoning_tokens": 9350,
+  "cost": 0.006776096
+ },
+ {
+  "scenario": "s23_024",
+  "provider": "CoreWeave",
+  "wall_s": 21.9,
+  "prompt_tokens": 2308,
+  "completion_tokens": 8971,
+  "reasoning_tokens": 8210,
+  "cost": 0.00604927
+ },
+ {
+  "scenario": "s23_025",
+  "provider": "InferenceNet",
+  "wall_s": 58.6,
+  "prompt_tokens": 1641,
+  "completion_tokens": 8568,
+  "reasoning_tokens": 7833,
+  "cost": 0.005261183
+ },
+ {
+  "scenario": "s23_026",
+  "provider": "CoreWeave",
+  "wall_s": 34.7,
+  "prompt_tokens": 2269,
+  "completion_tokens": 15195,
+  "reasoning_tokens": 13107,
+  "cost": 0.010122568
+ },
+ {
+  "scenario": "s23_027",
+  "provider": "CoreWeave",
+  "wall_s": 15.3,
+  "prompt_tokens": 1594,
+  "completion_tokens": 6836,
+  "reasoning_tokens": 6043,
+  "cost": 0.004585084
+ },
+ {
+  "scenario": "s23_028",
+  "provider": "CoreWeave",
+  "wall_s": 22.0,
+  "prompt_tokens": 2547,
+  "completion_tokens": 9493,
+  "reasoning_tokens": 8893,
+  "cost": 0.00641964
+ },
+ {
+  "scenario": "s23_029",
+  "provider": "CoreWeave",
+  "wall_s": 12.2,
+  "prompt_tokens": 2292,
+  "completion_tokens": 5308,
+  "reasoning_tokens": 4459,
+  "cost": 0.00366624
+ },
+ {
+  "scenario": "s23_030",
+  "provider": "AtlasCloud",
+  "wall_s": 54.9,
+  "prompt_tokens": 2013,
+  "completion_tokens": 8850,
+  "reasoning_tokens": 8229,
+  "cost": 0.005050755
+ },
+ {
+  "scenario": "s23_031",
+  "provider": "InferenceNet",
+  "wall_s": 56.8,
+  "prompt_tokens": 1469,
+  "completion_tokens": 8736,
+  "reasoning_tokens": 7183,
+  "cost": 0.005392907
+ },
+ {
+  "scenario": "s23_032",
+  "provider": "CoreWeave",
+  "wall_s": 30.9,
+  "prompt_tokens": 2639,
+  "completion_tokens": 13709,
+  "reasoning_tokens": 12656,
+  "cost": 0.009155616
+ },
+ {
+  "scenario": "s23_033",
+  "provider": "CoreWeave",
+  "wall_s": 15.1,
+  "prompt_tokens": 1985,
+  "completion_tokens": 6552,
+  "reasoning_tokens": 5852,
+  "cost": 0.00451685
+ },
+ {
+  "scenario": "s23_034",
+  "provider": "Baidu",
+  "wall_s": 84.2,
+  "prompt_tokens": 1367,
+  "completion_tokens": 15213,
+  "reasoning_tokens": 13892,
+  "cost": 0.002714203656
+ },
+ {
+  "scenario": "s23_035",
+  "provider": "CoreWeave",
+  "wall_s": 28.0,
+  "prompt_tokens": 2293,
+  "completion_tokens": 11035,
+  "reasoning_tokens": 9860,
+  "cost": 0.007421688
+ },
+ {
+  "scenario": "s23_036",
+  "provider": "Baidu",
+  "wall_s": 31.1,
+  "prompt_tokens": 2387,
+  "completion_tokens": 6116,
+  "reasoning_tokens": 4970,
+  "cost": 0.001154096712
+ },
+ {
+  "scenario": "s23_037",
+  "provider": "InferenceNet",
+  "wall_s": 40.2,
+  "prompt_tokens": 2314,
+  "completion_tokens": 6522,
+  "reasoning_tokens": 5597,
+  "cost": 0.004054262
+ },
+ {
+  "scenario": "s23_038",
+  "provider": "Morph",
+  "wall_s": 49.1,
+  "prompt_tokens": 2071,
+  "completion_tokens": 8043,
+  "reasoning_tokens": 6952,
+  "cost": 0.003171593
+ },
+ {
+  "scenario": "s23_039",
+  "provider": "DeepInfra",
+  "wall_s": 40.6,
+  "prompt_tokens": 1504,
+  "completion_tokens": 4320,
+  "reasoning_tokens": 3633,
+  "cost": 0.0019728128
+ },
+ {
+  "scenario": "s23_040",
+  "provider": "InferenceNet",
+  "wall_s": 83.3,
+  "prompt_tokens": 2449,
+  "completion_tokens": 12580,
+  "reasoning_tokens": 11722,
+  "cost": 0.007702967
+ },
+ {
+  "scenario": "s23_041",
+  "provider": "CoreWeave",
+  "wall_s": 14.9,
+  "prompt_tokens": 2659,
+  "completion_tokens": 5535,
+  "reasoning_tokens": 4749,
+  "cost": 0.003845116
+ },
+ {
+  "scenario": "s23_042",
+  "provider": "CoreWeave",
+  "wall_s": 18.9,
+  "prompt_tokens": 2285,
+  "completion_tokens": 7365,
+  "reasoning_tokens": 6462,
+  "cost": 0.00500238
+ },
+ {
+  "scenario": "s23_043",
+  "provider": "InferenceNet",
+  "wall_s": 49.7,
+  "prompt_tokens": 1656,
+  "completion_tokens": 8015,
+  "reasoning_tokens": 7147,
+  "cost": 0.004930928
+ },
+ {
+  "scenario": "s23_044",
+  "provider": "CoreWeave",
+  "wall_s": 13.8,
+  "prompt_tokens": 2309,
+  "completion_tokens": 6433,
+  "reasoning_tokens": 5344,
+  "cost": 0.004366932
+ },
+ {
+  "scenario": "s23_045",
+  "provider": "CoreWeave",
+  "wall_s": 7.5,
+  "prompt_tokens": 1603,
+  "completion_tokens": 3208,
+  "reasoning_tokens": 2714,
+  "cost": 0.002228054
+ },
+ {
+  "scenario": "s23_046",
+  "provider": "CoreWeave",
+  "wall_s": 19.4,
+  "prompt_tokens": 2541,
+  "completion_tokens": 8760,
+  "reasoning_tokens": 7510,
+  "cost": 0.00594241
+ },
+ {
+  "scenario": "s23_047",
+  "provider": "CoreWeave",
+  "wall_s": 24.9,
+  "prompt_tokens": 2276,
+  "completion_tokens": 11223,
+  "reasoning_tokens": 9835,
+  "cost": 0.00750891
+ }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "How many countries have territory within 75 km of the Ob river? Count each country once.",
+    "sql": "WITH ob AS (\n  SELECT ST_Union_Agg(geometry) AS geom\n  FROM rivers\n  WHERE name = 'Ob' AND feature_class = 'River'\n),\nbuf AS (\n  SELECT ST_Transform(\n           ST_Buffer(ST_Transform(geom, 'EPSG:4326', 'EPSG:32643', always_xy := true), 75000),\n           'EPSG:32643', 'EPSG:4326', always_xy := true) AS geom\n  FROM ob\n)\nSELECT COUNT(DISTINCT c.iso_a3) AS countries_within_75km\nFROM countries c, buf\nWHERE ST_Intersects(c.geometry, buf.geom);",
+    "skills": ["ST_Buffer", "ST_Union_Agg", "ST_Transform", "ST_Intersects"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Buffer the Dniester by 25 km and report the total area, in square kilometres rounded to 1 decimal, of Eastern European land that falls inside the buffer.",
+    "sql": "WITH buf AS (\n  SELECT ST_Buffer(\n           ST_Union_Agg(ST_Transform(geometry, 'EPSG:4326', 'EPSG:32635', always_xy := true)),\n           25000) AS geom\n  FROM rivers\n  WHERE name = 'Dniester'\n),\nbuf4326 AS (\n  SELECT ST_Transform(geom, 'EPSG:32635', 'EPSG:4326', always_xy := true) AS geom FROM buf\n),\nnear_land AS (\n  SELECT ST_Union_Agg(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:32635', always_xy := true)) AS geom\n  FROM countries c, buf4326\n  WHERE c.subregion = 'Eastern Europe'\n    AND ST_Intersects(c.geometry, buf4326.geom)\n)\nSELECT ROUND(ST_Area(ST_Intersection(buf.geom, near_land.geom)) / 1000000.0, 1) AS area_km2\nFROM buf, near_land;",
+    "skills": ["ST_Buffer", "ST_Union_Agg", "ST_Intersection", "ST_Area", "ST_Transform"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What percentage, to 1 decimal, of a 200 km-radius disc centred on the centroid of Laos is covered by Laotian territory?",
+    "sql": "WITH laos AS (\n  SELECT ST_Union_Agg(ST_Transform(geometry, 'EPSG:4326', 'EPSG:32648', always_xy := true)) AS geom\n  FROM countries\n  WHERE iso_a3 = 'LAO'\n),\ndisc AS (\n  SELECT ST_Buffer(ST_Centroid(geom), 200000) AS geom FROM laos\n)\nSELECT ROUND(100.0 * ST_Area(ST_Intersection(laos.geom, disc.geom)) / ST_Area(disc.geom), 1) AS pct_covered\nFROM laos, disc;",
+    "skills": ["ST_Centroid", "ST_Buffer", "ST_Intersection", "ST_Area", "ST_Transform"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "A marine planning zone is drawn as a 250 km-radius disc centred at (-59.5598, 13.1815) near Barbados. Split the zone into land and water, reporting each part's area in km² rounded to 1 decimal, treating every country polygon as land.",
+    "sql": "WITH disc AS (\n  SELECT ST_Buffer(ST_Transform(ST_Point(-59.5598, 13.1815), 'EPSG:4326', 'EPSG:32621', always_xy := true), 250000) AS geom\n),\ndisc4326 AS (\n  SELECT ST_Transform(geom, 'EPSG:32621', 'EPSG:4326', always_xy := true) AS geom FROM disc\n),\nland AS (\n  SELECT ST_Union_Agg(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:32621', always_xy := true)) AS geom\n  FROM countries c, disc4326\n  WHERE ST_Intersects(c.geometry, disc4326.geom)\n)\nSELECT\n  ROUND(ST_Area(ST_Intersection(disc.geom, land.geom)) / 1000000.0, 1) AS land_km2,\n  ROUND(ST_Area(ST_Difference(disc.geom, land.geom)) / 1000000.0, 1) AS water_km2\nFROM disc, land;",
+    "skills": ["ST_Point", "ST_Buffer", "ST_Union_Agg", "ST_Intersection", "ST_Difference", "ST_Area", "ST_Transform"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the geodesic area, in square kilometres rounded to the nearest whole km², of the convex hull of all rank-0 (most generalised) lakes that overlap territory in Northern America?",
+    "sql": "WITH hits AS (\n  SELECT l.geometry AS geom\n  FROM lakes l\n  JOIN countries c ON ST_Intersects(l.geometry, c.geometry)\n  WHERE c.subregion = 'Northern America'\n    AND l.scalerank = 0\n),\nhull AS (\n  SELECT ST_ConvexHull(ST_Union_Agg(geom)) AS geom FROM hits\n)\nSELECT ROUND(ST_Area_Spheroid(geom) / 1000000.0, 0) AS hull_km2\nFROM hull;",
+    "skills": ["ST_ConvexHull", "ST_Union_Agg", "ST_Intersects", "ST_Area_Spheroid", "spatial join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Excluding Georgia itself, which Western Asian countries have their centroid within 1,000 km of Georgia's centroid? List each country name with its spheroid distance in km rounded to 1 decimal, nearest first.",
+    "sql": "WITH ga AS (\n  SELECT ST_Centroid(ST_Union_Agg(geometry)) AS pt\n  FROM countries\n  WHERE iso_a3 = 'GEO'\n)\nSELECT\n  c.name,\n  ROUND(ST_Distance_Spheroid(ST_Centroid(c.geometry), ga.pt) / 1000.0, 1) AS dist_km\nFROM countries c, ga\nWHERE c.subregion = 'Western Asia'\n  AND c.iso_a3 <> 'GEO'\n  AND ST_Distance_Spheroid(ST_Centroid(c.geometry), ga.pt) <= 1000000.0\nORDER BY dist_km ASC, c.name ASC;",
+    "skills": ["ST_Centroid", "ST_Distance_Spheroid", "ST_Union_Agg"],
+    "difficulty": "hard"
+  }
+]

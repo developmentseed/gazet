@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Show me every airport in the region between 60 and 100 degrees east longitude and 10 to 40 degrees north latitude.",
+    "sql": "SELECT name, iata_code, type, scalerank FROM airports WHERE ST_Within(geometry, ST_MakeEnvelope(60, 10, 100, 40)) ORDER BY name, iata_code",
+    "skills": ["ST_Within", "ST_MakeEnvelope"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which airports lie within 150 kilometres of the city of Da Nang?",
+    "sql": "SELECT a.name, a.iata_code, a.type FROM airports a WHERE ST_DWithin_Spheroid(a.geometry, (SELECT geometry FROM populated_places WHERE name = 'Da Nang' LIMIT 1), 150000) ORDER BY a.name, a.iata_code",
+    "skills": ["ST_DWithin_Spheroid"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "List every populated place that falls inside a 75-kilometre circle drawn around Oran Es Senia airport.",
+    "sql": "WITH buf AS (SELECT ST_Buffer(ST_Transform(geometry, 'EPSG:4326', 'EPSG:32630', always_xy := true), 75000) AS g FROM airports WHERE iata_code = 'ORN') SELECT p.name, p.country, p.pop_max FROM populated_places p, buf WHERE ST_Intersects(ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:32630', always_xy := true), buf.g) ORDER BY p.name, p.country",
+    "skills": ["ST_Intersects", "ST_Buffer", "ST_Transform"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which airports sit inside a 100-kilometre circle centred on Malabo?",
+    "sql": "WITH buf AS (SELECT ST_Buffer(ST_Transform(geometry, 'EPSG:4326', 'EPSG:32632', always_xy := true), 100000) AS g FROM populated_places WHERE name = 'Malabo' LIMIT 1) SELECT a.name, a.iata_code, a.type FROM airports a, buf WHERE ST_Contains(buf.g, ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:32632', always_xy := true)) ORDER BY a.name, a.iata_code",
+    "skills": ["ST_Contains", "ST_Buffer", "ST_Transform"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each capital city, show any airport that is within 30 kilometres of it.",
+    "sql": "SELECT p.name AS city, p.country, a.name AS airport, a.iata_code FROM populated_places p JOIN airports a ON ST_DWithin_Spheroid(p.geometry, a.geometry, 30000) WHERE p.is_capital = true ORDER BY p.name, a.name, a.iata_code",
+    "skills": ["ST_DWithin_Spheroid", "JOIN"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which airports lie inside a 5-degree-wide box centred on San Diego Int'l airport?",
+    "sql": "WITH sd AS (SELECT ST_X(geometry) AS lon, ST_Y(geometry) AS lat FROM airports WHERE iata_code = 'SAN') SELECT a.name, a.iata_code, a.type FROM airports a, sd WHERE ST_Contains(ST_MakeEnvelope(sd.lon - 2.5, sd.lat - 2.5, sd.lon + 2.5, sd.lat + 2.5), a.geometry) ORDER BY a.name, a.iata_code",
+    "skills": ["ST_Contains", "ST_MakeEnvelope"],
+    "difficulty": "hard"
+  }
+]

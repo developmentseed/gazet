@@ -1,0 +1,1 @@
+{"id": "s23_026", "tables": ["lisbon_buildings", "lisbon_roads"], "skill": "window functions and per-group ranking (ROW_NUMBER, RANK, running totals) combined with spatial attributes", "difficulty": "hard", "style": "precise analyst questions that mention units and thresholds", "k": 6}

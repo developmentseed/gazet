@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which lake centroid is nearest to the point (44.5369, 24.1225) (the centroid of Saudi Arabia), and how far is it in kilometres?",
+    "sql": "SELECT name,\n       round(ST_Distance_Sphere(ST_Centroid(geometry), ST_Point(44.5369, 24.1225)) / 1000.0, 1) AS distance_km\nFROM lakes\nORDER BY distance_km, name\nLIMIT 1;",
+    "skills": ["nearest neighbour", "ST_Distance_Sphere", "centroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Using centroids, list every lake other than Lake Manitoba whose centroid lies within 500 km of Lake Manitoba's centroid, showing the distance in kilometres for each, nearest first.",
+    "sql": "WITH pts AS (\n  SELECT name, ST_Centroid(geometry) AS pt\n  FROM lakes\n),\nanchor AS (\n  SELECT pt\n  FROM pts\n  WHERE name = 'Lake Manitoba'\n)\nSELECT p.name,\n       round(ST_Distance_Spheroid(p.pt, a.pt) / 1000.0, 1) AS distance_km\nFROM pts AS p, anchor AS a\nWHERE p.name <> 'Lake Manitoba'\n  AND ST_DWithin_Spheroid(p.pt, a.pt, 500000.0)\nORDER BY distance_km, p.name;",
+    "skills": ["radius filter", "ST_DWithin_Spheroid", "threshold"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Excluding Lake Manitoba itself, which three lakes have centroids closest to Lake Manitoba's centroid? Report each with its distance in kilometres.",
+    "sql": "WITH anchor AS (\n  SELECT ST_Centroid(geometry) AS pt\n  FROM lakes\n  WHERE name = 'Lake Manitoba'\n)\nSELECT n.name AS nearby_lake,\n       round(ST_Distance_Sphere(n.pt, a.pt) / 1000.0, 1) AS distance_km\nFROM anchor AS a, LATERAL (\n  SELECT name, ST_Centroid(geometry) AS pt\n  FROM lakes\n  WHERE name <> 'Lake Manitoba'\n  ORDER BY ST_Distance_Sphere(ST_Centroid(geometry), a.pt), name\n  LIMIT 3\n) AS n\nORDER BY distance_km, nearby_lake;",
+    "skills": ["k-nearest neighbours", "LATERAL", "ORDER BY distance LIMIT k"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "What is the geodesic distance in kilometres between the centroids of Saudi Arabia and Malaysia?",
+    "sql": "SELECT round(ST_Distance_Spheroid(ST_Centroid(a.geometry), ST_Centroid(b.geometry)) / 1000.0, 1) AS distance_km\nFROM countries AS a\nCROSS JOIN countries AS b\nWHERE a.name = 'Saudi Arabia'\n  AND b.name = 'Malaysia';",
+    "skills": ["point-to-point distance", "ST_Distance_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "How far, in kilometres, is the point (5.0, 9.0) from Benin? Measure in UTM zone 31N (EPSG:32631) after transforming both geometries from lon/lat, so the result is in metres rather than degrees.",
+    "sql": "SELECT round(\n         ST_Distance(\n           ST_Transform(ST_Point(5.0, 9.0), 'EPSG:4326', 'EPSG:32631', always_xy := true),\n           ST_Transform(geometry, 'EPSG:4326', 'EPSG:32631', always_xy := true)\n         ) / 1000.0,\n         1\n       ) AS distance_km\nFROM countries\nWHERE name = 'Benin';",
+    "skills": ["ST_Transform", "projected metric distance", "UTM"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each of the lakes Lago Argentino, Lake Pukaki and Tehek Lake, which country's centroid is nearest, and what is that distance in kilometres?",
+    "sql": "WITH lake_pts AS (\n  SELECT name, ST_Centroid(geometry) AS pt\n  FROM lakes\n  WHERE name IN ('Lago Argentino', 'Lake Pukaki', 'Tehek Lake')\n),\ncountry_pts AS (\n  SELECT name, ST_Centroid(geometry) AS pt\n  FROM countries\n)\nSELECT l.name AS lake,\n       c.name AS nearest_country,\n       round(ST_Distance_Sphere(c.pt, l.pt) / 1000.0, 1) AS distance_km\nFROM lake_pts AS l, LATERAL (\n  SELECT name, pt\n  FROM country_pts\n  ORDER BY ST_Distance_Sphere(pt, l.pt), name\n  LIMIT 1\n) AS c\nORDER BY lake;",
+    "skills": ["per-group nearest neighbour", "LATERAL", "ST_Distance_Sphere"],
+    "difficulty": "easy"
+  }
+]

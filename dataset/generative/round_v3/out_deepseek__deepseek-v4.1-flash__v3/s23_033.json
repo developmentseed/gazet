@@ -1,0 +1,38 @@
+[
+  {
+    "question": "List the countries with a land area greater than 1,000,000 square kilometres, showing the country name and area rounded to the nearest square kilometre.",
+    "sql": "SELECT name, ROUND(ST_Area_Spheroid(geometry) / 1000000.0, 0) AS area_km2 FROM countries WHERE ST_Area_Spheroid(geometry) > 1000000000000.0 ORDER BY area_km2 DESC, name;",
+    "skills": ["measurement", "area", "spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "What is the land area of Micronesia in square miles, rounded to one decimal place?",
+    "sql": "SELECT name, ROUND(ST_Area_Spheroid(geometry) / 2589988.110336, 1) AS area_sq_mi FROM countries WHERE name = 'Micronesia';",
+    "skills": ["measurement", "area", "unit conversion"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "What is the total boundary length of eSwatini in kilometres, rounded to one decimal place?",
+    "sql": "SELECT name, ROUND(ST_Length_Spheroid(ST_Boundary(geometry)) / 1000.0, 1) AS boundary_km FROM countries WHERE name = 'eSwatini';",
+    "skills": ["measurement", "length", "spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Using country centroids, what is the spheroid distance in kilometres between Netherlands and Burkina Faso, rounded to one decimal place?",
+    "sql": "SELECT ROUND(ST_Distance_Spheroid(ST_Centroid(nl.geometry), ST_Centroid(bf.geometry)) / 1000.0, 1) AS distance_km FROM countries nl, countries bf WHERE nl.name = 'Netherlands' AND bf.name = 'Burkina Faso';",
+    "skills": ["measurement", "distance", "spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "What is the total land area in square kilometres of all countries in the Caribbean, rounded to the nearest square kilometre?",
+    "sql": "SELECT ROUND(SUM(ST_Area_Spheroid(geometry)) / 1000000.0, 0) AS total_area_km2 FROM countries WHERE subregion = 'Caribbean';",
+    "skills": ["measurement", "area", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Which country in Africa has the largest land area, and what is that area in square kilometres rounded to the nearest square kilometre?",
+    "sql": "SELECT name, ROUND(ST_Area_Spheroid(geometry) / 1000000.0, 0) AS area_km2 FROM countries WHERE continent = 'Africa' ORDER BY area_km2 DESC, name LIMIT 1;",
+    "skills": ["measurement", "area", "ranking"],
+    "difficulty": "easy"
+  }
+]

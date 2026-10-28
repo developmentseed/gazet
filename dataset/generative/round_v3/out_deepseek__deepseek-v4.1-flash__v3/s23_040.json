@@ -1,0 +1,38 @@
+[
+  {
+    "question": "List restaurants inside the rectangle between longitude -9.22 and -9.21 and latitude 38.69 and 38.70.",
+    "sql": "SELECT p.names.primary AS place_name, p.basic_category FROM lisbon_places p WHERE p.basic_category = 'restaurant' AND ST_Within(p.geometry, ST_MakeEnvelope(-9.22, 38.69, -9.21, 38.70)) ORDER BY p.names.primary;",
+    "skills": ["ST_Within", "spatial_filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Give me road segments that intersect the rectangle from longitude -9.225 to -9.222 and latitude 38.744 to 38.746.",
+    "sql": "SELECT r.names.primary AS road_name, r.class FROM lisbon_roads r WHERE ST_Intersects(r.geometry, ST_MakeEnvelope(-9.225, 38.744, -9.222, 38.746)) ORDER BY r.names.primary, r.id LIMIT 20;",
+    "skills": ["ST_Intersects", "spatial_filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which places does the rectangle between longitude -9.16 and -9.15 and latitude 38.71 and 38.72 contain? List the place names and categories.",
+    "sql": "SELECT p.names.primary AS place_name, p.basic_category FROM lisbon_places p WHERE ST_Contains(ST_MakeEnvelope(-9.16, 38.71, -9.15, 38.72), p.geometry) ORDER BY p.names.primary;",
+    "skills": ["ST_Contains", "spatial_filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List road segments that touch the start point of Rua Luís Ludovice.",
+    "sql": "WITH target AS (SELECT geometry FROM lisbon_roads WHERE names.primary = 'Rua Luís Ludovice' ORDER BY id LIMIT 1) SELECT r.names.primary AS road_name, r.class FROM lisbon_roads r, target t WHERE ST_Touches(r.geometry, ST_StartPoint(t.geometry)) ORDER BY r.names.primary, r.id LIMIT 20;",
+    "skills": ["ST_Touches", "ST_StartPoint", "spatial_filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare the number of open and permanently closed restaurants inside the rectangle between longitude -9.22 and -9.21 and latitude 38.69 and 38.70.",
+    "sql": "SELECT p.operating_status, COUNT(*) AS place_count FROM lisbon_places p WHERE p.basic_category = 'restaurant' AND ST_Within(p.geometry, ST_MakeEnvelope(-9.22, 38.69, -9.21, 38.70)) GROUP BY p.operating_status ORDER BY p.operating_status;",
+    "skills": ["ST_Within", "spatial_filter", "aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare the number of residential and tertiary road segments that intersect the rectangle between longitude -9.23 and -9.19 and latitude 38.74 and 38.75.",
+    "sql": "SELECT r.class, COUNT(*) AS segment_count FROM lisbon_roads r WHERE r.class IN ('residential', 'tertiary') AND ST_Intersects(r.geometry, ST_MakeEnvelope(-9.23, 38.74, -9.19, 38.75)) GROUP BY r.class ORDER BY r.class;",
+    "skills": ["ST_Intersects", "spatial_filter", "aggregation"],
+    "difficulty": "medium"
+  }
+]

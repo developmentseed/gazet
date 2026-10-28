@@ -1,0 +1,38 @@
+[
+  {
+    "question": "For every airport type, list the two airports with the lowest scalerank (most prominent on the scale), breaking ties alphabetically by name; return the type, airport name, IATA code and scalerank.",
+    "sql": "WITH ranked AS (\n  SELECT type, name, iata_code, scalerank,\n         ROW_NUMBER() OVER (PARTITION BY type ORDER BY scalerank ASC, name ASC, iata_code ASC) AS rn\n  FROM airports\n)\nSELECT type, name, iata_code, scalerank\nFROM ranked\nWHERE rn <= 2\nORDER BY type, scalerank, name;",
+    "skills": ["ROW_NUMBER", "PARTITION BY", "per-group ranking"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Among airports of type 'major', walk from west to east (ascending longitude) and keep a running count of airports seen; return the first airport at which the running count reaches at least 25% of all major airports, with its name, IATA code, longitude (rounded to 2 decimals) and the running count.",
+    "sql": "WITH majors AS (\n  SELECT name, iata_code,\n         ST_X(geometry) AS lon,\n         COUNT(*) OVER () AS total,\n         COUNT(*) OVER (ORDER BY ST_X(geometry), name, iata_code ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cum\n  FROM airports\n  WHERE type = 'major'\n)\nSELECT name, iata_code, ROUND(lon, 2) AS lon, cum, total\nFROM majors\nWHERE cum >= 0.25 * total\nORDER BY cum, name\nLIMIT 1;",
+    "skills": ["running total", "window frame", "spatial attribute (longitude)"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Using great-circle (spheroid) distance in kilometres, rank the airports closest to Miami Int'l, excluding Miami Int'l itself; return the name, IATA code, distance in km rounded to one decimal and the rank, and show the five best entries ordering ties alphabetically by name.",
+    "sql": "WITH miami AS (\n  SELECT geometry AS geom FROM airports WHERE iata_code = 'MIA'\n),\nranked AS (\n  SELECT a.name AS name,\n         a.iata_code AS iata_code,\n         ST_Distance_Spheroid(a.geometry, m.geom) AS dist_m,\n         RANK() OVER (ORDER BY ST_Distance_Spheroid(a.geometry, m.geom)) AS rnk\n  FROM airports a\n  CROSS JOIN miami m\n  WHERE a.iata_code <> 'MIA'\n)\nSELECT name, iata_code, ROUND(dist_m / 1000.0, 1) AS dist_km, rnk\nFROM ranked\nORDER BY rnk, name\nLIMIT 5;",
+    "skills": ["RANK", "ST_Distance_Spheroid", "distance in metres"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each airport type, find the northernmost airport by latitude; return the type, airport name, IATA code and latitude rounded to two decimals, breaking ties alphabetically by name.",
+    "sql": "WITH ranked AS (\n  SELECT type, name, iata_code,\n         ST_Y(geometry) AS lat,\n         ROW_NUMBER() OVER (PARTITION BY type ORDER BY ST_Y(geometry) DESC, name ASC, iata_code ASC) AS rn\n  FROM airports\n)\nSELECT type, name, iata_code, ROUND(lat, 2) AS lat\nFROM ranked\nWHERE rn = 1\nORDER BY type;",
+    "skills": ["ROW_NUMBER", "PARTITION BY", "spatial attribute (latitude)"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For airports of type 'major', count how many other airports of any type lie within 200 km (spheroid distance), then show the five major airports with the highest counts; return the name, IATA code, the number of nearby airports and the rank, where ties share the same rank.",
+    "sql": "WITH major AS (\n  SELECT name, iata_code, geometry\n  FROM airports\n  WHERE type = 'major'\n),\npairs AS (\n  SELECT m.name AS name, m.iata_code AS iata_code, COUNT(*) AS nearby\n  FROM major m\n  JOIN airports b\n    ON b.iata_code <> m.iata_code\n   AND ST_DWithin_Spheroid(m.geometry, b.geometry, 200000)\n  GROUP BY m.name, m.iata_code\n)\nSELECT name, iata_code, nearby,\n       RANK() OVER (ORDER BY nearby DESC) AS rnk\nFROM pairs\nORDER BY nearby DESC, name\nLIMIT 5;",
+    "skills": ["ST_DWithin_Spheroid", "self-join aggregation", "RANK"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Rank airport types by their east-west longitude span in degrees, calculated as the difference between the easternmost and westernmost airport longitude within each type; return the type, the number of airports, the span rounded to two decimals and the rank, highest span first.",
+    "sql": "WITH spans AS (\n  SELECT type,\n         COUNT(*) AS n,\n         MIN(ST_X(geometry)) AS min_lon,\n         MAX(ST_X(geometry)) AS max_lon\n  FROM airports\n  GROUP BY type\n)\nSELECT type, n,\n       ROUND(max_lon - min_lon, 2) AS span_deg,\n       RANK() OVER (ORDER BY max_lon - min_lon DESC) AS rnk\nFROM spans\nORDER BY span_deg DESC, type;",
+    "skills": ["RANK", "grouped spatial extent", "spatial attribute (longitude)"],
+    "difficulty": "medium"
+  }
+]

@@ -1,0 +1,1 @@
+{"id": "s23_012", "tables": ["nyc_taxi_trips"], "skill": "distance and nearest-neighbour queries (ST_Distance_Sphere / ST_DWithin, ORDER BY distance LIMIT k, LATERAL)", "difficulty": "easy", "style": "full natural sentences from a non-technical user who does not know column names", "k": 6}

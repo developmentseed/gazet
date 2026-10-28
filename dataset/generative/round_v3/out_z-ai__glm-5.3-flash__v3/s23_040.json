@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the names of the open restaurants that lie inside the rectangle spanning lon -9.14 to -9.12 and lat 38.71 to 38.72, sorted alphabetically.",
+    "sql": "SELECT names['primary'] AS name\nFROM lisbon_places\nWHERE basic_category = 'restaurant'\n  AND operating_status = 'open'\n  AND ST_Within(geometry, ST_MakeEnvelope(-9.14, 38.71, -9.12, 38.72))\nORDER BY name;",
+    "skills": ["ST_Within", "point-in-polygon", "envelope filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare how many road segments of each road type intersect the rectangle spanning lon -9.23 to -9.21 and lat 38.74 to 38.75, and show the types from most to least common.",
+    "sql": "SELECT class, count(*) AS segment_count\nFROM lisbon_roads\nWHERE ST_Intersects(geometry, ST_MakeEnvelope(-9.23, 38.74, -9.21, 38.75))\nGROUP BY class\nORDER BY segment_count DESC, class;",
+    "skills": ["ST_Intersects", "GROUP BY aggregation", "count comparison"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "A straight line runs from lon -9.1572, lat 38.7161 to lon -9.1341, lat 38.7182. List the names of the roads it crosses, alphabetically.",
+    "sql": "SELECT DISTINCT names['primary'] AS road_name\nFROM lisbon_roads\nWHERE names['primary'] IS NOT NULL\n  AND ST_Intersects(geometry, ST_GeomFromText('LINESTRING (-9.1572 38.7161, -9.1341 38.7182)'))\nORDER BY road_name;",
+    "skills": ["ST_Intersects", "ST_GeomFromText", "line-corridor filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the identifiers and road types of the road segments that touch the road named 'Rua Cardeal Saraiva'.",
+    "sql": "WITH target AS MATERIALIZED (\n  SELECT id, geometry\n  FROM lisbon_roads\n  WHERE names['primary'] = 'Rua Cardeal Saraiva'\n),\nnearby AS MATERIALIZED (\n  SELECT id, class, geometry\n  FROM lisbon_roads\n  WHERE ST_Intersects(geometry, ST_MakeEnvelope(-9.20, 38.70, -9.12, 38.78))\n)\nSELECT DISTINCT nearby.id AS segment_id, nearby.class\nFROM target\nJOIN nearby ON ST_Touches(target.geometry, nearby.geometry)\nWHERE nearby.id <> target.id\nORDER BY segment_id;",
+    "skills": ["ST_Touches", "self-join", "bbox prefilter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the identifiers of the parking-aisle segments that lie completely inside the rectangle spanning lon -9.16 to -9.13 and lat 38.70 to 38.72, together with the street name where one is recorded.",
+    "sql": "SELECT id, names['primary'] AS street_name\nFROM lisbon_roads\nWHERE subclass = 'parking_aisle'\n  AND ST_Contains(ST_MakeEnvelope(-9.16, 38.70, -9.13, 38.72), geometry)\nORDER BY id;",
+    "skills": ["ST_Contains", "full containment", "envelope filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map the embassies that fall inside the rectangle spanning lon -9.17 to -9.14 and lat 38.71 to 38.73; return each embassy's name and its point as GeoJSON.",
+    "sql": "SELECT names['primary'] AS name, ST_AsGeoJSON(geometry) AS point_geojson\nFROM lisbon_places\nWHERE basic_category = 'embassy'\n  AND ST_Within(geometry, ST_MakeEnvelope(-9.17, 38.71, -9.14, 38.73))\nORDER BY name;",
+    "skills": ["ST_Within", "ST_AsGeoJSON", "mapping output"],
+    "difficulty": "medium"
+  }
+]

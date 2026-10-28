@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the straight-line distance in kilometres between Cusco, Peru and Mérida, Mexico.",
+    "sql": "SELECT ROUND(ST_Distance_Spheroid(a.geometry, b.geometry) / 1000, 1) AS distance_km FROM populated_places a, populated_places b WHERE a.name = 'Cusco' AND a.country = 'Peru' AND b.name = 'Mérida' AND b.country = 'Mexico';",
+    "skills": ["measurement in real units", "ST_Distance_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List all populated places within 300 km of the point (-74.8019, 10.9619), together with their distance in kilometres.",
+    "sql": "SELECT name, country, ROUND(ST_Distance_Spheroid(geometry, ST_Point(-74.8019, 10.9619)) / 1000, 1) AS distance_km FROM populated_places WHERE ST_Distance_Spheroid(geometry, ST_Point(-74.8019, 10.9619)) <= 300000 ORDER BY distance_km, name;",
+    "skills": ["measurement in real units", "ST_Distance_Spheroid", "point-in-radius"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Compare the straight-line distances from Ufa, Russia to Barranquilla, Colombia and from Ufa to Bobo Dioulasso, Burkina Faso, in kilometres.",
+    "sql": "SELECT ROUND(ST_Distance_Spheroid(u.geometry, a.geometry) / 1000, 1) AS ufa_to_barranquilla_km, ROUND(ST_Distance_Spheroid(u.geometry, b.geometry) / 1000, 1) AS ufa_to_bobo_dioulasso_km FROM populated_places u, populated_places a, populated_places b WHERE u.name = 'Ufa' AND u.country = 'Russia' AND a.name = 'Barranquilla' AND a.country = 'Colombia' AND b.name = 'Bobo Dioulasso' AND b.country = 'Burkina Faso';",
+    "skills": ["measurement in real units", "ST_Distance_Spheroid", "comparison"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Map a 50 km buffer around Cusco, Peru: give me its area in square kilometres and the buffer shape as GeoJSON.",
+    "sql": "WITH p AS (SELECT geometry FROM populated_places WHERE name = 'Cusco' AND country = 'Peru'), buf AS (SELECT ST_Buffer(ST_Transform(geometry, 'EPSG:4326', 'EPSG:32718', always_xy := true), 50000) AS geom FROM p) SELECT ROUND(ST_Area(geom) / 1000000.0, 1) AS area_km2, ST_AsGeoJSON(ST_Transform(geom, 'EPSG:32718', 'EPSG:4326', always_xy := true)) AS buffer_geojson FROM buf;",
+    "skills": ["measurement in real units", "ST_Transform to metric CRS", "ST_Area", "ST_Buffer"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Build a route line connecting Barranquilla, Cusco and Mérida in that order and tell me its total geodesic length in kilometres.",
+    "sql": "WITH route AS (SELECT ST_MakeLine(list(geometry ORDER BY CASE name WHEN 'Barranquilla' THEN 1 WHEN 'Cusco' THEN 2 WHEN 'Mérida' THEN 3 END)) AS line FROM populated_places WHERE name IN ('Barranquilla', 'Cusco', 'Mérida')) SELECT ROUND(ST_Length_Spheroid(line) / 1000, 1) AS route_km FROM route;",
+    "skills": ["measurement in real units", "ST_Length_Spheroid", "ST_MakeLine"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the 5 populated places closest to the point (56.0381, 54.7919), with their distance in kilometres.",
+    "sql": "SELECT name, country, ROUND(ST_Distance_Spheroid(geometry, ST_Point(56.0381, 54.7919)) / 1000, 1) AS distance_km FROM populated_places ORDER BY distance_km, name LIMIT 5;",
+    "skills": ["measurement in real units", "ST_Distance_Spheroid", "nearest-neighbour ranking"],
+    "difficulty": "easy"
+  }
+]

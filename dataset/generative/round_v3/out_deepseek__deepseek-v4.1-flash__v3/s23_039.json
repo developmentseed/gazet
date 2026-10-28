@@ -1,0 +1,38 @@
+[
+  {
+    "question": "For Venice, Italy, return its name and location as WKT, with longitude and latitude rounded to 4 decimal places.",
+    "sql": "SELECT name, ST_AsText(geometry) AS wkt, ROUND(ST_X(geometry), 4) AS lon, ROUND(ST_Y(geometry), 4) AS lat FROM populated_places WHERE name = 'Venice' AND country = 'Italy';",
+    "skills": ["ST_AsText", "ST_X", "ST_Y", "ROUND"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the name, country, and GeoJSON point for Canadian populated places with a maximum population above 1,000,000.",
+    "sql": "SELECT name, country, ST_AsGeoJSON(geometry) AS geojson FROM populated_places WHERE country = 'Canada' AND pop_max > 1000000 ORDER BY name;",
+    "skills": ["ST_AsGeoJSON", "filtering", "ORDER BY"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For Calgary, Canada, produce a label combining name and coordinates in the format 'Name: (lat, lon)' with coordinates rounded to 2 decimal places.",
+    "sql": "SELECT printf('%s: (%.2f, %.2f)', name, ST_Y(geometry), ST_X(geometry)) AS label FROM populated_places WHERE name = 'Calgary' AND country = 'Canada';",
+    "skills": ["printf", "ST_X", "ST_Y", "string formatting"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Return the name, country, and GeoJSON point for the three northernmost populated places with a maximum population of at least 1,000.",
+    "sql": "SELECT name, country, ST_AsGeoJSON(geometry) AS geojson FROM populated_places WHERE pop_max >= 1000 ORDER BY ST_Y(geometry) DESC, name LIMIT 3;",
+    "skills": ["ST_AsGeoJSON", "ST_Y", "ORDER BY", "LIMIT"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For populated places in Houet, Burkina Faso, return the name and WKT geometry.",
+    "sql": "SELECT name, ST_AsText(geometry) AS wkt FROM populated_places WHERE country = 'Burkina Faso' AND admin1 = 'Houet' ORDER BY name;",
+    "skills": ["ST_AsText", "filtering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For Charlottetown, Canada, return its name and a string with longitude and latitude rounded to 3 decimal places separated by a comma and a space.",
+    "sql": "SELECT name, printf('%.3f, %.3f', ST_X(geometry), ST_Y(geometry)) AS lon_lat FROM populated_places WHERE name = 'Charlottetown' AND country = 'Canada';",
+    "skills": ["printf", "ST_X", "ST_Y", "string formatting"],
+    "difficulty": "easy"
+  }
+]

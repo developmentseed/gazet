@@ -1,0 +1,1 @@
+{"id": "s23_000", "tables": ["nyc_taxi_zones", "nyc_taxi_trips"], "skill": "spatial predicates (ST_Intersects / ST_Within / ST_Contains / ST_Touches) for filtering", "difficulty": "easy", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}

@@ -1,0 +1,52 @@
+You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
+
+Below are the tables available. Each is a DuckDB view with exactly the columns shown.
+
+TABLE lisbon_roads  -- Overture Maps road segments (linestrings) in Lisbon. EPSG:4326. rows=64870
+  id VARCHAR  -- distinct~66224 e.g. ['ee0fb6a6-ec5b-4c84-aecf-b9537bf16d95', 'a4a11d31-0776-47a0-9960-81b8825727c2']
+  names STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[])  -- example={'primary': 'Passeio Marítimo de Algés', 'common': None, 'rules': [{'variant': 'common', 'language': None, 'perspectives': None, 'value': 'Passeio Marítimo d...
+  subtype VARCHAR  -- distinct~1 top=['road']
+  class VARCHAR  -- distinct~16 top=['footway', 'residential', 'service', 'tertiary', 'steps', 'secondary']
+  subclass VARCHAR  -- distinct~7 top=['sidewalk', 'parking_aisle', 'crosswalk', 'driveway', 'link', 'alley']
+  road_surface STRUCT("value" VARCHAR, "between" DOUBLE[])[]  -- example=[{'value': 'paved', 'between': None}]
+  speed_limits STRUCT(min_speed STRUCT("value" INTEGER, unit VARCHAR), max_speed STRUCT("value" INTEGER, unit VARCHAR), is_max_speed_variable BOOLEAN, "when" STRUCT(during VARCHAR, heading VARCHAR, "using" VARCHAR[], recognized VARCHAR[], "mode" VARCHAR[], vehicle STRUCT(dimension VARCHAR, comparison VARCHAR, "value" DOUBLE, unit VARCHAR)[]), "between" DOUBLE[])[]  -- example=[{'min_speed': None, 'max_speed': {'value': 30, 'unit': 'km/h'}, 'is_max_speed_variable': None, 'when': None, 'between': None}]
+  geometry GEOMETRY('OGC:CRS84')  -- types=['LINESTRING'] extent=[-9.25, 38.68, -9.09, 38.8]
+
+Real data to ground the questions in (use these names, categories and coordinates as literals):
+
+REAL ROWS from lisbon_roads (random sample; centroid lon/lat):
+  names.primary=Avenida da Torre de Belém, subtype=road, class=tertiary, lon=-9.215, lat=38.6955
+  names.primary=Avenida Raul Lino, subtype=road, class=residential, lon=-9.24, lat=38.7397
+  names.primary=Travessa Miguel Verdial, subtype=road, class=residential, lon=-9.2002, lat=38.7433
+  names.primary=Travessa do Espírito Santo, subtype=road, class=residential, lon=-9.1636, lat=38.7425
+  names.primary=Rua 8, subtype=road, class=footway, lon=-9.1715, lat=38.7139
+ALL VALUES in lisbon_roads:
+  subtype: ['road']
+  class: ['cycleway', 'footway', 'living_street', 'motorway', 'path', 'pedestrian', 'primary', 'residential', 'secondary', 'service', 'steps', 'tertiary', 'track', 'trunk', 'unclassified', 'unknown']
+  subclass: ['alley', 'crosswalk', 'cycle_crossing', 'driveway', 'link', 'parking_aisle', 'sidewalk']
+
+Write 6 diverse (question, sql) pairs for these tables.
+- Focus skill: output shaping: ST_AsGeoJSON, ST_AsText, ST_X/ST_Y, ROUND, string formatting of results
+- Difficulty: easy
+- Question style: full natural sentences from a non-technical user who does not know column names
+
+Rules:
+- SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
+- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Only use literal values (names, categories, codes) that appear in the real rows, value lists or top values above. The query should return at least one row.
+- Do not name places, neighbourhoods or landmarks that are not in the data. If a question needs an area or point that is not a row in the data, give its coordinates explicitly in the question.
+- Never measure distances, buffers or areas in EPSG:3857 (Web Mercator) or EPSG:6933; their scale is wrong away from the equator. Use the spheroid functions or a local metric CRS (UTM zone or national grid).
+- Results must be deterministic: no current_date, now() or random(); whenever you use LIMIT, ORDER BY columns that make the order unique.
+- Watch join fan-out: do not SUM a per-country (or per-parent) value after joining to many child rows.
+- Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
+- Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
+- Make the 6 pairs differ in intent, not just in literal values.
+
+DuckDB spatial is NOT PostGIS. `SET geometry_always_xy = true` is active (lon/lat order). Differences that matter:
+- No SRID arguments and no ST_SetSRID: ST_MakeEnvelope(xmin, ymin, xmax, ymax), ST_GeomFromText(wkt), ST_Point(lon, lat).
+- ST_Transform takes CRS strings, not integers: ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true).
+- No GEOGRAPHY type and no 'spheroid' / use_spheroid argument on ST_Distance or ST_Area. For metres use ST_Distance_Sphere / ST_Distance_Spheroid / ST_DWithin_Spheroid (POINT inputs only), ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS. For distances involving lines or polygons, transform to a metric CRS first.
+- ST_Collect takes a list: ST_Collect(list(geom)). Aggregates are ST_Union_Agg(geom) and ST_Extent_Agg(geom).
+
+Return ONLY a JSON array, no markdown fences:
+[{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "easy"}]

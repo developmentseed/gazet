@@ -1,0 +1,38 @@
+[
+  {
+    "question": "How many airports of any type lie within 150 km of Khartoum airport (lon 32.5502, lat 15.5922)? Build the search buffer in a metric projection centred on those coordinates.",
+    "sql": "WITH kh AS (SELECT ST_Transform(ST_Point(32.5502, 15.5922), 'EPSG:4326', 'EPSG:32636', always_xy := true) AS geom), buf AS (SELECT ST_Buffer(geom, 150000) AS geom FROM kh) SELECT count(*) AS airports_within_150km FROM airports a, buf b WHERE ST_Intersects(ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:32636', always_xy := true), b.geom);",
+    "skills": ["ST_Buffer", "ST_Transform", "spatial join"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For every airport with a scalerank of 4 or better located between longitude 18 and 26 and latitude 50 and 60, dissolve 50 km buffers around each location and report the total non-overlapping buffer area in square kilometres.",
+    "sql": "WITH regional AS (SELECT name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:32634', always_xy := true) AS geom FROM airports WHERE scalerank <= 4 AND ST_Intersects(geometry, ST_MakeEnvelope(18, 50, 26, 60))), buffers AS (SELECT ST_Buffer(geom, 50000) AS geom FROM regional) SELECT ROUND(ST_Area(ST_Union_Agg(geom)) / 1000000.0, 1) AS dissolved_buffer_km2 FROM buffers;",
+    "skills": ["ST_Buffer", "ST_Union_Agg", "ST_Area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Treating each airport of type 'major' or 'major and military' between longitude -10 and 30 and latitude 50 and 60 as a vertex, construct the convex hull of those locations and report its area in square kilometres using a metric projection suitable for the region.",
+    "sql": "WITH pts AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3035', always_xy := true) AS geom FROM airports WHERE type IN ('major', 'major and military') AND ST_Intersects(geometry, ST_MakeEnvelope(-10, 50, 30, 60))) SELECT ROUND(ST_Area(ST_ConvexHull(ST_Collect(list(geom)))) / 1000000.0, 0) AS hull_area_km2 FROM pts;",
+    "skills": ["ST_ConvexHull", "ST_Collect", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the area, in square kilometres, of the donut-shaped zone that lies between 40 km and 120 km from Riga airport (lon 23.9794, lat 56.922)? Compute both buffers in a metric projection before taking the difference.",
+    "sql": "WITH riga AS (SELECT ST_Transform(ST_Point(23.9794, 56.922), 'EPSG:4326', 'EPSG:32634', always_xy := true) AS geom), ring AS (SELECT ST_Difference(ST_Buffer(geom, 120000), ST_Buffer(geom, 40000)) AS geom FROM riga) SELECT ROUND(ST_Area(geom) / 1000000.0, 1) AS ring_area_km2 FROM ring;",
+    "skills": ["ST_Difference", "ST_Buffer", "ST_Area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Using only the airports with IATA codes CMB, KRT, RIX and SJU, compute the centroid of those four locations and report its longitude and latitude rounded to 4 decimal places.",
+    "sql": "SELECT ROUND(ST_X(ST_Centroid(pts)), 4) AS centroid_lon, ROUND(ST_Y(ST_Centroid(pts)), 4) AS centroid_lat FROM (SELECT ST_Collect(list(geometry)) AS pts FROM airports WHERE iata_code IN ('CMB', 'KRT', 'RIX', 'SJU'));",
+    "skills": ["ST_Centroid", "ST_Collect"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "A 200 km buffer is drawn around Khartoum airport (lon 32.5502, lat 15.5922). What is the area of its overlap, in square kilometres, with the rectangle spanning longitude 34 to 37 and latitude 14 to 16? Do the overlay in a metric projection.",
+    "sql": "WITH kh AS (SELECT ST_Transform(ST_Point(32.5502, 15.5922), 'EPSG:4326', 'EPSG:32636', always_xy := true) AS geom), box AS (SELECT ST_Transform(ST_MakeEnvelope(34, 14, 37, 16), 'EPSG:4326', 'EPSG:32636', always_xy := true) AS geom) SELECT ROUND(ST_Area(ST_Intersection(ST_Buffer(kh.geom, 200000), box.geom)) / 1000000.0, 1) AS overlap_km2 FROM kh, box;",
+    "skills": ["ST_Intersection", "ST_Buffer", "ST_Transform"],
+    "difficulty": "medium"
+  }
+]

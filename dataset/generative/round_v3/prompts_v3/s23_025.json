@@ -1,0 +1,1 @@
+{"id": "s23_025", "tables": ["lisbon_places"], "skill": "nested Overture-style data: struct fields, lists, UNNEST, list functions, JSON-like attributes", "difficulty": "medium", "style": "full natural sentences from a non-technical user who does not know column names", "k": 6}

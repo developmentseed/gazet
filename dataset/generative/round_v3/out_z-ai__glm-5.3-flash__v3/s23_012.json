@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which five taxi zones are closest to the point at longitude -74.0060 and latitude 40.7128? Please show each zone's name and how far away its centre is, in kilometres.",
+    "sql": "SELECT z.zone, ROUND(ST_Distance_Sphere(ST_Centroid(z.geometry), ST_Point(-74.0060, 40.7128)) / 1000.0, 2) AS distance_km FROM nyc_taxi_zones z ORDER BY distance_km, z.location_id LIMIT 5;",
+    "skills": ["ST_Distance_Sphere", "ORDER BY distance LIMIT k"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "How many taxi trips in January 2024 started in a zone whose centre lies within one kilometre of the point at longitude -73.9857 and latitude 40.7484?",
+    "sql": "SELECT COUNT(*) AS trip_count FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE t.tpep_pickup_datetime >= TIMESTAMP '2024-01-01' AND t.tpep_pickup_datetime < TIMESTAMP '2024-02-01' AND ST_DWithin_Spheroid(ST_Centroid(z.geometry), ST_Point(-73.9857, 40.7484), 1000);",
+    "skills": ["ST_DWithin_Spheroid", "point-in-radius count"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each of the ten trips where passengers tipped the most, which taxi zone is closest to the zone where the trip started, not counting the starting zone itself? Show the pickup time, the tip amount, the starting zone and the closest zone.",
+    "sql": "SELECT t.tpep_pickup_datetime, t.tip_amount, pu.zone AS pickup_zone, nearest.zone AS nearest_zone FROM nyc_taxi_trips t JOIN nyc_taxi_zones pu ON t.PULocationID = pu.location_id CROSS JOIN LATERAL (SELECT z.zone, z.location_id FROM nyc_taxi_zones z WHERE z.location_id <> pu.location_id ORDER BY ST_Distance_Sphere(ST_Centroid(z.geometry), ST_Centroid(pu.geometry)), z.location_id LIMIT 1) nearest ORDER BY t.tip_amount DESC, t.tpep_pickup_datetime, t.PULocationID LIMIT 10;",
+    "skills": ["LATERAL", "nearest-neighbour", "ORDER BY distance LIMIT 1"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "What is the straight-line distance in kilometres between the centres of the pickup and drop-off zones of the trip that covered the longest distance?",
+    "sql": "SELECT ROUND(ST_Distance_Sphere(ST_Centroid(pu.geometry), ST_Centroid(dz.geometry)) / 1000.0, 2) AS distance_km FROM nyc_taxi_trips t JOIN nyc_taxi_zones pu ON t.PULocationID = pu.location_id JOIN nyc_taxi_zones dz ON t.DOLocationID = dz.location_id ORDER BY t.trip_distance DESC, t.tpep_pickup_datetime, t.VendorID LIMIT 1;",
+    "skills": ["ST_Distance_Sphere", "join two geometry tables"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "How many trips were picked up and dropped off in different taxi zones whose centres are less than 500 metres apart?",
+    "sql": "SELECT COUNT(*) AS short_hop_count FROM nyc_taxi_trips t JOIN nyc_taxi_zones pu ON t.PULocationID = pu.location_id JOIN nyc_taxi_zones dz ON t.DOLocationID = dz.location_id WHERE t.PULocationID <> t.DOLocationID AND ST_Distance_Sphere(ST_Centroid(pu.geometry), ST_Centroid(dz.geometry)) < 500;",
+    "skills": ["ST_Distance_Sphere", "distance filter"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List every taxi zone whose centre is within two kilometres of the point at longitude -73.9857 and latitude 40.7484, together with how many trips started there in January 2024, sorted from the closest zone to the farthest.",
+    "sql": "SELECT z.zone, ROUND(ST_Distance_Sphere(ST_Centroid(z.geometry), ST_Point(-73.9857, 40.7484)) / 1000.0, 2) AS distance_km, COUNT(*) AS trip_count FROM nyc_taxi_zones z JOIN nyc_taxi_trips t ON t.PULocationID = z.location_id WHERE t.tpep_pickup_datetime >= TIMESTAMP '2024-01-01' AND t.tpep_pickup_datetime < TIMESTAMP '2024-02-01' AND ST_DWithin_Spheroid(ST_Centroid(z.geometry), ST_Point(-73.9857, 40.7484), 2000) GROUP BY z.zone, distance_km ORDER BY distance_km, z.zone;",
+    "skills": ["ST_DWithin_Spheroid", "ST_Distance_Sphere", "aggregate with distance sort"],
+    "difficulty": "easy"
+  }
+]

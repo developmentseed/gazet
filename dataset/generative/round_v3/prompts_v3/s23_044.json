@@ -1,0 +1,1 @@
+{"id": "s23_044", "tables": ["lisbon_buildings", "lisbon_roads"], "skill": "geometry construction and overlay (ST_Buffer, ST_Union_Agg, ST_Intersection, ST_Difference, ST_ConvexHull, ST_Centroid)", "difficulty": "hard", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}

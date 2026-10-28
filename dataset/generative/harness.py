@@ -9,8 +9,9 @@ import json
 import random
 import re
 import sys
-import threading
+import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import duckdb
@@ -177,6 +178,8 @@ DuckDB spatial is NOT PostGIS. `SET geometry_always_xy = true` is active (lon/la
 - ST_Transform takes CRS strings, not integers: ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true).
 - No GEOGRAPHY type and no 'spheroid' / use_spheroid argument on ST_Distance or ST_Area. For metres use ST_Distance_Sphere / ST_Distance_Spheroid / ST_DWithin_Spheroid (POINT inputs only), ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS. For distances involving lines or polygons, transform to a metric CRS first.
 - ST_Collect takes a list: ST_Collect(list(geom)). Aggregates are ST_Union_Agg(geom) and ST_Extent_Agg(geom).
+- Table geometry columns carry a CRS type. ST_Distance_Spheroid and ST_DWithin_Spheroid reject it, so cast both arguments: ST_Distance_Spheroid(a.geometry::GEOMETRY, ST_Point(lon, lat)).
+- A UTM zone is only valid for data inside that zone; for continental or global extents use the spheroid functions instead.
 
 Return ONLY a JSON array, no markdown fences:
 [{{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "{difficulty}"}}]"""
@@ -209,38 +212,49 @@ QUERY_TIMEOUT_S = 30
 FORBIDDEN = re.compile(r"\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|COPY|ATTACH|INSTALL|LOAD|PRAGMA|SET)\b", re.IGNORECASE)
 
 
-def validate(path):
+def exec_one(sql):
+    """Run one query on a fresh connection and summarise the result (used inside a worker process)."""
     c = con()
-    c.execute("SET threads=4")
+    c.execute("SET threads=2")
+    c.execute("SET memory_limit='2GB'")
+    t = time.time()
+    try:
+        cur = c.execute(sql)
+        data = cur.fetchmany(1001)
+    except Exception as e:
+        return dict(error=f"{type(e).__name__}: {str(e).splitlines()[0][:200]}")
+    all_null = bool(data) and all(v is None for row in data for v in row)
+    return dict(
+        n_rows=len(data), ms=round((time.time() - t) * 1000), cols=[d[0] for d in cur.description],
+        preview=[[_short(v, 40) for v in row] for row in data[:3]], all_null=all_null,
+        ok=len(data) > 0 and not all_null, error=None if data and not all_null else ("empty result" if not data else "all-null result"),
+    )
+
+
+def _validate_row(r):
+    sql = r["sql"].strip().rstrip(";")
+    res = dict(r, ok=False, error=None, n_rows=None, ms=None, preview=None)
+    if FORBIDDEN.search(re.sub(r"'[^']*'", "''", sql)):
+        res["error"] = "forbidden statement"
+        return res
+    # Each query runs in its own process, so a crash, memory blow-up or hang only fails that query.
+    try:
+        p = subprocess.run([sys.executable, "-I", __file__, "exec1"], input=sql, capture_output=True,
+                           text=True, timeout=QUERY_TIMEOUT_S + 10)
+    except subprocess.TimeoutExpired:
+        res["error"] = f"timeout >{QUERY_TIMEOUT_S}s"
+        return res
+    if p.returncode != 0 or not p.stdout.strip():
+        res["error"] = f"crash (exit {p.returncode}): {p.stderr.strip().splitlines()[-1][:150] if p.stderr.strip() else ''}"
+        return res
+    res.update(json.loads(p.stdout))
+    return res
+
+
+def validate(path):
     rows = [json.loads(l) for l in Path(path).read_text().splitlines() if l.strip()]
-    results = []
-    for r in rows:
-        sql = r["sql"].strip().rstrip(";")
-        res = dict(r, ok=False, error=None, n_rows=None, ms=None, preview=None)
-        if FORBIDDEN.search(re.sub(r"'[^']*'", "''", sql)):
-            res["error"] = "forbidden statement"
-        else:
-            t = time.time()
-            # Queries slower than this are useless as training targets; interrupt and count as failed.
-            timer = threading.Timer(QUERY_TIMEOUT_S, c.interrupt)
-            timer.start()
-            try:
-                cur = c.execute(sql)
-                data = cur.fetchmany(1001)
-                timer.cancel()
-                res["n_rows"] = len(data)
-                res["ms"] = round((time.time() - t) * 1000)
-                res["cols"] = [d[0] for d in cur.description]
-                res["preview"] = [[_short(v, 40) for v in row] for row in data[:3]]
-                res["all_null"] = bool(data) and all(v is None for row in data for v in row)
-                res["ok"] = len(data) > 0 and not res["all_null"]
-                if not res["ok"]:
-                    res["error"] = "empty result" if not data else "all-null result"
-            except Exception as e:
-                timer.cancel()
-                timed_out = time.time() - t >= QUERY_TIMEOUT_S
-                res["error"] = f"timeout >{QUERY_TIMEOUT_S}s" if timed_out else f"{type(e).__name__}: {str(e).splitlines()[0][:200]}"
-        results.append(res)
+    with ThreadPoolExecutor(4) as ex:
+        results = list(ex.map(_validate_row, rows))
     outp = Path(path).with_suffix(".validated.jsonl")
     outp.write_text("\n".join(json.dumps(r, default=str) for r in results))
     ok = sum(r["ok"] for r in results)
@@ -260,3 +274,5 @@ if __name__ == "__main__":
         make_prompts(int(sys.argv[2]), int(sys.argv[3]), *sys.argv[4:5])
     elif cmd == "validate":
         validate(sys.argv[2])
+    elif cmd == "exec1":
+        print(json.dumps(exec_one(sys.stdin.read()), default=str))

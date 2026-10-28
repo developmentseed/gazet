@@ -1,0 +1,38 @@
+[
+  {
+    "question": "I'm studying air travel around the Mediterranean. Using a rectangle that stretches from 6 degrees west to 36 degrees east, and from 30 to 46 degrees north, how many airports of each category fall inside it? List the categories starting with the most common one.",
+    "sql": "SELECT a.type, COUNT(*) AS airport_count FROM airports a WHERE ST_Contains(ST_MakeEnvelope(-6, 30, 36, 46), a.geometry) GROUP BY a.type ORDER BY airport_count DESC, a.type",
+    "skills": ["spatial predicates", "ST_Contains", "ST_MakeEnvelope", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Starting from San Diego's main airport, which other airports are within 300 kilometres of it? Skip San Diego itself, and list each airport's name and code sorted from nearest to farthest, with the distance in kilometres.",
+    "sql": "WITH sd AS (SELECT geometry AS g4326, ST_Transform(geometry, 'EPSG:4326', 'EPSG:32611', always_xy := true) AS gutm FROM airports WHERE iata_code = 'SAN'), buf AS (SELECT ST_Buffer(gutm, 300000) AS b, g4326 FROM sd) SELECT a.name, a.iata_code, ROUND(ST_Distance_Spheroid(a.geometry, buf.g4326) / 1000.0, 1) AS distance_km FROM airports a, buf WHERE a.iata_code <> 'SAN' AND ST_Contains(buf.b, ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:32611', always_xy := true)) ORDER BY distance_km, a.iata_code",
+    "skills": ["spatial predicates", "ST_Contains", "ST_Buffer", "ST_Transform to local UTM", "ST_Distance_Spheroid"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Imagine a triangle connecting three airports: the ones with codes SAN, BUF and JAI. Which cities with more than five million people lie inside that triangle? Give the city name, its country, and its population, largest first.",
+    "sql": "WITH tri AS (SELECT ST_ConvexHull(ST_Collect(list(geometry))) AS g FROM airports WHERE iata_code IN ('SAN', 'BUF', 'JAI')) SELECT p.name, p.country, p.pop_max FROM populated_places p, tri WHERE ST_Contains(tri.g, p.geometry) AND p.pop_max > 5000000 ORDER BY p.pop_max DESC, p.name",
+    "skills": ["spatial predicates", "ST_Contains", "ST_ConvexHull", "ST_Collect"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "I've sketched a four-sided area over West Africa on a map, with corners at 10 degrees west / 4 degrees north, 10 degrees east / 4 degrees north, 10 degrees east / 15 degrees north, and 10 degrees west / 15 degrees north. Which national capitals with at least one million people fall inside my sketch? List them with country and population, biggest first.",
+    "sql": "WITH sketch AS (SELECT ST_GeomFromText('POLYGON ((-10 4, 10 4, 10 15, -10 15, -10 4))') AS g) SELECT p.name, p.country, p.pop_max FROM populated_places p, sketch WHERE ST_Intersects(sketch.g, p.geometry) AND p.is_capital AND p.pop_max >= 1000000 ORDER BY p.pop_max DESC, p.name",
+    "skills": ["spatial predicates", "ST_Intersects", "ST_GeomFromText"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "First work out the tight rectangle that encloses every city with more than ten million people. Then tell me which airports lie completely outside that rectangle. Give the airport names and codes in alphabetical order.",
+    "sql": "WITH mega AS (SELECT min(ST_X(geometry)) AS xmin, min(ST_Y(geometry)) AS ymin, max(ST_X(geometry)) AS xmax, max(ST_Y(geometry)) AS ymax FROM populated_places WHERE pop_max > 10000000) SELECT a.name, a.iata_code, a.type FROM airports a, mega WHERE NOT ST_Within(a.geometry, ST_MakeEnvelope(mega.xmin, mega.ymin, mega.xmax, mega.ymax)) ORDER BY a.name, a.iata_code",
+    "skills": ["spatial predicates", "ST_Within", "negation", "derived envelope"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Take all the airports that are categorised as both major and military, and imagine the smallest rectangle that covers all of them. Which airports sit exactly on the edge of that rectangle? Give their names and IATA codes in alphabetical order.",
+    "sql": "WITH box AS (SELECT min(ST_X(geometry)) AS xmin, min(ST_Y(geometry)) AS ymin, max(ST_X(geometry)) AS xmax, max(ST_Y(geometry)) AS ymax FROM airports WHERE type = 'major and military') SELECT a.name, a.iata_code FROM airports a, box WHERE ST_Touches(ST_MakeEnvelope(box.xmin, box.ymin, box.xmax, box.ymax), a.geometry) ORDER BY a.name, a.iata_code",
+    "skills": ["spatial predicates", "ST_Touches", "ST_MakeEnvelope", "derived envelope"],
+    "difficulty": "hard"
+  }
+]

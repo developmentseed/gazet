@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the 5 closest restaurants to Saint George Castle Portugal, with their names and distance in metres, closest first.",
+    "sql": "WITH origin AS (SELECT geometry FROM lisbon_places WHERE names.primary = 'Saint George Castle Portugal' ORDER BY id LIMIT 1) SELECT p.names.primary AS restaurant_name, ST_Distance_Sphere(p.geometry, o.geometry) AS distance_m FROM lisbon_places p CROSS JOIN origin o WHERE p.basic_category = 'restaurant' AND p.names.primary IS NOT NULL ORDER BY distance_m, p.id LIMIT 5;",
+    "skills": ["distance", "nearest_neighbour", "ST_Distance_Sphere", "ORDER BY LIMIT"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List road segments within 200 metres of the point (-9.1615, 38.7136), showing the road name, class, and distance in metres, closest first.",
+    "sql": "WITH origin AS (SELECT ST_Transform(ST_Point(-9.1615, 38.7136), 'EPSG:4326', 'EPSG:32629', always_xy := true) AS geom) SELECT r.names.primary AS road_name, r.class, ST_Distance(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true), o.geom) AS distance_m FROM lisbon_roads r CROSS JOIN origin o WHERE r.names.primary IS NOT NULL AND ST_DWithin(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true), o.geom, 200) ORDER BY distance_m, r.id LIMIT 50;",
+    "skills": ["distance", "radius_filter", "ST_DWithin", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare how many open restaurants are within 500 metres of Saint George Castle Portugal versus Continental, excluding each origin itself.",
+    "sql": "WITH origins AS (SELECT id, names.primary AS label, geometry FROM lisbon_places WHERE names.primary IN ('Saint George Castle Portugal', 'Continental')), restaurants AS (SELECT id, geometry FROM lisbon_places WHERE basic_category = 'restaurant' AND operating_status = 'open') SELECT o.label, COUNT(r.id) AS restaurant_count FROM origins o LEFT JOIN restaurants r ON r.id <> o.id AND ST_Distance_Sphere(o.geometry, r.geometry) <= 500 GROUP BY o.label ORDER BY restaurant_count DESC, o.label;",
+    "skills": ["distance", "aggregation", "ST_Distance_Sphere", "comparison"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each of Unikka, House of Fun, and Uma Churrasqueira, list the nearest road segment and its distance in metres.",
+    "sql": "WITH places AS (SELECT id, names.primary AS place_name, geometry FROM lisbon_places WHERE names.primary IN ('Unikka', 'House of Fun', 'Uma Churrasqueira')), nearest_roads AS (SELECT p.place_name, r.names.primary AS road_name, ST_Distance(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true), ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true)) AS distance_m FROM places p CROSS JOIN LATERAL (SELECT id, names.primary, geometry FROM lisbon_roads WHERE names.primary IS NOT NULL ORDER BY ST_Distance(ST_Transform(geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true), ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true)), id LIMIT 1) r) SELECT place_name, road_name, distance_m FROM nearest_roads ORDER BY distance_m, place_name;",
+    "skills": ["nearest_neighbour", "LATERAL", "ST_Distance", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each of Rua Louis Pasteur and Avenida Helen Keller, find the nearest restaurant and the distance in metres.",
+    "sql": "WITH roads AS (SELECT id, names.primary AS road_name, geometry FROM lisbon_roads WHERE names.primary IN ('Rua Louis Pasteur', 'Avenida Helen Keller')), nearest_restaurants AS (SELECT r.road_name, p.names.primary AS restaurant_name, ST_Distance(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true), ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true)) AS distance_m FROM roads r CROSS JOIN LATERAL (SELECT id, names.primary, geometry FROM lisbon_places WHERE basic_category = 'restaurant' AND names.primary IS NOT NULL ORDER BY ST_Distance(ST_Transform(geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true), ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true)), id LIMIT 1) p) SELECT road_name, restaurant_name, distance_m FROM nearest_restaurants ORDER BY distance_m, road_name;",
+    "skills": ["nearest_neighbour", "LATERAL", "ST_Distance", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List pairs of open restaurants that are within 1 kilometre of each other, showing both names and the distance in metres, closest pairs first.",
+    "sql": "SELECT a.names.primary AS restaurant_a, b.names.primary AS restaurant_b, ST_Distance_Sphere(a.geometry, b.geometry) AS distance_m FROM lisbon_places a JOIN lisbon_places b ON a.id < b.id AND a.basic_category = 'restaurant' AND b.basic_category = 'restaurant' AND a.operating_status = 'open' AND b.operating_status = 'open' AND a.names.primary IS NOT NULL AND b.names.primary IS NOT NULL AND ST_Distance_Sphere(a.geometry, b.geometry) <= 1000 ORDER BY distance_m, a.id, b.id LIMIT 20;",
+    "skills": ["distance", "self_join", "ST_Distance_Sphere", "pairwise"],
+    "difficulty": "medium"
+  }
+]

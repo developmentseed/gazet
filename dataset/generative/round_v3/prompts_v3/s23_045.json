@@ -1,0 +1,1 @@
+{"id": "s23_045", "tables": ["lisbon_roads"], "skill": "nested Overture-style data: struct fields, lists, UNNEST, list functions, JSON-like attributes", "difficulty": "easy", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}

@@ -1,0 +1,1 @@
+{"id": "s23_042", "tables": ["countries", "lakes"], "skill": "distance and nearest-neighbour queries (ST_Distance_Sphere / ST_DWithin, ORDER BY distance LIMIT k, LATERAL)", "difficulty": "easy", "style": "precise analyst questions that mention units and thresholds", "k": 6}

@@ -1,0 +1,1 @@
+{"id": "s23_041", "tables": ["countries", "populated_places"], "skill": "spatial join with aggregation (e.g. count/sum points per polygon)", "difficulty": "hard", "style": "full natural sentences from a non-technical user who does not know column names", "k": 6}

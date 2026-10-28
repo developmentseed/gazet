@@ -1,0 +1,38 @@
+[
+  {
+    "question": "For each place category, return the category name and the number of places, but only for categories with more than 50 places. Order by the count in descending order.",
+    "sql": "SELECT basic_category, count(*) AS place_count FROM lisbon_places GROUP BY basic_category HAVING count(*) > 50 ORDER BY place_count DESC, basic_category;",
+    "skills": ["GROUP BY", "HAVING", "ORDER BY"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Count how many places fall within a building for each building subtype. Only include building subtypes that contain more than 50 places. Order by the count descending.",
+    "sql": "SELECT b.subtype, count(*) AS place_count FROM lisbon_places p JOIN lisbon_buildings b ON ST_Within(p.geometry, b.geometry) GROUP BY b.subtype HAVING count(*) > 50 ORDER BY place_count DESC, b.subtype;",
+    "skills": ["JOIN", "ST_Within", "GROUP BY", "HAVING"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Count the number of places within 500 metres of the point (-9.15, 38.71), grouped by place category. Only include categories with more than 5 places. Order by the count descending.",
+    "sql": "SELECT basic_category, count(*) AS place_count FROM lisbon_places WHERE ST_DWithin_Spheroid(geometry, ST_Point(-9.15, 38.71), 500) GROUP BY basic_category HAVING count(*) > 5 ORDER BY place_count DESC, basic_category;",
+    "skills": ["ST_DWithin_Spheroid", "GROUP BY", "HAVING"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each place category that has at least 10 places, find the place with the highest confidence. Return the category, the place name, and its confidence. Order by confidence descending.",
+    "sql": "WITH ranked AS (SELECT basic_category, names.primary AS place_name, confidence, count(*) OVER (PARTITION BY basic_category) AS cat_count, row_number() OVER (PARTITION BY basic_category ORDER BY confidence DESC, id) AS rn FROM lisbon_places) SELECT basic_category, place_name, confidence FROM ranked WHERE cat_count >= 10 AND rn = 1 ORDER BY confidence DESC, basic_category;",
+    "skills": ["CTE", "window function", "row_number", "ORDER BY"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each building subtype, count how many buildings fall into each of three height categories: low (height < 10 m), medium (10 m <= height < 30 m), and high (height >= 30 m). Only include subtypes that have more than 100 buildings in total. Order by subtype and then height category.",
+    "sql": "WITH building_counts AS (SELECT subtype, count(*) AS total FROM lisbon_buildings GROUP BY subtype HAVING count(*) > 100) SELECT b.subtype, CASE WHEN b.height < 10 THEN 'low' WHEN b.height < 30 THEN 'medium' ELSE 'high' END AS height_category, count(*) AS building_count FROM lisbon_buildings b JOIN building_counts c ON b.subtype = c.subtype GROUP BY b.subtype, height_category ORDER BY b.subtype, height_category;",
+    "skills": ["CTE", "CASE", "GROUP BY", "HAVING", "JOIN"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Calculate the total building footprint area in square metres for each building subtype. Only include subtypes where the total area is greater than 500,000 square metres. Order by total area descending.",
+    "sql": "SELECT subtype, SUM(ST_Area_Spheroid(geometry)) AS total_area_m2 FROM lisbon_buildings GROUP BY subtype HAVING SUM(ST_Area_Spheroid(geometry)) > 500000 ORDER BY total_area_m2 DESC, subtype;",
+    "skills": ["ST_Area_Spheroid", "GROUP BY", "HAVING", "SUM"],
+    "difficulty": "medium"
+  }
+]

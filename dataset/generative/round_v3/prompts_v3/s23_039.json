@@ -1,0 +1,1 @@
+{"id": "s23_039", "tables": ["populated_places"], "skill": "output shaping: ST_AsGeoJSON, ST_AsText, ST_X/ST_Y, ROUND, string formatting of results", "difficulty": "easy", "style": "precise analyst questions that mention units and thresholds", "k": 6}

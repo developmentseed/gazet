@@ -1,0 +1,434 @@
+[
+ {
+  "scenario": "s23_000",
+  "provider": "GMICloud",
+  "wall_s": 227.5,
+  "prompt_tokens": 2315,
+  "completion_tokens": 10237,
+  "reasoning_tokens": 9516,
+  "cost": 0.002732875
+ },
+ {
+  "scenario": "s23_001",
+  "provider": "Morph",
+  "wall_s": 202.2,
+  "prompt_tokens": 2280,
+  "completion_tokens": 7149,
+  "reasoning_tokens": 6320,
+  "cost": 0.002536818
+ },
+ {
+  "scenario": "s23_002",
+  "provider": "AtlasCloud",
+  "wall_s": 49.9,
+  "prompt_tokens": 2049,
+  "completion_tokens": 2563,
+  "reasoning_tokens": 1577,
+  "cost": 0.00158885
+ },
+ {
+  "scenario": "s23_003",
+  "provider": "AtlasCloud",
+  "wall_s": 50.3,
+  "prompt_tokens": 1499,
+  "completion_tokens": 2499,
+  "reasoning_tokens": 1499,
+  "cost": 0.00147435
+ },
+ {
+  "scenario": "s23_004",
+  "provider": "Morph",
+  "wall_s": 498.3,
+  "prompt_tokens": 2417,
+  "completion_tokens": 18460,
+  "reasoning_tokens": 16687,
+  "cost": 0.006193071
+ },
+ {
+  "scenario": "s23_005",
+  "provider": "Novita",
+  "wall_s": 365.3,
+  "prompt_tokens": 2623,
+  "completion_tokens": 16222,
+  "reasoning_tokens": 14871,
+  "cost": 0.004762492
+ },
+ {
+  "scenario": "s23_006",
+  "provider": "Inceptron",
+  "wall_s": 60.3,
+  "prompt_tokens": 2263,
+  "completion_tokens": 3861,
+  "reasoning_tokens": 3088,
+  "cost": 0.00270131
+ },
+ {
+  "scenario": "s23_007",
+  "provider": "Morph",
+  "wall_s": 368.0,
+  "prompt_tokens": 1615,
+  "completion_tokens": 13841,
+  "reasoning_tokens": 12401,
+  "cost": 0.004623147
+ },
+ {
+  "scenario": "s23_008",
+  "provider": "Novita",
+  "wall_s": 282.8,
+  "prompt_tokens": 2195,
+  "completion_tokens": 17565,
+  "reasoning_tokens": 16057,
+  "cost": 0.00510258
+ },
+ {
+  "scenario": "s23_009",
+  "provider": "Novita",
+  "wall_s": 76.5,
+  "prompt_tokens": 1555,
+  "completion_tokens": 4781,
+  "reasoning_tokens": 4140,
+  "cost": 0.0014693
+ },
+ {
+  "scenario": "s23_010",
+  "provider": "AtlasCloud",
+  "wall_s": 22.1,
+  "prompt_tokens": 2496,
+  "completion_tokens": 1603,
+  "reasoning_tokens": 925,
+  "cost": 0.0011759
+ },
+ {
+  "scenario": "s23_011",
+  "provider": "Near AI",
+  "wall_s": 356.5,
+  "prompt_tokens": 2233,
+  "completion_tokens": 9272,
+  "reasoning_tokens": 8193,
+  "cost": 0.00481464
+ },
+ {
+  "scenario": "s23_012",
+  "provider": "AtlasCloud",
+  "wall_s": 27.2,
+  "prompt_tokens": 1944,
+  "completion_tokens": 3186,
+  "reasoning_tokens": 2064,
+  "cost": 0.0018846
+ },
+ {
+  "scenario": "s23_013",
+  "provider": "Novita",
+  "wall_s": 163.6,
+  "prompt_tokens": 1439,
+  "completion_tokens": 10711,
+  "reasoning_tokens": 9822,
+  "cost": 0.003119956
+ },
+ {
+  "scenario": "s23_014",
+  "provider": "Inceptron",
+  "wall_s": 431.5,
+  "prompt_tokens": 2587,
+  "completion_tokens": 24036,
+  "reasoning_tokens": 22482,
+  "cost": 0.01486139
+ },
+ {
+  "scenario": "s23_015",
+  "provider": "Inceptron",
+  "wall_s": 122.1,
+  "prompt_tokens": 1906,
+  "completion_tokens": 9191,
+  "reasoning_tokens": 7915,
+  "cost": 0.00583862
+ },
+ {
+  "scenario": "s23_016",
+  "provider": "AtlasCloud",
+  "wall_s": 33.7,
+  "prompt_tokens": 1328,
+  "completion_tokens": 3290,
+  "reasoning_tokens": 1954,
+  "cost": 0.0018442
+ },
+ {
+  "scenario": "s23_017",
+  "provider": "Inceptron",
+  "wall_s": 306.3,
+  "prompt_tokens": 2263,
+  "completion_tokens": 17233,
+  "reasoning_tokens": 15477,
+  "cost": 0.01072451
+ },
+ {
+  "scenario": "s23_018",
+  "provider": "Morph",
+  "wall_s": 809.8,
+  "prompt_tokens": 2314,
+  "completion_tokens": 14188,
+  "reasoning_tokens": 13688,
+  "cost": 0.004806878
+ },
+ {
+  "scenario": "s23_019",
+  "provider": "Morph",
+  "wall_s": 497.0,
+  "prompt_tokens": 2301,
+  "completion_tokens": 7549,
+  "reasoning_tokens": 6728,
+  "cost": 0.002667781
+ },
+ {
+  "scenario": "s23_020",
+  "provider": "AtlasCloud",
+  "wall_s": 148.5,
+  "prompt_tokens": 2041,
+  "completion_tokens": 11496,
+  "reasoning_tokens": 10300,
+  "cost": 0.00605415
+ },
+ {
+  "scenario": "s23_021",
+  "provider": "AtlasCloud",
+  "wall_s": 31.1,
+  "prompt_tokens": 1476,
+  "completion_tokens": 2205,
+  "reasoning_tokens": 1432,
+  "cost": 0.0013239
+ },
+ {
+  "scenario": "s23_022",
+  "provider": "AtlasCloud",
+  "wall_s": 18.1,
+  "prompt_tokens": 2404,
+  "completion_tokens": 2402,
+  "reasoning_tokens": 1262,
+  "cost": 0.0015616
+ },
+ {
+  "scenario": "s23_023",
+  "provider": "Inceptron",
+  "wall_s": 405.9,
+  "prompt_tokens": 2622,
+  "completion_tokens": 23036,
+  "reasoning_tokens": 21477,
+  "cost": 0.01426734
+ },
+ {
+  "scenario": "s23_024",
+  "provider": "Inceptron",
+  "wall_s": 321.8,
+  "prompt_tokens": 2263,
+  "completion_tokens": 18317,
+  "reasoning_tokens": 17448,
+  "cost": 0.01137491
+ },
+ {
+  "scenario": "s23_025",
+  "provider": "Morph",
+  "wall_s": 613.6,
+  "prompt_tokens": 1619,
+  "completion_tokens": 17738,
+  "reasoning_tokens": 16740,
+  "cost": 0.005878393
+ },
+ {
+  "scenario": "s23_026",
+  "provider": "Novita",
+  "wall_s": 227.0,
+  "prompt_tokens": 2213,
+  "completion_tokens": 15871,
+  "reasoning_tokens": 13626,
+  "cost": 0.004629772
+ },
+ {
+  "scenario": "s23_027",
+  "provider": "Novita",
+  "wall_s": 77.4,
+  "prompt_tokens": 1546,
+  "completion_tokens": 5075,
+  "reasoning_tokens": 4395,
+  "cost": 0.001550864
+ },
+ {
+  "scenario": "s23_028",
+  "provider": "Inceptron",
+  "wall_s": 119.6,
+  "prompt_tokens": 2503,
+  "completion_tokens": 8854,
+  "reasoning_tokens": 8305,
+  "cost": 0.00573791
+ },
+ {
+  "scenario": "s23_029",
+  "provider": "Near AI",
+  "wall_s": 361.3,
+  "prompt_tokens": 2245,
+  "completion_tokens": 8948,
+  "reasoning_tokens": 8193,
+  "cost": 0.0046536
+ },
+ {
+  "scenario": "s23_030",
+  "provider": "AtlasCloud",
+  "wall_s": 31.6,
+  "prompt_tokens": 1936,
+  "completion_tokens": 2940,
+  "reasoning_tokens": 1969,
+  "cost": 0.0017604
+ },
+ {
+  "scenario": "s23_031",
+  "provider": "Novita",
+  "wall_s": 300.2,
+  "prompt_tokens": 1433,
+  "completion_tokens": 15601,
+  "reasoning_tokens": 13997,
+  "cost": 0.004488652
+ },
+ {
+  "scenario": "s23_032",
+  "provider": "Inceptron",
+  "wall_s": 375.0,
+  "prompt_tokens": 2602,
+  "completion_tokens": 23837,
+  "reasoning_tokens": 22554,
+  "cost": 0.01474454
+ },
+ {
+  "scenario": "s23_033",
+  "provider": "AtlasCloud",
+  "wall_s": 15.3,
+  "prompt_tokens": 1943,
+  "completion_tokens": 1013,
+  "reasoning_tokens": 240,
+  "cost": 0.00079795
+ },
+ {
+  "scenario": "s23_034",
+  "provider": "AtlasCloud",
+  "wall_s": 50.0,
+  "prompt_tokens": 1334,
+  "completion_tokens": 4372,
+  "reasoning_tokens": 3174,
+  "cost": 0.0023861
+ },
+ {
+  "scenario": "s23_035",
+  "provider": "AtlasCloud",
+  "wall_s": 88.2,
+  "prompt_tokens": 2253,
+  "completion_tokens": 7288,
+  "reasoning_tokens": 5349,
+  "cost": 0.00398195
+ },
+ {
+  "scenario": "s23_036",
+  "provider": "Morph",
+  "wall_s": 95.2,
+  "prompt_tokens": 2319,
+  "completion_tokens": 6864,
+  "reasoning_tokens": 6025,
+  "cost": 0.002476893
+ },
+ {
+  "scenario": "s23_037",
+  "provider": "Morph",
+  "wall_s": 311.2,
+  "prompt_tokens": 2280,
+  "completion_tokens": 15372,
+  "reasoning_tokens": 14048,
+  "cost": 0.005211984
+ },
+ {
+  "scenario": "s23_038",
+  "provider": "AtlasCloud",
+  "wall_s": 41.9,
+  "prompt_tokens": 2038,
+  "completion_tokens": 2614,
+  "reasoning_tokens": 1765,
+  "cost": 0.0016127
+ },
+ {
+  "scenario": "s23_039",
+  "provider": "AtlasCloud",
+  "wall_s": 9.3,
+  "prompt_tokens": 1474,
+  "completion_tokens": 763,
+  "reasoning_tokens": 150,
+  "cost": 0.0006026
+ },
+ {
+  "scenario": "s23_040",
+  "provider": "Morph",
+  "wall_s": 595.9,
+  "prompt_tokens": 2420,
+  "completion_tokens": 20935,
+  "reasoning_tokens": 19970,
+  "cost": 0.00701937
+ },
+ {
+  "scenario": "s23_041",
+  "provider": "Inceptron",
+  "wall_s": 313.6,
+  "prompt_tokens": 2627,
+  "completion_tokens": 17621,
+  "reasoning_tokens": 16559,
+  "cost": 0.01101919
+ },
+ {
+  "scenario": "s23_042",
+  "provider": "Inceptron",
+  "wall_s": 366.9,
+  "prompt_tokens": 2247,
+  "completion_tokens": 21333,
+  "reasoning_tokens": 20210,
+  "cost": 0.01318179
+ },
+ {
+  "scenario": "s23_043",
+  "provider": "Morph",
+  "wall_s": 320.9,
+  "prompt_tokens": 1638,
+  "completion_tokens": 11869,
+  "reasoning_tokens": 10956,
+  "cost": 0.004010188
+ },
+ {
+  "scenario": "s23_044",
+  "provider": "Novita",
+  "wall_s": 167.4,
+  "prompt_tokens": 2249,
+  "completion_tokens": 13321,
+  "reasoning_tokens": 11868,
+  "cost": 0.003918796
+ },
+ {
+  "scenario": "s23_045",
+  "provider": "Novita",
+  "wall_s": 368.8,
+  "prompt_tokens": 1552,
+  "completion_tokens": 17990,
+  "reasoning_tokens": 17419,
+  "cost": 0.005167568
+ },
+ {
+  "scenario": "s23_046",
+  "provider": "Inceptron",
+  "wall_s": 275.0,
+  "prompt_tokens": 2503,
+  "completion_tokens": 15051,
+  "reasoning_tokens": 13826,
+  "cost": 0.00945611
+ },
+ {
+  "scenario": "s23_047",
+  "provider": "Near AI",
+  "wall_s": 363.3,
+  "prompt_tokens": 2229,
+  "completion_tokens": 9473,
+  "reasoning_tokens": 8193,
+  "cost": 0.00491482
+ }
+]

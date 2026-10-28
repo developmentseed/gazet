@@ -1,0 +1,1 @@
+{"id": "s23_038", "tables": ["airports", "populated_places"], "skill": "bounding-box and envelope filtering (ST_MakeEnvelope, bbox comparisons, ST_Extent)", "difficulty": "hard", "style": "precise analyst questions that mention units and thresholds", "k": 6}

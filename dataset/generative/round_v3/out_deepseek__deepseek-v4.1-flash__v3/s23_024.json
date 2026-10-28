@@ -1,0 +1,38 @@
+[
+  {
+    "question": "For Wollaston Lake, show the area within 50 kilometers of the lake as a shape.",
+    "sql": "WITH lake AS (SELECT name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:32613', always_xy := true) AS geom FROM lakes WHERE name = 'Wollaston Lake') SELECT name, ST_AsGeoJSON(ST_Transform(ST_Buffer(geom, 50000), 'EPSG:32613', 'EPSG:4326', always_xy := true)) AS shape FROM lake",
+    "skills": ["ST_Buffer", "ST_Transform"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Show one combined shape for all reservoirs.",
+    "sql": "SELECT feature_class, ST_AsGeoJSON(ST_Union_Agg(geometry)) AS combined_shape FROM lakes WHERE feature_class = 'Reservoir' GROUP BY feature_class",
+    "skills": ["ST_Union_Agg"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For Lake Naococane, show the part of the lake that is within 20 kilometers of its center.",
+    "sql": "WITH lake AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32619', always_xy := true) AS geom FROM lakes WHERE name = 'Lake Naococane'), buffered AS (SELECT ST_Buffer(ST_Centroid(geom), 20000) AS buf FROM lake) SELECT ST_AsGeoJSON(ST_Transform(ST_Intersection(l.geom, b.buf), 'EPSG:32619', 'EPSG:4326', always_xy := true)) AS shape FROM lake l, buffered b",
+    "skills": ["ST_Intersection", "ST_Buffer", "ST_Centroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For Wollaston Lake, show the part of the lake that is more than 5 kilometers from its center.",
+    "sql": "WITH lake AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32613', always_xy := true) AS geom FROM lakes WHERE name = 'Wollaston Lake'), buffered AS (SELECT ST_Buffer(ST_Centroid(geom), 5000) AS buf FROM lake) SELECT ST_AsGeoJSON(ST_Transform(ST_Difference(l.geom, b.buf), 'EPSG:32613', 'EPSG:4326', always_xy := true)) AS shape FROM lake l, buffered b",
+    "skills": ["ST_Difference", "ST_Buffer", "ST_Centroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Show the smallest convex shape that contains all reservoirs.",
+    "sql": "SELECT ST_AsGeoJSON(ST_ConvexHull(ST_Union_Agg(geometry))) AS hull_shape FROM lakes WHERE feature_class = 'Reservoir'",
+    "skills": ["ST_ConvexHull", "ST_Union_Agg"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "What is the center point of Finland?",
+    "sql": "SELECT name, ST_X(ST_Centroid(geometry)) AS center_lon, ST_Y(ST_Centroid(geometry)) AS center_lat FROM countries WHERE name = 'Finland'",
+    "skills": ["ST_Centroid"],
+    "difficulty": "easy"
+  }
+]

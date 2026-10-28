@@ -1,0 +1,38 @@
+[
+  {
+    "question": "airport closest to Maiduguri Nigeria, distance in km",
+    "sql": "SELECT a.name AS airport, a.iata_code, a.icao_code, round(ST_Distance_Sphere(p.geometry, a.geometry) / 1000.0, 1) AS dist_km FROM populated_places p JOIN LATERAL (SELECT name, iata_code, icao_code, geometry FROM airports ORDER BY ST_Distance_Sphere(p.geometry, geometry), name LIMIT 1) a ON true WHERE p.name = 'Maiduguri' AND p.country = 'Nigeria';",
+    "skills": ["nearest-neighbour", "LATERAL", "ST_Distance_Sphere"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "populated places within 150 km of Helsinki Vantaa airport, largest pop_max first",
+    "sql": "SELECT p.name, p.admin1, p.country, p.pop_max, round(ST_Distance_Sphere(a.geometry, p.geometry) / 1000.0, 1) AS dist_km FROM airports a JOIN populated_places p ON ST_DWithin_Spheroid(a.geometry, p.geometry, 150000) WHERE a.iata_code = 'HEL' ORDER BY p.pop_max DESC, p.name;",
+    "skills": ["ST_DWithin_Spheroid", "radius-search", "join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "world cities farthest from any major airport, worst served first",
+    "sql": "SELECT p.name AS world_city, p.country, a.name AS nearest_major_airport, a.iata_code, round(ST_Distance_Sphere(p.geometry, a.geometry) / 1000.0, 1) AS dist_km FROM populated_places p JOIN LATERAL (SELECT name, iata_code, geometry FROM airports WHERE type = 'major' ORDER BY ST_Distance_Sphere(p.geometry, geometry), name LIMIT 1) a ON true WHERE p.is_world_city ORDER BY dist_km DESC, p.name;",
+    "skills": ["nearest-neighbour", "LATERAL", "ST_Distance_Sphere", "ORDER BY DESC"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "5 nearest national capitals to Abu Dhabi, exclude Abu Dhabi itself",
+    "sql": "SELECT p2.name AS capital, p2.country, round(ST_Distance_Sphere(p1.geometry, p2.geometry) / 1000.0, 1) AS dist_km FROM populated_places p1 JOIN LATERAL (SELECT name, country, geometry FROM populated_places WHERE feature_class = 'Admin-0 capital' AND name <> p1.name ORDER BY ST_Distance_Sphere(p1.geometry, geometry), name LIMIT 5) p2 ON true WHERE p1.name = 'Abu Dhabi' AND p1.feature_class = 'Admin-0 capital' ORDER BY dist_km, p2.name;",
+    "skills": ["k-nearest-neighbours", "LATERAL", "ST_Distance_Sphere", "self-exclusion"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "cities over 500k within 200 km of Vadodara airport",
+    "sql": "SELECT p.name, p.country, p.pop_max, round(ST_Distance_Sphere(a.geometry, p.geometry) / 1000.0, 1) AS dist_km FROM airports a JOIN populated_places p ON ST_DWithin_Spheroid(a.geometry, p.geometry, 200000) WHERE a.iata_code = 'BDQ' AND p.pop_max > 500000 ORDER BY dist_km, p.name;",
+    "skills": ["ST_DWithin_Spheroid", "radius-search", "attribute-filter"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "3 airports closest to Kirov Russia, distances via UTM 39N transform",
+    "sql": "WITH k AS (SELECT geometry FROM populated_places WHERE name = 'Kirov' AND country = 'Russia') SELECT a.name AS airport, a.icao_code, round(ST_Distance(ST_Transform((SELECT geometry FROM k), 'EPSG:4326', 'EPSG:32639', always_xy := true), ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:32639', always_xy := true)) / 1000.0, 1) AS dist_km FROM airports a ORDER BY dist_km, a.name LIMIT 3;",
+    "skills": ["ST_Transform", "metric-CRS", "k-nearest-neighbours", "CTE"],
+    "difficulty": "hard"
+  }
+]

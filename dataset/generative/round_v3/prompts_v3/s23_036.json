@@ -1,0 +1,1 @@
+{"id": "s23_036", "tables": ["nyc_taxi_zones", "nyc_taxi_trips"], "skill": "window functions and per-group ranking (ROW_NUMBER, RANK, running totals) combined with spatial attributes", "difficulty": "easy", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}

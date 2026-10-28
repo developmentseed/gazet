@@ -1,0 +1,1 @@
+{"id": "s23_016", "tables": ["airports"], "skill": "window functions and per-group ranking (ROW_NUMBER, RANK, running totals) combined with spatial attributes", "difficulty": "medium", "style": "precise analyst questions that mention units and thresholds", "k": 6}

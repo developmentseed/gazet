@@ -1,0 +1,79 @@
+You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
+
+Below are the tables available. Each is a DuckDB view with exactly the columns shown.
+
+TABLE countries  -- Natural Earth 1:50m country polygons with population/GDP attributes. EPSG:4326. rows=242
+  iso_a3 VARCHAR  -- distinct~246 e.g. ['ZMB', 'GUM']
+  iso_a2 VARCHAR  -- distinct~231 e.g. ['-99', 'TT']
+  name VARCHAR  -- distinct~243 e.g. ['Vatican', 'Marshall Is.']
+  name_long VARCHAR  -- distinct~249 e.g. ['Vatican', 'Guam']
+  continent VARCHAR  -- distinct~8 top=['Africa', 'Asia', 'Europe', 'North America', 'Oceania', 'South America']
+  region_un VARCHAR  -- distinct~6 top=['Africa', 'Asia', 'Americas', 'Europe', 'Oceania', 'Antarctica']
+  subregion VARCHAR  -- distinct~24 top=['Caribbean', 'Eastern Africa', 'Western Asia', 'Western Africa', 'Southern Europe', 'Northern Europe']
+  pop_est BIGINT  -- range=[0, 1397715000]
+  gdp_md BIGINT  -- range=[-99, 21433226]
+  income_grp VARCHAR  -- distinct~4 top=['4. Lower middle income', '3. Upper middle income', '2. High income: nonOECD', '5. Low income', '1. High income: OECD']
+  economy VARCHAR  -- distinct~7 top=['6. Developing region', '7. Least developed region', '2. Developed region: nonG7', '5. Emerging region: G20', '1. Developed region: G7', '4. Emerging region: MIKT']
+  geometry GEOMETRY('EPSG:4326')  -- types=['MULTIPOLYGON', 'POLYGON'] extent=[-180.0, -89.999, 180.0, 83.6]
+
+TABLE populated_places  -- Natural Earth 1:50m populated places (points). EPSG:4326. rows=1251
+  name VARCHAR  -- distinct~1264 e.g. ['Vancouver', 'Córdoba']
+  country VARCHAR  -- distinct~220 top=['United States of America', 'China', 'Russia', 'India', 'Brazil', 'Canada']
+  iso_a2 VARCHAR  -- distinct~216 top=['US', 'CN', 'RU', 'IN', 'BR', 'CA']
+  admin1 VARCHAR  -- distinct~798 e.g. ['Alaska', 'Sakha (Yakutia)']
+  feature_class VARCHAR  -- distinct~8 top=['Admin-1 capital', 'Populated place', 'Admin-0 capital', 'Admin-1 region capital', 'Scientific station', 'Admin-0 region capital']
+  pop_max BIGINT  -- range=[0, 35676000]
+  pop_min BIGINT  -- range=[0, 14608512]
+  is_capital BOOLEAN  -- true/false
+  is_world_city BOOLEAN  -- true/false
+  geometry GEOMETRY('EPSG:4326')  -- types=['POINT'] extent=[-175.221, -90.0, 179.217, 78.221]
+
+Real data to ground the questions in (use these names, categories and coordinates as literals):
+
+REAL ROWS from countries (random sample; centroid lon/lat):
+  iso_a3=FLK, iso_a2=FK, name=Falkland Is., name_long=Falkland Islands / Malvinas, continent=South America, region_un=Americas, subregion=South America, pop_est=3398, gdp_md=282, income_grp=1. High income: OECD, economy=2. Developed region: nonG7, lon=-59.3524, lat=-51.7448
+  iso_a3=SVN, iso_a2=SI, name=Slovenia, name_long=Slovenia, continent=Europe, region_un=Europe, subregion=Southern Europe, pop_est=2087946, gdp_md=54174, income_grp=1. High income: OECD, economy=2. Developed region: nonG7, lon=14.8044, lat=46.1155
+  iso_a3=CUW, iso_a2=CW, name=Curaçao, name_long=Curaçao, continent=North America, region_un=Americas, subregion=Caribbean, pop_est=157538, gdp_md=3101, income_grp=2. High income: nonOECD, economy=6. Developing region, lon=-68.9712, lat=12.1955
+  iso_a3=BDI, iso_a2=BI, name=Burundi, name_long=Burundi, continent=Africa, region_un=Africa, subregion=Eastern Africa, pop_est=11530580, gdp_md=3012, income_grp=5. Low income, economy=7. Least developed region, lon=29.8751, lat=-3.3594
+  iso_a3=BHS, iso_a2=BS, name=Bahamas, name_long=Bahamas, continent=North America, region_un=Americas, subregion=Caribbean, pop_est=389482, gdp_md=13578, income_grp=2. High income: nonOECD, economy=6. Developing region, lon=-76.6284, lat=24.2904
+ALL VALUES in countries:
+  continent: ['Africa', 'Antarctica', 'Asia', 'Europe', 'North America', 'Oceania', 'Seven seas (open ocean)', 'South America']
+  region_un: ['Africa', 'Americas', 'Antarctica', 'Asia', 'Europe', 'Oceania']
+  subregion: ['Antarctica', 'Australia and New Zealand', 'Caribbean', 'Central America', 'Central Asia', 'Eastern Africa', 'Eastern Asia', 'Eastern Europe', 'Melanesia', 'Micronesia', 'Middle Africa', 'Northern Africa', 'Northern America', 'Northern Europe', 'Polynesia', 'Seven seas (open ocean)', 'South America', 'South-Eastern Asia', 'Southern Africa', 'Southern Asia', 'Southern Europe', 'Western Africa', 'Western Asia', 'Western Europe']
+  income_grp: ['1. High income: OECD', '2. High income: nonOECD', '3. Upper middle income', '4. Lower middle income', '5. Low income']
+  economy: ['1. Developed region: G7', '2. Developed region: nonG7', '3. Emerging region: BRIC', '4. Emerging region: MIKT', '5. Emerging region: G20', '6. Developing region', '7. Least developed region']
+
+REAL ROWS from populated_places (random sample; centroid lon/lat):
+  name=Aboa Station, country=Antarctica, iso_a2=AQ, feature_class=Scientific station, pop_max=18, pop_min=12, is_capital=False, is_world_city=False, lon=-13.4167, lat=-75.0496
+  name=Lae, country=Papua New Guinea, iso_a2=PG, admin1=Morobe, feature_class=Admin-1 capital, pop_max=131052, pop_min=76255, is_capital=False, is_world_city=False, lon=146.99, lat=-6.733
+  name=Jixi, country=China, iso_a2=CN, admin1=Heilongjiang, feature_class=Populated place, pop_max=965000, pop_min=403759, is_capital=False, is_world_city=False, lon=130.9681, lat=45.3019
+  name=Praia, country=Cape Verde, iso_a2=CV, feature_class=Admin-0 capital, pop_max=113364, pop_min=88859, is_capital=True, is_world_city=False, lon=-23.5167, lat=14.9167
+  name=Baotou, country=China, iso_a2=CN, admin1=Nei Mongol, feature_class=Populated place, pop_max=2036000, pop_min=423329, is_capital=False, is_world_city=False, lon=109.8201, lat=40.6542
+ALL VALUES in populated_places:
+  feature_class: ['Admin-0 capital', 'Admin-0 capital alt', 'Admin-0 region capital', 'Admin-1 capital', 'Admin-1 region capital', 'Historic place', 'Populated place', 'Scientific station']
+
+Write 6 diverse (question, sql) pairs for these tables.
+- Focus skill: nested Overture-style data: struct fields, lists, UNNEST, list functions, JSON-like attributes
+- Difficulty: hard
+- Question style: terse keyword-style requests a GIS analyst types into a search box
+
+Rules:
+- SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
+- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Only use literal values (names, categories, codes) that appear in the real rows, value lists or top values above. The query should return at least one row.
+- Do not name places, neighbourhoods or landmarks that are not in the data. If a question needs an area or point that is not a row in the data, give its coordinates explicitly in the question.
+- Never measure distances, buffers or areas in EPSG:3857 (Web Mercator) or EPSG:6933; their scale is wrong away from the equator. Use the spheroid functions or a local metric CRS (UTM zone or national grid).
+- Results must be deterministic: no current_date, now() or random(); whenever you use LIMIT, ORDER BY columns that make the order unique.
+- Watch join fan-out: do not SUM a per-country (or per-parent) value after joining to many child rows.
+- Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
+- Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
+- Make the 6 pairs differ in intent, not just in literal values.
+
+DuckDB spatial is NOT PostGIS. `SET geometry_always_xy = true` is active (lon/lat order). Differences that matter:
+- No SRID arguments and no ST_SetSRID: ST_MakeEnvelope(xmin, ymin, xmax, ymax), ST_GeomFromText(wkt), ST_Point(lon, lat).
+- ST_Transform takes CRS strings, not integers: ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true).
+- No GEOGRAPHY type and no 'spheroid' / use_spheroid argument on ST_Distance or ST_Area. For metres use ST_Distance_Sphere / ST_Distance_Spheroid / ST_DWithin_Spheroid (POINT inputs only), ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS. For distances involving lines or polygons, transform to a metric CRS first.
+- ST_Collect takes a list: ST_Collect(list(geom)). Aggregates are ST_Union_Agg(geom) and ST_Extent_Agg(geom).
+
+Return ONLY a JSON array, no markdown fences:
+[{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "hard"}]

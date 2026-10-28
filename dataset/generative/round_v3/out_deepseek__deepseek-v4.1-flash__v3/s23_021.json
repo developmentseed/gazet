@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the count of populated places by feature class within the bounding box from longitude -10 to 30 and latitude 35 to 60.",
+    "sql": "WITH region AS (\n  SELECT ST_MakeEnvelope(-10, 35, 30, 60) AS geom\n)\nSELECT p.feature_class, COUNT(*) AS place_count\nFROM populated_places p, region r\nWHERE ST_Within(p.geometry, r.geom)\nGROUP BY p.feature_class\nORDER BY place_count DESC, p.feature_class;",
+    "skills": ["spatial join", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the top 5 countries by total maximum population of world cities within the bounding box from longitude 100 to 145 and latitude 20 to 50.",
+    "sql": "WITH region AS (\n  SELECT ST_MakeEnvelope(100, 20, 145, 50) AS geom\n)\nSELECT p.country, SUM(p.pop_max) AS total_pop\nFROM populated_places p, region r\nWHERE ST_Within(p.geometry, r.geom) AND p.is_world_city = true\nGROUP BY p.country\nORDER BY total_pop DESC, p.country\nLIMIT 5;",
+    "skills": ["spatial join", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Compare the number of capital and non-capital populated places within the bounding box from longitude -85 to -35 and latitude -55 to 15.",
+    "sql": "WITH region AS (\n  SELECT ST_MakeEnvelope(-85, -55, -35, 15) AS geom\n)\nSELECT p.is_capital, COUNT(*) AS place_count\nFROM populated_places p, region r\nWHERE ST_Within(p.geometry, r.geom)\nGROUP BY p.is_capital\nORDER BY p.is_capital;",
+    "skills": ["spatial join", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Give me the count of populated places within 200 km of Frankfurt, grouped by feature class.",
+    "sql": "WITH center AS (\n  SELECT ST_Point(8.675, 50.1) AS geom\n)\nSELECT p.feature_class, COUNT(*) AS place_count\nFROM populated_places p, center c\nWHERE ST_DWithin_Spheroid(p.geometry, c.geom, 200000)\nGROUP BY p.feature_class\nORDER BY place_count DESC, p.feature_class;",
+    "skills": ["spatial join", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the top 5 countries by number of populated places within the bounding box from longitude -20 to 50 and latitude -35 to 35.",
+    "sql": "WITH region AS (\n  SELECT ST_MakeEnvelope(-20, -35, 50, 35) AS geom\n)\nSELECT p.country, COUNT(*) AS place_count\nFROM populated_places p, region r\nWHERE ST_Within(p.geometry, r.geom)\nGROUP BY p.country\nORDER BY place_count DESC, p.country\nLIMIT 5;",
+    "skills": ["spatial join", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Return the convex hull of all populated places with pop_max greater than 1,000,000 within the bounding box from longitude -130 to -60 and latitude 20 to 50, as GeoJSON.",
+    "sql": "WITH region AS (\n  SELECT ST_MakeEnvelope(-130, 20, -60, 50) AS geom\n)\nSELECT ST_AsGeoJSON(ST_ConvexHull(ST_Union_Agg(p.geometry))) AS hull_geojson\nFROM populated_places p, region r\nWHERE ST_Within(p.geometry, r.geom) AND p.pop_max > 1000000;",
+    "skills": ["spatial join", "aggregation", "geometry output"],
+    "difficulty": "easy"
+  }
+]

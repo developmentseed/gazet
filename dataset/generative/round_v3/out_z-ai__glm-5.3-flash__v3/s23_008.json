@@ -1,0 +1,38 @@
+[
+  {
+    "question": "buildings >40m bbox -9.23,38.70,-9.14,38.75 count by type avg/max height overall extent",
+    "sql": "WITH hits AS (\n  SELECT subtype, height, geometry AS geom\n  FROM lisbon_buildings\n  WHERE height > 40\n    AND geometry && ST_MakeEnvelope(-9.23, 38.70, -9.14, 38.75)\n)\nSELECT subtype,\n       count(*) AS n_buildings,\n       round(avg(height), 1) AS avg_height_m,\n       max(height) AS max_height_m,\n       ST_AsGeoJSON(ST_Envelope(ST_Union_Agg(geom))) AS extent_geojson\nFROM hits\nGROUP BY subtype\nORDER BY n_buildings DESC, subtype;",
+    "skills": ["bounding-box filtering with &&", "ST_MakeEnvelope", "envelope aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "named major roads partially crossing box -9.23 38.70 -9.20 38.73 metres inside each top 15",
+    "sql": "WITH box AS (\n  SELECT ST_MakeEnvelope(-9.23, 38.70, -9.20, 38.73) AS env\n)\nSELECT r.names.\"primary\" AS road_name,\n       r.class,\n       round(ST_Length_Spheroid(ST_CollectionExtract(ST_Intersection(r.geometry, b.env), 2)), 1) AS metres_inside\nFROM lisbon_roads r\nCROSS JOIN box b\nWHERE ST_Crosses(r.geometry, b.env)\n  AND r.names.\"primary\" IS NOT NULL\n  AND r.class IN ('primary', 'secondary', 'tertiary', 'residential', 'living_street', 'unclassified')\nORDER BY metres_inside DESC NULLS LAST, road_name, r.id\nLIMIT 15;",
+    "skills": ["envelope clipping", "ST_Length_Spheroid", "ST_Crosses"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "religious buildings fully inside -9.16,38.70,-9.13,38.73 name height footprint bbox corners",
+    "sql": "SELECT b.names.\"primary\" AS name,\n       b.class,\n       b.height AS height_m,\n       round(ST_XMin(b.geometry), 6) AS min_lon,\n       round(ST_YMin(b.geometry), 6) AS min_lat,\n       round(ST_XMax(b.geometry), 6) AS max_lon,\n       round(ST_YMax(b.geometry), 6) AS max_lat\nFROM lisbon_buildings b\nWHERE b.subtype = 'religious'\n  AND ST_XMin(b.geometry) >= -9.16 AND ST_XMax(b.geometry) <= -9.13\n  AND ST_YMin(b.geometry) >= 38.70 AND ST_YMax(b.geometry) <= 38.73\nORDER BY b.height DESC NULLS LAST, name NULLS LAST, b.id;",
+    "skills": ["bbox comparisons", "full-containment test", "ST_XMin/ST_YMax bounds"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "nearest road Casa do Galvão (-9.2033,38.7004) within box -9.2068,38.6977,-9.1998,38.7031 metres",
+    "sql": "WITH box AS (\n  SELECT ST_MakeEnvelope(-9.2068, 38.6977, -9.1998, 38.7031) AS env\n),\nb AS (\n  SELECT lb.id,\n         lb.names.\"primary\" AS building_name,\n         ST_Transform(lb.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom_m\n  FROM lisbon_buildings lb\n  CROSS JOIN box\n  WHERE lb.names.\"primary\" = 'Casa do Galvão'\n    AND lb.geometry && box.env\n),\nr AS (\n  SELECT lr.id,\n         lr.names.\"primary\" AS road_name,\n         lr.class,\n         ST_Transform(lr.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom_m\n  FROM lisbon_roads lr\n  CROSS JOIN box\n  WHERE lr.geometry && box.env\n)\nSELECT b.building_name,\n       nr.road_name AS nearest_road,\n       nr.class AS road_class,\n       round(nr.d, 1) AS dist_m\nFROM b\nCROSS JOIN LATERAL (\n  SELECT r.road_name, r.class, ST_Distance(b.geom_m, r.geom_m) AS d\n  FROM r\n  ORDER BY d, r.id\n  LIMIT 1\n) nr\nORDER BY b.id;",
+    "skills": ["bbox prefilter", "metric CRS transform EPSG:3763", "lateral nearest-neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "track roads envelope; education buildings inside it — name height centre coords",
+    "sql": "WITH track_env AS (\n  SELECT ST_MakeEnvelope(min(ST_XMin(geometry)),\n                         min(ST_YMin(geometry)),\n                         max(ST_XMax(geometry)),\n                         max(ST_YMax(geometry))) AS env\n  FROM lisbon_roads\n  WHERE class = 'track'\n)\nSELECT b.names.\"primary\" AS name,\n       b.class,\n       b.height AS height_m,\n       round(ST_X(ST_Centroid(b.geometry)), 5) AS lon,\n       round(ST_Y(ST_Centroid(b.geometry)), 5) AS lat,\n       ST_AsGeoJSON(track_env.env) AS filter_envelope_geojson\nFROM lisbon_buildings b, track_env\nWHERE b.geometry && track_env.env\n  AND b.subtype = 'education'\nORDER BY name NULLS LAST, b.id;",
+    "skills": ["derived envelope from aggregated bounds", "cross-layer bbox filter", "&& operator"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "buildings cut by edge of box -9.185,38.71,-9.165,38.725 id name type",
+    "sql": "WITH box AS (\n  SELECT ST_MakeEnvelope(-9.185, 38.71, -9.165, 38.725) AS env\n)\nSELECT b.id,\n       b.names.\"primary\" AS name,\n       b.subtype,\n       b.class\nFROM lisbon_buildings b, box\nWHERE ST_Intersects(b.geometry, ST_Boundary(box.env))\n  AND NOT ST_Contains(box.env, b.geometry)\nORDER BY b.id;",
+    "skills": ["envelope boundary test", "ST_Boundary", "ST_Contains exclusion"],
+    "difficulty": "hard"
+  }
+]

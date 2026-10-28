@@ -1,0 +1,38 @@
+[
+  {
+    "question": "List the three most populous countries in each continent, ordered by continent and population rank.",
+    "sql": "WITH ranked AS (SELECT continent, name, pop_est, ROW_NUMBER() OVER (PARTITION BY continent ORDER BY pop_est DESC, name) AS rn FROM countries) SELECT continent, name, pop_est FROM ranked WHERE rn <= 3 ORDER BY continent, rn;",
+    "skills": ["ROW_NUMBER", "PARTITION BY", "window functions"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Give me the country with the highest GDP in each subregion, sorted by subregion.",
+    "sql": "WITH ranked AS (SELECT subregion, name, gdp_md, ROW_NUMBER() OVER (PARTITION BY subregion ORDER BY gdp_md DESC, name) AS rn FROM countries) SELECT subregion, name, gdp_md FROM ranked WHERE rn = 1 ORDER BY subregion;",
+    "skills": ["ROW_NUMBER", "PARTITION BY", "window functions"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each lake type, list the largest lake by area in square kilometres, ordered by lake type.",
+    "sql": "WITH lake_areas AS (SELECT feature_class, name, ST_Area_Spheroid(geometry) / 1000000.0 AS area_km2, ROW_NUMBER() OVER (PARTITION BY feature_class ORDER BY ST_Area_Spheroid(geometry) DESC, name) AS rn FROM lakes) SELECT feature_class, name, area_km2 FROM lake_areas WHERE rn = 1 ORDER BY feature_class;",
+    "skills": ["ROW_NUMBER", "PARTITION BY", "ST_Area_Spheroid", "spatial"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each continent, list countries in descending population order with a running total of population and the centroid longitude.",
+    "sql": "WITH pop_running AS (SELECT continent, name, pop_est, ST_X(ST_Centroid(geometry)) AS centroid_lon, SUM(pop_est) OVER (PARTITION BY continent ORDER BY pop_est DESC, name ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_pop FROM countries) SELECT continent, name, pop_est, running_pop, centroid_lon FROM pop_running ORDER BY continent, pop_est DESC, name;",
+    "skills": ["SUM OVER", "running total", "PARTITION BY", "ST_Centroid", "spatial"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each continent, list the country whose centroid is closest to the point at longitude 0, latitude 0, with distance in kilometres.",
+    "sql": "WITH distances AS (SELECT continent, name, ST_Distance_Sphere(ST_Centroid(geometry), ST_Point(0, 0)) / 1000.0 AS distance_km, ROW_NUMBER() OVER (PARTITION BY continent ORDER BY ST_Distance_Sphere(ST_Centroid(geometry), ST_Point(0, 0)) ASC, name) AS rn FROM countries) SELECT continent, name, distance_km FROM distances WHERE rn = 1 ORDER BY continent;",
+    "skills": ["ROW_NUMBER", "PARTITION BY", "ST_Distance_Sphere", "ST_Centroid", "spatial"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each lake type, list the two northernmost lakes by centroid latitude, with their latitude and area in square kilometres.",
+    "sql": "WITH lake_lat AS (SELECT feature_class, name, ST_Y(ST_Centroid(geometry)) AS centroid_lat, ST_Area_Spheroid(geometry) / 1000000.0 AS area_km2, ROW_NUMBER() OVER (PARTITION BY feature_class ORDER BY ST_Y(ST_Centroid(geometry)) DESC, name) AS rn FROM lakes) SELECT feature_class, name, centroid_lat, area_km2 FROM lake_lat WHERE rn <= 2 ORDER BY feature_class, rn;",
+    "skills": ["ROW_NUMBER", "PARTITION BY", "ST_Centroid", "ST_Area_Spheroid", "spatial"],
+    "difficulty": "easy"
+  }
+]

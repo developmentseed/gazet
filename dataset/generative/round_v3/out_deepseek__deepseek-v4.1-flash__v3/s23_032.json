@@ -1,0 +1,38 @@
+[
+  {
+    "question": "nearest country centroids to 51.1848,25.306",
+    "sql": "SELECT name, iso_a3, ST_Distance_Sphere(ST_Centroid(geometry), ST_Point(51.1848, 25.306)) AS dist_m FROM countries ORDER BY dist_m, iso_a3 LIMIT 5",
+    "skills": ["distance", "nearest-neighbor", "ST_Distance_Sphere", "ST_Centroid"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "rivers within 50 km of Lake Victoria",
+    "sql": "SELECT r.name, r.feature_class, MIN(ST_Distance(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32736', always_xy := true), ST_Transform(l.geometry, 'EPSG:4326', 'EPSG:32736', always_xy := true))) AS dist_m FROM rivers r JOIN lakes l ON l.name = 'Lake Victoria' WHERE ST_DWithin(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32736', always_xy := true), ST_Transform(l.geometry, 'EPSG:4326', 'EPSG:32736', always_xy := true), 50000) GROUP BY r.name, r.feature_class ORDER BY dist_m, r.name, r.feature_class",
+    "skills": ["distance", "ST_DWithin", "ST_Transform", "metric CRS"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "nearest lake to Dnipro river",
+    "sql": "SELECT l.name AS lake, l.feature_class, l.scalerank, MIN(ST_Distance(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32636', always_xy := true), ST_Transform(l.geometry, 'EPSG:4326', 'EPSG:32636', always_xy := true))) AS dist_m FROM rivers r JOIN lakes l ON r.name = 'Dnipro' GROUP BY l.name, l.feature_class, l.scalerank ORDER BY dist_m, l.name, l.feature_class, l.scalerank LIMIT 1",
+    "skills": ["nearest-neighbor", "ST_Distance", "ST_Transform", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "countries within 500 km of Lake Victoria centroid",
+    "sql": "SELECT c.name, c.iso_a3, ST_Distance_Sphere(ST_Centroid(c.geometry), ST_Centroid(l.geometry)) AS dist_m FROM countries c, lakes l WHERE l.name = 'Lake Victoria' AND ST_Distance_Sphere(ST_Centroid(c.geometry), ST_Centroid(l.geometry)) <= 500000 ORDER BY dist_m, c.iso_a3",
+    "skills": ["distance", "ST_Distance_Sphere", "ST_Centroid", "filter"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "nearest rivers to 33.0985,48.6281",
+    "sql": "SELECT r.name, r.feature_class, r.scalerank, ST_Distance(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32636', always_xy := true), ST_Transform(ST_Point(33.0985, 48.6281), 'EPSG:4326', 'EPSG:32636', always_xy := true)) AS dist_m FROM rivers r ORDER BY dist_m, r.name, r.feature_class, r.scalerank, ST_AsText(r.geometry) LIMIT 5",
+    "skills": ["nearest-neighbor", "ST_Distance", "ST_Transform", "point-to-line"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "nearest country centroid to Lake Victoria, Lake Tana, Lake Naococane",
+    "sql": "SELECT l.name AS lake, l.feature_class, l.scalerank, c.name AS country, c.iso_a3, ST_Distance_Sphere(ST_Centroid(l.geometry), ST_Centroid(c.geometry)) AS dist_m FROM lakes l CROSS JOIN LATERAL (SELECT c.name, c.iso_a3, c.geometry FROM countries c ORDER BY ST_Distance_Sphere(ST_Centroid(l.geometry), ST_Centroid(c.geometry)), c.iso_a3 LIMIT 1) c WHERE l.name IN ('Lake Victoria', 'Lake Tana', 'Lake Naococane') ORDER BY l.name, l.feature_class, l.scalerank",
+    "skills": ["nearest-neighbor", "LATERAL", "ST_Distance_Sphere", "ST_Centroid"],
+    "difficulty": "hard"
+  }
+]
