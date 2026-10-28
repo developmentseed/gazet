@@ -161,6 +161,31 @@ Prompt changes based on the bake-off failures:
 - **DeepSeek-V4.1-Flash is the primary generator:** higher yield and fewer reasoning tokens.
   GLM-5.3-Flash stays as the second family for diversity.
 
+## Experiment 5: LLM judge calibration (`judge_calibration/`)
+
+`judge.py` gives the judge the schema cards, question, SQL and an 8-row result preview, and asks for
+correct / minor / wrong using the same criteria as the hand grading. Calibrated on all 215 hand-labelled
+pairs (175 correct, 20 minor, 20 wrong):
+
+| Judge | Wrong caught | Correct kept | Kept set hand-labelled correct | $ per 1k pairs judged |
+|---|---|---|---|---|
+| MiniMax-M3 | 19/20 | 158/175 (90%) | 93% (vs 81% before judging) | ~1.6 |
+| gpt-oss-120b | 17/20 | 133/175 (76%) | 92% | ~0.13 |
+
+- **MiniMax-M3 is the judge.** It catches nearly every wrong pair and loses few good ones.
+- **The judge also found mistakes in the hand labels.** Of the 17 "correct" pairs it rejected, about 6
+  are real errors that I missed:
+  - a reference airport name matching two rows, which doubled every count;
+  - an area threshold off by 1000x (5e9 m² is 5,000 km², not 5 million);
+  - a missing January filter on data that has outlier dates back to 2009;
+  - `&&` (bounding-box overlap) used where the question asked about the actual geometry;
+  - a category filter not reapplied in an outer query.
+
+  The rest are judgement calls (arbitrary HAVING thresholds, bounding boxes approximating named areas,
+  centroid distances). So the kept set is likely cleaner than 93%.
+- **The one wrong pair it missed:** a "southern hemisphere" envelope that covers only the western half.
+- **Cost:** generation plus judging is about $3 per 1k accepted pairs, so ~$60 for a 20k-pair training set.
+
 ## Environment gotchas
 
 - DuckDB 2.0 spheroid functions need `SET geometry_always_xy = true`, or they refuse to run.
@@ -179,8 +204,8 @@ Prompt changes based on the bake-off failures:
 
 1. Done: v3 grounding improved correctness. The spheroid-cast and UTM-scope rules are added for the
    next round.
-2. **Judge step.** Build an LLM judge from a different model family (MiniMax-M3 is a candidate) and
-   check it against the ~220 hand labels (Haiku pilot, bake-off, v3). Add a self-consistency check: a second model writes SQL from
+2. Done: MiniMax-M3 judge, calibrated (Experiment 5). Still to add: the self-consistency check, where a
+   second model writes SQL from the question alone and the pair is kept only when the result sets match. Add a self-consistency check: a second model writes SQL from
    the question alone, and the pair is kept only when the result sets match.
 3. **Gold evaluation set.** ~300-500 pairs on held-out datasets (never used in training), with
    deterministic ordering, reviewed by hand.

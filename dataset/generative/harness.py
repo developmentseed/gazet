@@ -226,7 +226,7 @@ def exec_one(sql):
     all_null = bool(data) and all(v is None for row in data for v in row)
     return dict(
         n_rows=len(data), ms=round((time.time() - t) * 1000), cols=[d[0] for d in cur.description],
-        preview=[[_short(v, 40) for v in row] for row in data[:3]], all_null=all_null,
+        preview=[[_short(v, 40) for v in row] for row in data[:8]], all_null=all_null,
         ok=len(data) > 0 and not all_null, error=None if data and not all_null else ("empty result" if not data else "all-null result"),
     )
 

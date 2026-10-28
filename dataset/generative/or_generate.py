@@ -24,8 +24,8 @@ def api_key():
     return key
 
 
-def call(model, prompt, quant, reasoning, key):
-    body = dict(model=model, messages=[{"role": "user", "content": prompt}], temperature=0.7,
+def call(model, prompt, quant, reasoning, key, temperature=0.7):
+    body = dict(model=model, messages=[{"role": "user", "content": prompt}], temperature=temperature,
                 max_tokens=32000, usage={"include": True})
     if quant:
         # Only route to full/near-full precision deployments; fail rather than fall back to fp4/int4.
