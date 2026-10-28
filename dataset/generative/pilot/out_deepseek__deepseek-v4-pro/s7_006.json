@@ -1,0 +1,38 @@
+[
+  {
+    "question": "List the five most populous populated places in each country, showing the place name, population, and its location as GeoJSON.",
+    "sql": "WITH ranked AS (\n  SELECT country, name, pop_max, geometry,\n         ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn\n  FROM populated_places\n)\nSELECT country, name, pop_max, ST_AsGeoJSON(geometry) AS geojson, rn\nFROM ranked\nWHERE rn <= 5\nORDER BY country, rn;",
+    "skills": ["ROW_NUMBER", "window functions", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For every populated place, find the distance to the closest airport in kilometres. Within each country, rank the places by this distance from nearest to farthest. Return the country, place name, distance (km), and rank.",
+    "sql": "WITH place_dist AS (\n  SELECT p.name, p.country,\n         (SELECT MIN(ST_Distance(p.geometry, a.geometry, true)) FROM airports a) AS nearest_airport_m\n  FROM populated_places p\n),\nranked AS (\n  SELECT country, name,\n         nearest_airport_m / 1000.0 AS nearest_airport_km,\n         RANK() OVER (PARTITION BY country ORDER BY nearest_airport_m ASC) AS rank\n  FROM place_dist\n)\nSELECT country, name, nearest_airport_km, rank\nFROM ranked\nORDER BY country, rank;",
+    "skills": ["RANK", "ST_Distance", "subquery", "window functions", "spatial"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Give me the airport with the lowest scalerank for each airport type, along with its location as GeoJSON.",
+    "sql": "WITH ranked AS (\n  SELECT type, name, scalerank, geometry,\n         ROW_NUMBER() OVER (PARTITION BY type ORDER BY scalerank ASC) AS rn\n  FROM airports\n)\nSELECT type, name, scalerank, ST_AsGeoJSON(geometry) AS geojson\nFROM ranked\nWHERE rn = 1\nORDER BY type;",
+    "skills": ["ROW_NUMBER", "window functions", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Starting from London (51.5074° N, 0.1278° W), compute a running total of population for all world cities, ordered by their distance from London. Return the city name, population, distance in kilometres, and cumulative population.",
+    "sql": "WITH world_cities AS (\n  SELECT name, pop_max, geometry\n  FROM populated_places\n  WHERE is_world_city = true\n),\nwith_distance AS (\n  SELECT name, pop_max,\n         ST_Distance(geometry, ST_Point(-0.1278, 51.5074), true) / 1000.0 AS distance_km\n  FROM world_cities\n),\ncumulative AS (\n  SELECT name, pop_max, distance_km,\n         SUM(pop_max) OVER (ORDER BY distance_km) AS cumulative_pop\n  FROM with_distance\n)\nSELECT name, pop_max, distance_km, cumulative_pop\nFROM cumulative\nORDER BY distance_km;",
+    "skills": ["SUM() OVER", "window functions", "ST_Distance", "ST_Point", "running total"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each capital city, find the distance to the nearest 'major' airport (in km). Then rank all capitals by this distance, closest first. Show the capital name, country, distance, and rank.",
+    "sql": "WITH capitals AS (\n  SELECT name, country, geometry\n  FROM populated_places\n  WHERE is_capital = true\n),\ncap_dist AS (\n  SELECT c.name AS capital, c.country,\n         MIN(ST_Distance(c.geometry, a.geometry, true)) / 1000.0 AS nearest_major_airport_km\n  FROM capitals c\n  CROSS JOIN airports a\n  WHERE a.type = 'major'\n  GROUP BY c.name, c.country\n),\nranked AS (\n  SELECT capital, country, nearest_major_airport_km,\n         RANK() OVER (ORDER BY nearest_major_airport_km ASC) AS rank\n  FROM cap_dist\n)\nSELECT capital, country, nearest_major_airport_km, rank\nFROM ranked\nORDER BY rank;",
+    "skills": ["RANK", "ST_Distance", "aggregation", "window functions", "spatial join"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List, for each country, the most populous city and the closest airport to that city. Return the country, city name, airport name, and distance in kilometres.",
+    "sql": "WITH top_city AS (\n  SELECT country, name, pop_max, geometry,\n         ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn\n  FROM populated_places\n),\ntop_cities AS (\n  SELECT country, name, geometry\n  FROM top_city\n  WHERE rn = 1\n),\nnearest_airport AS (\n  SELECT t.country, t.name AS city, a.name AS airport,\n         ST_Distance(t.geometry, a.geometry, true) / 1000.0 AS distance_km\n  FROM top_cities t\n  JOIN LATERAL (\n    SELECT a.name, a.geometry\n    FROM airports a\n    ORDER BY ST_Distance(t.geometry, a.geometry, true)\n    LIMIT 1\n  ) a ON true\n)\nSELECT country, city, airport, distance_km\nFROM nearest_airport\nORDER BY country;",
+    "skills": ["ROW_NUMBER", "window functions", "ST_Distance", "LATERAL JOIN", "spatial nearest neighbour"],
+    "difficulty": "easy"
+  }
+]

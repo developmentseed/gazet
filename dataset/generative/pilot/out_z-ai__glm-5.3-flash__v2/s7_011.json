@@ -1,0 +1,38 @@
+[
+  {
+    "question": "For every country with at least 100 million residents, how many airports categorized as major (including combined major-and-military ones) lie within its borders? Return the country name, population in millions rounded to one decimal, and the airport count, ranked from most to fewest airports.",
+    "sql": "SELECT c.name,\n       ROUND(c.pop_est / 1000000.0, 1) AS population_millions,\n       COUNT(a.geometry) AS major_airports\nFROM countries c\nJOIN airports a\n  ON ST_Intersects(c.geometry, a.geometry)\n AND a.type LIKE 'major%'\nWHERE c.pop_est >= 100000000\nGROUP BY c.name, c.pop_est\nORDER BY major_airports DESC, population_millions DESC",
+    "skills": ["spatial join", "point-in-polygon count", "threshold filter", "ranking"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which five countries that host at least 5 airports are the densest in terms of airports per 100,000 km²? For each, report the name, the spheroid-computed area in km², the airport count, and the density rounded to two decimals.",
+    "sql": "WITH country_stats AS (\n  SELECT iso_a3, name, ST_Area_Spheroid(geometry) / 1000000.0 AS area_km2\n  FROM countries\n),\nairport_counts AS (\n  SELECT c.iso_a3, c.name, COUNT(*) AS n_airports\n  FROM countries c\n  JOIN airports a ON ST_Intersects(c.geometry, a.geometry)\n  GROUP BY c.iso_a3, c.name\n)\nSELECT cs.name,\n       ROUND(cs.area_km2, 1) AS area_km2,\n       ac.n_airports,\n       ROUND(ac.n_airports / (cs.area_km2 / 100000.0), 2) AS airports_per_100k_km2\nFROM country_stats cs\nJOIN airport_counts ac\n  ON cs.iso_a3 = ac.iso_a3 AND cs.name = ac.name\nWHERE ac.n_airports >= 5\nORDER BY airports_per_100k_km2 DESC\nLIMIT 5",
+    "skills": ["spatial join", "aggregation", "spheroid area", "density computation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each Caribbean country, how many airports with an assigned IATA code are located within 500 km great-circle distance of the country's central point? Show every Caribbean country, its name and the count, highest counts first.",
+    "sql": "SELECT c.name,\n       COUNT(a.geometry) FILTER (WHERE a.iata_code IS NOT NULL) AS iata_airports_within_500km\nFROM countries c\nLEFT JOIN airports a\n  ON ST_DWithin_Spheroid(a.geometry, ST_Centroid(c.geometry), 500000)\nWHERE c.subregion = 'Caribbean'\nGROUP BY c.name\nORDER BY iata_airports_within_500km DESC, c.name",
+    "skills": ["spatial join", "spheroid distance", "centroid", "conditional aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Group countries by continent and report, for each continent, how many countries contain at least one top-tier airport (importance rating 2), together with those countries' combined GDP expressed in trillions of US dollars, ordered from highest combined GDP to lowest.",
+    "sql": "WITH top_rated AS (\n  SELECT DISTINCT c.iso_a3, c.name, c.continent, c.gdp_md\n  FROM countries c\n  JOIN airports a ON ST_Intersects(c.geometry, a.geometry)\n  WHERE a.scalerank = 2\n)\nSELECT continent,\n       COUNT(*) AS countries_with_top_rated_airport,\n       ROUND(SUM(gdp_md) / 1000000.0, 2) AS combined_gdp_trillion_usd\nFROM top_rated\nGROUP BY continent\nORDER BY combined_gdp_trillion_usd DESC",
+    "skills": ["spatial join", "two-stage aggregation", "deduplication", "unit conversion"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Ignoring Antarctica, how many countries with at least 1 million residents contain no airports at all within their territory? For each continent give the count of such countries and their combined population in millions, sorted by the count descending.",
+    "sql": "SELECT c.continent,\n       COUNT(*) AS countries_without_airports,\n       ROUND(SUM(c.pop_est) / 1000000.0, 1) AS combined_population_millions\nFROM countries c\nWHERE c.continent <> 'Antarctica'\n  AND c.pop_est >= 1000000\n  AND NOT EXISTS (\n        SELECT 1\n        FROM airports a\n        WHERE ST_Intersects(c.geometry, a.geometry)\n      )\nGROUP BY c.continent\nORDER BY countries_without_airports DESC",
+    "skills": ["spatial anti-join", "NOT EXISTS", "grouped aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Working in a metric projected coordinate system, count how many airports lie within 200 km of each Western European country's boundary (coastline or land border). Keep only countries with at least 3 such airports and list the name and count from highest to lowest.",
+    "sql": "SELECT c.name,\n       COUNT(a.geometry) AS airports_within_200km_of_border\nFROM countries c\nJOIN airports a\n  ON ST_DWithin(\n       ST_Transform(ST_Boundary(c.geometry), 'EPSG:4326', 'EPSG:3035', always_xy := true),\n       ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:3035', always_xy := true),\n       200000\n     )\nWHERE c.subregion = 'Western Europe'\nGROUP BY c.name\nHAVING COUNT(a.geometry) >= 3\nORDER BY airports_within_200km_of_border DESC",
+    "skills": ["metric CRS transform", "boundary distance", "spatial join", "HAVING threshold"],
+    "difficulty": "hard"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "footway centroids lon lat rounded",
+    "sql": "SELECT id, ROUND(ST_X(ST_Centroid(geometry)), 5) AS lon, ROUND(ST_Y(ST_Centroid(geometry)), 5) AS lat FROM lisbon_roads WHERE class = 'footway' LIMIT 10;",
+    "skills": ["ST_Centroid", "ST_X", "ST_Y", "ROUND"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "residential road geojson",
+    "sql": "SELECT id, names.primary AS name, ST_AsGeoJSON(geometry) AS geojson FROM lisbon_roads WHERE class = 'residential' LIMIT 5;",
+    "skills": ["ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "tertiary road names WKT",
+    "sql": "SELECT names.primary AS name, ST_AsText(geometry) AS wkt FROM lisbon_roads WHERE class = 'tertiary' AND names.primary IS NOT NULL LIMIT 10;",
+    "skills": ["ST_AsText"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "paved 30 km/h roads formatted label",
+    "sql": "SELECT id, names.primary AS name, printf('%s - %s km/h', COALESCE(names.primary, 'Unnamed'), CAST(speed_limits[1].max_speed.value AS VARCHAR)) AS label FROM lisbon_roads WHERE road_surface[1].value = 'paved' AND speed_limits[1].max_speed.value = 30 LIMIT 10;",
+    "skills": ["string formatting", "printf", "COALESCE", "struct access"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "secondary road start points geojson",
+    "sql": "SELECT id, ST_AsGeoJSON(ST_StartPoint(geometry)) AS start_geojson FROM lisbon_roads WHERE class = 'secondary' LIMIT 10;",
+    "skills": ["ST_AsGeoJSON", "ST_StartPoint"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "service road centroids WKT",
+    "sql": "SELECT id, ST_AsText(ST_Centroid(geometry)) AS centroid_wkt FROM lisbon_roads WHERE class = 'service' LIMIT 10;",
+    "skills": ["ST_AsText", "ST_Centroid"],
+    "difficulty": "easy"
+  }
+]

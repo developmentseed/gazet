@@ -1,0 +1,39 @@
+You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
+
+Below are the tables available. Each is a DuckDB view with exactly the columns shown.
+
+TABLE countries  -- Natural Earth 1:50m country polygons with population/GDP attributes. EPSG:4326. rows=242
+  iso_a3 VARCHAR  -- distinct~246 e.g. ['ZMB', 'GUM']
+  iso_a2 VARCHAR  -- distinct~231 e.g. ['-99', 'TT']
+  name VARCHAR  -- distinct~243 e.g. ['Vatican', 'Marshall Is.']
+  name_long VARCHAR  -- distinct~249 e.g. ['Zambia', 'Northern Mariana Islands']
+  continent VARCHAR  -- distinct~8 top=['Africa', 'Asia', 'Europe', 'North America', 'Oceania', 'South America']
+  region_un VARCHAR  -- distinct~6 top=['Africa', 'Asia', 'Americas', 'Europe', 'Oceania', 'Antarctica']
+  subregion VARCHAR  -- distinct~24 top=['Caribbean', 'Eastern Africa', 'Western Asia', 'Western Africa', 'Southern Europe', 'Northern Europe']
+  pop_est BIGINT  -- range=[0, 1397715000]
+  gdp_md BIGINT  -- range=[-99, 21433226]
+  income_grp VARCHAR  -- distinct~4 top=['4. Lower middle income', '3. Upper middle income', '2. High income: nonOECD', '5. Low income', '1. High income: OECD']
+  economy VARCHAR  -- distinct~7 top=['6. Developing region', '7. Least developed region', '2. Developed region: nonG7', '5. Emerging region: G20', '1. Developed region: G7', '4. Emerging region: MIKT']
+  geometry GEOMETRY('EPSG:4326')  -- types=['MULTIPOLYGON', 'POLYGON'] extent=[-180.0, -89.999, 180.0, 83.6]
+
+TABLE rivers  -- Natural Earth 1:50m river and lake centerlines (linestrings). EPSG:4326. rows=478
+  name VARCHAR  -- distinct~342 e.g. ['White Sea Canal', 'Ob']
+  feature_class VARCHAR  -- distinct~3 top=['River', 'Lake Centerline', 'Canal']
+  scalerank INTEGER  -- range=[1, 12]
+  geometry GEOMETRY('EPSG:4326')  -- types=['MULTILINESTRING', 'LINESTRING', None] extent=[-165.244, -50.24, 176.326, 73.335]
+
+Write 6 diverse (question, sql) pairs for these tables.
+- Focus skill: distance and nearest-neighbour queries (ST_Distance_Sphere / ST_DWithin, ORDER BY distance LIMIT k, LATERAL)
+- Difficulty: hard
+- Question style: terse keyword-style requests a GIS analyst types into a search box
+
+Rules:
+- SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
+- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Only reference values that plausibly exist in the data (use the top values / ranges shown). The query should return at least one row.
+- Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
+- Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
+- Make the 6 pairs differ in intent, not just in literal values.
+
+Return ONLY a JSON array, no markdown fences:
+[{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "hard"}]

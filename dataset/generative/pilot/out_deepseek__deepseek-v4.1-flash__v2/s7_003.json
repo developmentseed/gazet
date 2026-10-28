@@ -1,0 +1,38 @@
+[
+  {
+    "question": "total building area km2",
+    "sql": "SELECT SUM(ST_Area_Spheroid(geometry)) / 1000000 AS total_area_km2 FROM lisbon_buildings;",
+    "skills": ["measurement", "area", "spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "total road length km",
+    "sql": "SELECT SUM(ST_Length_Spheroid(geometry)) / 1000 AS total_length_km FROM lisbon_roads;",
+    "skills": ["measurement", "length", "spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "footway length km",
+    "sql": "SELECT SUM(ST_Length_Spheroid(geometry)) / 1000 AS footway_length_km FROM lisbon_roads WHERE class = 'footway';",
+    "skills": ["measurement", "length", "spheroid", "filter"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "apartment building area m2",
+    "sql": "SELECT SUM(ST_Area_Spheroid(geometry)) AS area_m2 FROM lisbon_buildings WHERE class = 'apartments';",
+    "skills": ["measurement", "area", "spheroid", "filter"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "avg building area by roof shape",
+    "sql": "SELECT roof_shape, AVG(ST_Area_Spheroid(geometry)) AS avg_area_m2 FROM lisbon_buildings GROUP BY roof_shape ORDER BY avg_area_m2 DESC;",
+    "skills": ["measurement", "area", "spheroid", "aggregation", "group by"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "road length by class",
+    "sql": "SELECT class, SUM(ST_Length_Spheroid(geometry)) / 1000 AS length_km FROM lisbon_roads GROUP BY class ORDER BY length_km DESC;",
+    "skills": ["measurement", "length", "spheroid", "aggregation", "group by"],
+    "difficulty": "easy"
+  }
+]

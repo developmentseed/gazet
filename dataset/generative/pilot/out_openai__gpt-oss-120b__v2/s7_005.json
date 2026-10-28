@@ -1,0 +1,38 @@
+[
+  {
+    "question": "top 5 longest trips by haversine distance, show pickup/dropoff ids and distance km",
+    "sql": "SELECT STRUCT(pu_id := PULocationID, do_id := DOLocationID) AS loc_pair, distance_km FROM ( SELECT PULocationID, DOLocationID, ST_Distance_Sphere(ST_Point(PULocationID * 0.01, PULocationID * 0.01), ST_Point(DOLocationID * 0.01, DOLocationID * 0.01))/1000.0 AS distance_km FROM nyc_taxi_trips ) t ORDER BY distance_km DESC LIMIT 5",
+    "skills": ["struct", "list", "unnest", "spatial"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "average fare per passenger count as list of structs then unnest",
+    "sql": "WITH agg AS ( SELECT passenger_count, AVG(fare_amount) AS avg_fare FROM nyc_taxi_trips GROUP BY passenger_count ) SELECT * FROM UNNEST( LIST_AGG(STRUCT(passenger_count, avg_fare)) ) AS u(passenger_count, avg_fare)",
+    "skills": ["list", "struct", "unnest"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "trips where tip >20% of fare, return JSON with trip id, tip pct and location struct",
+    "sql": "SELECT json(STRUCT( trip_id := ROW_NUMBER() OVER (ORDER BY tpep_pickup_datetime), tip_pct := tip_amount / fare_amount * 100, loc := STRUCT(pu_id := PULocationID, do_id := DOLocationID) )) AS trip_json FROM nyc_taxi_trips WHERE fare_amount > 0 AND tip_amount > 0.2 * fare_amount LIMIT 10",
+    "skills": ["struct", "json", "list"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "pair of location ids with total amount sum >1000, output struct pair and sum",
+    "sql": "WITH pair_sums AS ( SELECT PULocationID, DOLocationID, SUM(total_amount) AS total_sum FROM nyc_taxi_trips GROUP BY PULocationID, DOLocationID ) SELECT * FROM UNNEST( LIST_AGG(STRUCT(pair := STRUCT(pu := PULocationID, do := DOLocationID), total_sum)) ) AS u(pair, total_sum) WHERE total_sum > 1000 LIMIT 5",
+    "skills": ["list", "struct", "unnest"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "median trip distance per hour of day as list of structs then unnest",
+    "sql": "WITH hour_dist AS ( SELECT EXTRACT(HOUR FROM tpep_pickup_datetime) AS hour, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY trip_distance) AS median_dist FROM nyc_taxi_trips GROUP BY hour ) SELECT * FROM UNNEST( LIST_AGG(STRUCT(hour, median_dist)) ) AS u(hour, median_dist) ORDER BY hour",
+    "skills": ["struct", "list", "unnest"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "list tip amounts per passenger count, unnest rows where tip >5",
+    "sql": "WITH tips AS ( SELECT passenger_count, LIST_AGG(tip_amount) AS tip_list FROM nyc_taxi_trips GROUP BY passenger_count ) SELECT passenger_count, tip FROM tips, UNNEST(tip_list) AS t(tip) WHERE tip > 5 ORDER BY tip DESC LIMIT 10",
+    "skills": ["list", "unnest", "struct"],
+    "difficulty": "hard"
+  }
+]

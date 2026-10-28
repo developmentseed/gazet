@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me a list of all major airports within 500 kilometers of the point at longitude -100 and latitude 40.",
+    "sql": "SELECT name FROM airports WHERE ST_Distance_Sphere(ST_Point(-100, 40), geometry) <= 500000 AND type = 'major'",
+    "skills": ["spatial join with aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map the number of airports in each scalerank category that are located in the northern hemisphere.",
+    "sql": "SELECT scalerank, COUNT(*) AS airport_count FROM airports WHERE ST_Y(geometry) > 0 GROUP BY scalerank ORDER BY scalerank",
+    "skills": ["spatial join with aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare the total number of major and military airports to mid and military airports in the dataset.",
+    "sql": "SELECT type, COUNT(*) AS airport_count FROM airports WHERE type IN ('major and military', 'mid and military') GROUP BY type ORDER BY airport_count DESC",
+    "skills": ["spatial join with aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the names of airports within 200 kilometers of the airport named 'Birmingham Int'l'.",
+    "sql": "SELECT a2.name FROM airports a1 JOIN airports a2 ON ST_Distance_Sphere(a1.geometry, a2.geometry) <= 200000 WHERE a1.name = 'Birmingham Int''l' AND a2.name != 'Birmingham Int''l'",
+    "skills": ["spatial join with aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Give me the total number of airports in each scalerank category that are within 1000 kilometers of the equator.",
+    "sql": "SELECT scalerank, COUNT(*) AS airport_count FROM airports WHERE ST_Y(geometry) BETWEEN -1000000 AND 1000000 GROUP BY scalerank ORDER BY scalerank",
+    "skills": ["spatial join with aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find the total count of airports in any category that are located in the western hemisphere and are of type 'major'.",
+    "sql": "SELECT COUNT(*) AS airport_count FROM airports WHERE ST_X(geometry) < 0 AND type = 'major'",
+    "skills": ["spatial join with aggregation"],
+    "difficulty": "medium"
+  }
+]

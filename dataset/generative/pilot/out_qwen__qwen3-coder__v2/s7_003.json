@@ -1,0 +1,38 @@
+[
+  {
+    "question": "total area of residential buildings in lisbon in hectares",
+    "sql": "SELECT SUM(ST_Area_Spheroid(geometry)) / 10000.0 AS total_area_hectares FROM lisbon_buildings WHERE class = 'residential'",
+    "skills": ["area calculation", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "length of roads classified as footway in km",
+    "sql": "SELECT SUM(ST_Length_Spheroid(geometry)) / 1000.0 AS total_length_km FROM lisbon_roads WHERE class = 'footway'",
+    "skills": ["length calculation", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "tallest building in lisbon and its height",
+    "sql": "SELECT names.primary AS name, height FROM lisbon_buildings ORDER BY height DESC LIMIT 1",
+    "skills": ["sorting", "attribute retrieval"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "how many buildings over 50 meters tall",
+    "sql": "SELECT COUNT(*) AS count FROM lisbon_buildings WHERE height > 50",
+    "skills": ["filtering", "counting"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "average number of floors for commercial buildings",
+    "sql": "SELECT AVG(num_floors) AS avg_floors FROM lisbon_buildings WHERE subtype = 'commercial'",
+    "skills": ["aggregation", "filtering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "show industrial buildings with flat roofs as geojson",
+    "sql": "SELECT ST_AsGeoJSON(geometry) AS geometry FROM lisbon_buildings WHERE subtype = 'industrial' AND roof_shape = 'flat'",
+    "skills": ["filtering", "geometry output"],
+    "difficulty": "easy"
+  }
+]

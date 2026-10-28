@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Find the 3 closest rivers to the centroid of Germany",
+    "sql": "SELECT r.name, ST_Distance_Sphere(ST_Centroid(c.geometry), r.geometry) AS distance FROM countries c, rivers r WHERE c.iso_a3 = 'DEU' AND r.geometry IS NOT NULL ORDER BY distance LIMIT 3",
+    "skills": ["nearest-neighbour", "distance", "centroid"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which African countries are within 500 km of the Nile River?",
+    "sql": "SELECT DISTINCT c.name FROM countries c, rivers r WHERE r.name = 'Nile' AND c.continent = 'Africa' AND ST_DWithin(c.geometry, r.geometry, 500000)",
+    "skills": ["DWithin", "filtering", "geography"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Find the largest economy (by GDP) within 1000km of Tokyo",
+    "sql": "SELECT c.name, c.gdp_md FROM countries c WHERE ST_DWithin(c.geometry, ST_Point(139.6917, 35.6895), 1000000) ORDER BY c.gdp_md DESC LIMIT 1",
+    "skills": ["DWithin", "ordering", "point-distance"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "List all rivers crossing through European countries ordered by their scalerank",
+    "sql": "SELECT DISTINCT r.name, r.scalerank FROM rivers r JOIN countries c ON ST_Intersects(r.geometry, c.geometry) WHERE c.continent = 'Europe' AND r.geometry IS NOT NULL ORDER BY r.scalerank",
+    "skills": ["spatial join", "intersection", "ordering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the shortest distance from Brazil to any river named Amazon?",
+    "sql": "SELECT MIN(ST_Distance_Sphere(c.geometry, r.geometry)) AS min_distance FROM countries c, rivers r WHERE c.iso_a3 = 'BRA' AND r.name = 'Amazon'",
+    "skills": ["min-distance", "cross-table distance"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each continent, find the most populous country and its nearest major river (scalerank <=3)",
+    "sql": "WITH RankedCountries AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY continent ORDER BY pop_est DESC) AS rn FROM countries) SELECT rc.continent, rc.name AS country, r.name AS river FROM RankedCountries rc, LATERAL (SELECT name, geometry FROM rivers WHERE scalerank <= 3 ORDER BY ST_Distance_Sphere(rc.geometry, geometry) LIMIT 1) r WHERE rc.rn = 1",
+    "skills": ["window function", "LATERAL join", "ranking"],
+    "difficulty": "hard"
+  }
+]

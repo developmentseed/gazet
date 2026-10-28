@@ -1,0 +1,38 @@
+[
+  {
+    "question": "top categories with >1000 places",
+    "sql": "WITH cat_counts AS (\n  SELECT basic_category, COUNT(*) AS cnt\n  FROM lisbon_places\n  GROUP BY basic_category\n)\nSELECT basic_category, cnt\nFROM cat_counts\nWHERE cnt > 1000\nORDER BY cnt DESC\nLIMIT 5;",
+    "skills": ["GROUP BY", "HAVING", "ORDER BY", "LIMIT"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "restaurants within 500m of Torre de Belém",
+    "sql": "SELECT id,\n       names.primary AS name,\n       ST_AsGeoJSON(geometry) AS geojson\nFROM lisbon_places\nWHERE basic_category = 'restaurant'\n  AND ST_Distance_Sphere(geometry, ST_Point(-9.215, 38.692)) <= 500;",
+    "skills": ["ST_Distance_Sphere", "WHERE", "spatial filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "count POIs by confidence level",
+    "sql": "SELECT CASE\n         WHEN confidence >= 0.8 THEN 'high'\n         WHEN confidence >= 0.5 THEN 'medium'\n         ELSE 'low'\n       END AS confidence_level,\n       COUNT(*) AS cnt\nFROM lisbon_places\nGROUP BY confidence_level\nORDER BY cnt DESC;",
+    "skills": ["CASE", "GROUP BY"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "centroid of each category as GeoJSON",
+    "sql": "WITH per_cat AS (\n  SELECT basic_category,\n         ST_Collect(LIST(geometry)) AS geom_collection\n  FROM lisbon_places\n  GROUP BY basic_category\n)\nSELECT basic_category,\n       ST_AsGeoJSON(ST_Centroid(geom_collection)) AS centroid_geojson\nFROM per_cat;",
+    "skills": ["CTE", "ST_Collect", "ST_Centroid", "ST_AsGeoJSON"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "top 3 highest‑confidence POIs per category",
+    "sql": "SELECT id,\n       names.primary AS name,\n       basic_category,\n       confidence,\n       geometry\nFROM lisbon_places\nQUALIFY ROW_NUMBER() OVER (PARTITION BY basic_category ORDER BY confidence DESC) <= 3;",
+    "skills": ["QUALIFY", "ROW_NUMBER", "PARTITION BY", "ORDER BY"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "categories whose point spread covers >1 km²",
+    "sql": "WITH hulls AS (\n  SELECT basic_category,\n         ST_ConvexHull(ST_Collect(LIST(geometry))) AS hull_geom\n  FROM lisbon_places\n  GROUP BY basic_category\n)\nSELECT basic_category,\n       ST_Area_Spheroid(ST_Transform(hull_geom, 'EPSG:4326', 'EPSG:3763', always_xy := true)) AS area_m2\nFROM hulls\nWHERE ST_Area_Spheroid(ST_Transform(hull_geom, 'EPSG:4326', 'EPSG:3763', always_xy := true)) > 1e6\nORDER BY area_m2 DESC;",
+    "skills": ["CTE", "ST_ConvexHull", "ST_Transform", "ST_Area_Spheroid", "HAVING"],
+    "difficulty": "medium"
+  }
+]

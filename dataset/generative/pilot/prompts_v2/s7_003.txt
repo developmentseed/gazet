@@ -1,0 +1,45 @@
+You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
+
+Below are the tables available. Each is a DuckDB view with exactly the columns shown.
+
+TABLE lisbon_buildings  -- Overture Maps building footprints (polygons) in Lisbon. EPSG:4326. height in metres. rows=94538
+  id VARCHAR  -- distinct~98996 e.g. ['4906735d-32ef-4020-9cbe-aa5c720eb2d2', '86ce7f8d-1ef2-4a94-b73d-2513e0473b82']
+  names STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[])  -- example={'primary': 'Torre VTS de Algés', 'common': {'en': 'Lisbon Harbor Control Tower'}, 'rules': [{'variant': 'alternate', 'language': None, 'perspectives': None,...
+  subtype VARCHAR  -- distinct~12 top=['residential', 'commercial', 'outbuilding', 'education', 'civic', 'industrial']
+  class VARCHAR  -- distinct~65 top=['apartments', 'residential', 'house', 'semidetached_house', 'roof', 'school']
+  height DOUBLE  -- range=[1.0, 190.5]
+  num_floors INTEGER  -- range=[1, 26]
+  roof_shape VARCHAR  -- distinct~11 top=['gabled', 'flat', 'hipped', 'pyramidal', 'gambrel', 'skillion']
+  geometry GEOMETRY('OGC:CRS84')  -- types=['MULTIPOLYGON', 'POLYGON'] extent=[-9.25, 38.68, -9.086, 38.8]
+
+TABLE lisbon_roads  -- Overture Maps road segments (linestrings) in Lisbon. EPSG:4326. rows=64870
+  id VARCHAR  -- distinct~66224 e.g. ['9e903112-7902-46aa-b26d-972552825416', 'e70b57ea-ce84-4ae6-af57-c33b2cbdff4e']
+  names STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[])  -- example={'primary': 'Passeio Marítimo de Algés', 'common': None, 'rules': [{'variant': 'common', 'language': None, 'perspectives': None, 'value': 'Passeio Marítimo d...
+  subtype VARCHAR  -- distinct~1 top=['road']
+  class VARCHAR  -- distinct~16 top=['footway', 'residential', 'service', 'tertiary', 'steps', 'secondary']
+  subclass VARCHAR  -- distinct~7 top=['sidewalk', 'parking_aisle', 'crosswalk', 'driveway', 'link', 'alley']
+  road_surface STRUCT("value" VARCHAR, "between" DOUBLE[])[]  -- example=[{'value': 'paved', 'between': None}]
+  speed_limits STRUCT(min_speed STRUCT("value" INTEGER, unit VARCHAR), max_speed STRUCT("value" INTEGER, unit VARCHAR), is_max_speed_variable BOOLEAN, "when" STRUCT(during VARCHAR, heading VARCHAR, "using" VARCHAR[], recognized VARCHAR[], "mode" VARCHAR[], vehicle STRUCT(dimension VARCHAR, comparison VARCHAR, "value" DOUBLE, unit VARCHAR)[]), "between" DOUBLE[])[]  -- example=[{'min_speed': None, 'max_speed': {'value': 30, 'unit': 'km/h'}, 'is_max_speed_variable': None, 'when': None, 'between': None}]
+  geometry GEOMETRY('OGC:CRS84')  -- types=['LINESTRING'] extent=[-9.25, 38.68, -9.09, 38.8]
+
+Write 6 diverse (question, sql) pairs for these tables.
+- Focus skill: measurement in real units (area/length via ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS)
+- Difficulty: easy
+- Question style: terse keyword-style requests a GIS analyst types into a search box
+
+Rules:
+- SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
+- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Only reference values that plausibly exist in the data (use the top values / ranges shown). The query should return at least one row.
+- Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
+- Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
+- Make the 6 pairs differ in intent, not just in literal values.
+
+DuckDB spatial is NOT PostGIS. `SET geometry_always_xy = true` is active (lon/lat order). Differences that matter:
+- No SRID arguments and no ST_SetSRID: ST_MakeEnvelope(xmin, ymin, xmax, ymax), ST_GeomFromText(wkt), ST_Point(lon, lat).
+- ST_Transform takes CRS strings, not integers: ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true).
+- No GEOGRAPHY type and no 'spheroid' / use_spheroid argument on ST_Distance or ST_Area. For metres use ST_Distance_Sphere / ST_Distance_Spheroid / ST_DWithin_Spheroid (POINT inputs only), ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS. For distances involving lines or polygons, transform to a metric CRS first.
+- ST_Collect takes a list: ST_Collect(list(geom)). Aggregates are ST_Union_Agg(geom) and ST_Extent_Agg(geom).
+
+Return ONLY a JSON array, no markdown fences:
+[{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "easy"}]

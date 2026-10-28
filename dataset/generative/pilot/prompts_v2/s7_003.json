@@ -1,0 +1,1 @@
+{"id": "s7_003", "tables": ["lisbon_buildings", "lisbon_roads"], "skill": "measurement in real units (area/length via ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS)", "difficulty": "easy", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}

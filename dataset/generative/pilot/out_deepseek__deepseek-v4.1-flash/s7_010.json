@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which places are directly on a road?",
+    "sql": "SELECT p.names.primary AS place_name, p.basic_category, r.names.primary AS road_name FROM lisbon_places p JOIN lisbon_roads r ON ST_Intersects(p.geometry, r.geometry) WHERE p.operating_status = 'open' LIMIT 20;",
+    "skills": ["ST_Intersects", "spatial join"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which roads pass within 30 metres of a historic site?",
+    "sql": "WITH landmark AS (SELECT geometry FROM lisbon_places WHERE taxonomy.primary = 'historic_site' LIMIT 1) SELECT DISTINCT r.names.primary AS road_name FROM lisbon_roads r, landmark l WHERE ST_Intersects(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), ST_Buffer(ST_Transform(l.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), 30)) LIMIT 20;",
+    "skills": ["ST_Intersects", "ST_Buffer", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List pairs of secondary roads that touch each other end-to-end.",
+    "sql": "SELECT r1.names.primary AS road1, r2.names.primary AS road2 FROM lisbon_roads r1 JOIN lisbon_roads r2 ON r1.id < r2.id WHERE r1.class = 'secondary' AND r2.class = 'secondary' AND ST_Touches(r1.geometry, r2.geometry) LIMIT 20;",
+    "skills": ["ST_Touches", "self-join"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which historic sites are contained within 100 metres of a footway?",
+    "sql": "SELECT DISTINCT p.names.primary AS site_name FROM lisbon_places p JOIN lisbon_roads r ON r.class = 'footway' WHERE ST_Contains(ST_Buffer(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), 100), ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true)) AND p.taxonomy.primary = 'historic_site' LIMIT 20;",
+    "skills": ["ST_Contains", "ST_Buffer", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find restaurants that are within 50 metres of Passeio Marítimo de Algés.",
+    "sql": "WITH avenue AS (SELECT geometry FROM lisbon_roads WHERE names.primary = 'Passeio Marítimo de Algés') SELECT DISTINCT p.names.primary AS restaurant_name FROM lisbon_places p, avenue a WHERE p.basic_category = 'restaurant' AND ST_Within(ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), ST_Buffer(ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), 50)) LIMIT 20;",
+    "skills": ["ST_Within", "ST_Buffer", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which roads pass within 100 metres of any restaurant?",
+    "sql": "SELECT DISTINCT r.names.primary AS road_name FROM lisbon_roads r JOIN lisbon_places p ON p.basic_category = 'restaurant' WHERE ST_Intersects(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), ST_Buffer(ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), 100)) LIMIT 20;",
+    "skills": ["ST_Intersects", "ST_Buffer", "ST_Transform"],
+    "difficulty": "medium"
+  }
+]

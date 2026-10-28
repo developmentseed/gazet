@@ -1,0 +1,38 @@
+[
+  {
+    "question": "category counts and average confidence for categories with at least 500 POIs",
+    "sql": "SELECT basic_category, COUNT(*) AS n, ROUND(AVG(confidence), 3) AS avg_conf\nFROM lisbon_places\nGROUP BY basic_category\nHAVING COUNT(*) >= 500\nORDER BY n DESC;",
+    "skills": ["GROUP BY", "HAVING"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "nearest place per category to city center (-9.14, 38.72) with distance in meters",
+    "sql": "WITH d AS (\n  SELECT id, names.primary AS name, basic_category,\n         ST_Distance_Spheroid(geometry, ST_Point(-9.14, 38.72)) AS dist_m\n  FROM lisbon_places\n)\nSELECT name, basic_category, ROUND(dist_m, 0) AS dist_m\nFROM d\nQUALIFY ROW_NUMBER() OVER (PARTITION BY basic_category ORDER BY dist_m) = 1\nORDER BY dist_m\nLIMIT 20;",
+    "skills": ["CTE", "QUALIFY", "spatial distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "confidence buckets per category: count of low, medium, high confidence places",
+    "sql": "SELECT basic_category,\n       COUNT(*) AS n,\n       SUM(CASE WHEN confidence < 0.4 THEN 1 ELSE 0 END) AS low_conf,\n       SUM(CASE WHEN confidence >= 0.4 AND confidence < 0.7 THEN 1 ELSE 0 END) AS med_conf,\n       SUM(CASE WHEN confidence >= 0.7 THEN 1 ELSE 0 END) AS high_conf\nFROM lisbon_places\nGROUP BY basic_category\nORDER BY n DESC\nLIMIT 10;",
+    "skills": ["GROUP BY", "CASE"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "places whose confidence is above the average for their basic_category, ranked by difference",
+    "sql": "WITH cat_avg AS (\n  SELECT basic_category, AVG(confidence) AS avg_conf\n  FROM lisbon_places\n  GROUP BY basic_category\n)\nSELECT p.id, p.names.primary AS name, p.basic_category,\n       ROUND(p.confidence, 2) AS conf,\n       ROUND(c.avg_conf, 2) AS avg_conf,\n       ROUND(p.confidence - c.avg_conf, 2) AS diff\nFROM lisbon_places p\nJOIN cat_avg c USING (basic_category)\nWHERE p.confidence > c.avg_conf\nORDER BY diff DESC\nLIMIT 20;",
+    "skills": ["CTE", "JOIN"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "categories with at least 50 places and average distance from city center less than 2 km",
+    "sql": "SELECT basic_category,\n       COUNT(*) AS n,\n       ROUND(AVG(ST_Distance_Spheroid(geometry, ST_Point(-9.14, 38.72))), 0) AS avg_dist_m\nFROM lisbon_places\nGROUP BY basic_category\nHAVING COUNT(*) >= 50\n   AND AVG(ST_Distance_Spheroid(geometry, ST_Point(-9.14, 38.72))) < 2000\nORDER BY avg_dist_m;",
+    "skills": ["GROUP BY", "HAVING", "spatial distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "operating status counts with percentage and report date",
+    "sql": "WITH counts AS (\n  SELECT operating_status, COUNT(*) AS n\n  FROM lisbon_places\n  GROUP BY operating_status\n)\nSELECT current_date AS asof_date,\n       operating_status,\n       n,\n       ROUND(100.0 * n / SUM(n) OVER (), 2) AS pct\nFROM counts\nORDER BY n DESC;",
+    "skills": ["date-time function", "CTE", "GROUP BY"],
+    "difficulty": "medium"
+  }
+]

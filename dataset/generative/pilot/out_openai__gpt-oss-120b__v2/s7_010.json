@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which restaurants are located within 300 meters of the Praça do Comércio in Lisbon?",
+    "sql": "SELECT p.id, p.names.primary AS name, p.addresses[1].freeform AS address, ST_Distance_Sphere(p.geometry, ST_Point(-9.1406, 38.7079)) AS distance_m FROM lisbon_places p WHERE p.basic_category = 'restaurant' AND ST_Distance_Sphere(p.geometry, ST_Point(-9.1406, 38.7079)) <= 300 ORDER BY distance_m;",
+    "skills": ["ST_Distance_Sphere"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Give me all road segments that intersect the area bounded by the rectangle covering the historic Alfama neighbourhood (roughly between longitudes -9.130 and -9.120, latitudes 38.710 to 38.720).",
+    "sql": "WITH bbox AS (SELECT ST_MakeEnvelope(-9.130, 38.710, -9.120, 38.720) AS geom) SELECT r.id, r.class, r.subclass, ST_AsGeoJSON(r.geometry) AS geojson FROM lisbon_roads r, bbox b WHERE ST_Intersects(r.geometry, b.geom);",
+    "skills": ["ST_Intersects", "ST_MakeEnvelope"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which places are completely inside the Parque das Nações (the park area defined by this polygon: POLYGON((-9.099 38.745, -9.099 38.751, -9.087 38.751, -9.087 38.745, -9.099 38.745)))?",
+    "sql": "WITH park AS (SELECT ST_GeomFromText('POLYGON((-9.099 38.745, -9.099 38.751, -9.087 38.751, -9.087 38.745, -9.099 38.745))') AS geom) SELECT p.id, p.names.primary AS name, p.basic_category, ST_AsGeoJSON(p.geometry) AS geojson FROM lisbon_places p, park pk WHERE ST_Within(p.geometry, pk.geom);",
+    "skills": ["ST_Within", "ST_GeomFromText"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find all road segments that touch the same endpoint as the road segment with id 'e70b57ea-ce84-4ae6-af57-c33b2cbdff4e'.",
+    "sql": "WITH target AS (SELECT geometry FROM lisbon_roads WHERE id = 'e70b57ea-ce84-4ae6-af57-c33b2cbdff4e') SELECT r.id, r.class, r.subclass, ST_AsGeoJSON(r.geometry) AS geojson FROM lisbon_roads r, target t WHERE r.id <> t.id AND ST_Touches(r.geometry, t.geometry);",
+    "skills": ["ST_Touches"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the names of all personal or beauty service places that are located inside the municipality boundary defined by the polygon of Lisbon city centre (POLYGON((-9.150 38.700, -9.150 38.720, -9.120 38.720, -9.120 38.700, -9.150 38.700))). Return name and address.",
+    "sql": "WITH city_center AS (SELECT ST_GeomFromText('POLYGON((-9.150 38.700, -9.150 38.720, -9.120 38.720, -9.120 38.700, -9.150 38.700))') AS geom) SELECT p.id, p.names.primary AS name, p.addresses[1].freeform AS address FROM lisbon_places p, city_center c WHERE p.basic_category = 'personal_or_beauty_service' AND ST_Within(p.geometry, c.geom);",
+    "skills": ["ST_Within"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Calculate the total length in kilometers of all residential roads that lie within 1 km of the Lisbon airport (approx. at longitude -9.134, latitude 38.775).",
+    "sql": "WITH airport AS (SELECT ST_Point(-9.134, 38.775) AS pt), buf AS (SELECT ST_Transform(ST_Buffer(ST_Transform(pt, 'EPSG:4326', 'EPSG:3857', always_xy := true), 1000), 'EPSG:3857', 'EPSG:4326', always_xy := true) AS geom FROM airport) SELECT SUM(ST_Length_Spheroid(r.geometry)) / 1000.0 AS total_km FROM lisbon_roads r, buf b WHERE r.class = 'residential' AND ST_Intersects(r.geometry, b.geom);",
+    "skills": ["ST_Intersects", "ST_Buffer", "ST_Length_Spheroid", "ST_Transform"],
+    "difficulty": "medium"
+  }
+]

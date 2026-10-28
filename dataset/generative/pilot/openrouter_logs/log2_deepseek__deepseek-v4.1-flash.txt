@@ -1,0 +1,2 @@
+5 scenarios to (re)generate
+deepseek/deepseek-v4.1-flash: 5/5 ok, cost $0.0184, providers ['Baidu', 'InferenceNet'], avg completion 8125 tok (reasoning 7051)

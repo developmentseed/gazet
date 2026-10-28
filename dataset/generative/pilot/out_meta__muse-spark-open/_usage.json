@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "Nebius",
+  "wall_s": 27.5,
+  "prompt_tokens": 1381,
+  "completion_tokens": 3010,
+  "reasoning_tokens": 2478,
+  "cost": 0.01437795
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "BaseTen",
+  "wall_s": 25.2,
+  "prompt_tokens": 1017,
+  "completion_tokens": 6413,
+  "reasoning_tokens": 5687,
+  "cost": 0.0283857
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "Nebius",
+  "wall_s": 33.3,
+  "prompt_tokens": 1329,
+  "completion_tokens": 3492,
+  "reasoning_tokens": 3092,
+  "cost": 0.01636145
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "Modal",
+  "wall_s": 12.9,
+  "prompt_tokens": 1157,
+  "completion_tokens": 2889,
+  "reasoning_tokens": 2283,
+  "cost": 0.0137245
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "Modal",
+  "wall_s": 11.8,
+  "prompt_tokens": 1006,
+  "completion_tokens": 2953,
+  "reasoning_tokens": 2455,
+  "cost": 0.01380775
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "Modal",
+  "wall_s": 16.6,
+  "prompt_tokens": 1021,
+  "completion_tokens": 4663,
+  "reasoning_tokens": 3448,
+  "cost": 0.021094
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "Together",
+  "wall_s": 14.6,
+  "prompt_tokens": 946,
+  "completion_tokens": 4137,
+  "reasoning_tokens": 3616,
+  "cost": 0.01864155
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "Makora",
+  "wall_s": 35.3,
+  "prompt_tokens": 690,
+  "completion_tokens": 13193,
+  "reasoning_tokens": 12311,
+  "cost": 0.05651035
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "Makora",
+  "wall_s": 70.9,
+  "prompt_tokens": 872,
+  "completion_tokens": 32000,
+  "reasoning_tokens": 32002,
+  "cost": 0.1362452
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "Makora",
+  "wall_s": 26.0,
+  "prompt_tokens": 962,
+  "completion_tokens": 9644,
+  "reasoning_tokens": 8732,
+  "cost": 0.0412039
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "Nebius",
+  "wall_s": 74.2,
+  "prompt_tokens": 1473,
+  "completion_tokens": 8311,
+  "reasoning_tokens": 7524,
+  "cost": 0.0356142
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "BaseTen",
+  "wall_s": 64.5,
+  "prompt_tokens": 1080,
+  "completion_tokens": 14238,
+  "reasoning_tokens": 12965,
+  "cost": 0.0617207
+ }
+]

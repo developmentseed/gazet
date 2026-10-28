@@ -1,0 +1,2 @@
+12 scenarios to (re)generate
+meta/muse-glimmer-30b: 12/12 ok, cost $0.0769, providers ['DeepInfra'], avg completion 5076 tok (reasoning 4539)

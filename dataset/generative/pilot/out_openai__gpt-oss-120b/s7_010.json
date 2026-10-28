@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which restaurants are located within 300 meters of the Belém Tower?",
+    "sql": "SELECT\n    p.id,\n    p.names.primary AS name,\n    p.addresses AS address\nFROM lisbon_places AS p\nWHERE p.basic_category = 'restaurant'\n  AND ST_Distance(\n        ST_Transform(p.geometry, 3857),\n        ST_Transform(ST_GeomFromText('POINT(-9.2157 38.6916)', 4326), 3857)\n      ) <= 300;",
+    "skills": ["ST_Distance", "ST_Transform", "spatial filtering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show all footways that touch any residential road.",
+    "sql": "WITH footways AS (\n    SELECT id, geometry FROM lisbon_roads WHERE class = 'footway'\n), residential AS (\n    SELECT id, geometry FROM lisbon_roads WHERE class = 'residential'\n)\nSELECT f.id AS footway_id, r.id AS residential_id\nFROM footways f\nJOIN residential r\n  ON ST_Touches(f.geometry, r.geometry);",
+    "skills": ["ST_Touches", "self‑join"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find all historic sites that lie completely inside the Alfama neighbourhood.",
+    "sql": "SELECT\n    p.id,\n    p.names.primary AS name,\n    p.taxonomy.primary AS category\nFROM lisbon_places AS p\nWHERE p.taxonomy.primary = 'historic_site'\n  AND ST_Within(\n        p.geometry,\n        ST_GeomFromText('POLYGON((-9.13 38.71, -9.12 38.71, -9.12 38.72, -9.13 38.72, -9.13 38.71))', 4326)\n      );",
+    "skills": ["ST_Within"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which road segments have a posted maximum speed over 50 km/h and intersect the Tagus River?",
+    "sql": "SELECT\n    r.id,\n    r.class,\n    r.subclass,\n    r.speed_limits[1].max_speed.value AS max_speed_kmh\nFROM lisbon_roads AS r\nWHERE r.speed_limits[1].max_speed.value > 50\n  AND ST_Intersects(\n        r.geometry,\n        ST_GeomFromText('LINESTRING(-9.2 38.7, -9.1 38.8)', 4326)\n      );",
+    "skills": ["ST_Intersects", "array access"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which road segments pass through the location of Lisbon Airport?",
+    "sql": "SELECT\n    r.id,\n    r.class,\n    r.subclass,\n    ST_AsGeoJSON(r.geometry) AS geojson\nFROM lisbon_roads AS r\nWHERE ST_Intersects(\n        r.geometry,\n        ST_GeomFromText('POINT(-9.134167 38.774167)', 4326)\n      );",
+    "skills": ["ST_Intersects", "ST_AsGeoJSON"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List all road segments that are within 100 meters of any restaurant, together with their class and length in metres.",
+    "sql": "WITH restaurants AS (\n    SELECT geometry FROM lisbon_places WHERE basic_category = 'restaurant'\n)\nSELECT\n    r.id,\n    r.class,\n    r.subclass,\n    ST_Length(ST_Transform(r.geometry, 3857)) AS length_m\nFROM lisbon_roads AS r\nWHERE EXISTS (\n    SELECT 1 FROM restaurants AS rest\n    WHERE ST_Distance(\n            ST_Transform(r.geometry, 3857),\n            ST_Transform(rest.geometry, 3857)\n          ) <= 100\n);",
+    "skills": ["ST_Distance", "ST_Transform", "ST_Length", "EXISTS"],
+    "difficulty": "medium"
+  }
+]

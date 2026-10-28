@@ -1,0 +1,38 @@
+[
+  {
+    "question": "nearest countries to 10km of the equator",
+    "sql": "SELECT name, ST_Distance_Sphere(ST_Point(0, 0), geometry) AS distance FROM countries WHERE ST_Distance_Sphere(ST_Point(0, 0), geometry) <= 10000 ORDER BY distance LIMIT 5",
+    "skills": ["distance", "nearest-neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "find countries within 500km of the prime meridian",
+    "sql": "SELECT name FROM countries WHERE ST_DWithin_Spheroid(ST_Point(0, 0), geometry, 500000) ORDER BY ST_Distance_Sphere(ST_Point(0, 0), geometry)",
+    "skills": ["distance", "nearest-neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "what is the closest river to the center of the UK",
+    "sql": "WITH uk_center AS (SELECT ST_Point(-0.1278, 51.5074) AS center) SELECT name FROM rivers, uk_center WHERE ST_Distance_Sphere(center, geometry) = (SELECT MIN(ST_Distance_Sphere(center, geometry)) FROM rivers, uk_center) LIMIT 1",
+    "skills": ["distance", "nearest-neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "show the 3 nearest countries to São Paulo",
+    "sql": "WITH sp_point AS (SELECT ST_Point(-46.6333, -23.5505) AS point) SELECT name FROM countries, sp_point ORDER BY ST_Distance_Sphere(point, geometry) LIMIT 3",
+    "skills": ["distance", "nearest-neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "list rivers within 200km of the coast of Japan",
+    "sql": "WITH japan_coast AS (SELECT ST_Union_Agg(geometry) AS geom FROM countries WHERE name = 'Japan') SELECT name FROM rivers, japan_coast WHERE ST_DWithin_Spheroid(japan_coast.geom, geometry, 200000) ORDER BY ST_Distance_Sphere(japan_coast.geom, geometry)",
+    "skills": ["distance", "nearest-neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "which countries are within 100km of the border of Brazil",
+    "sql": "WITH brazil_border AS (SELECT ST_Union_Agg(geometry) AS geom FROM countries WHERE name = 'Brazil') SELECT name FROM countries, brazil_border WHERE ST_DWithin_Spheroid(brazil_border.geom, geometry, 100000) AND name != 'Brazil' ORDER BY ST_Distance_Sphere(brazil_border.geom, geometry)",
+    "skills": ["distance", "nearest-neighbour"],
+    "difficulty": "hard"
+  }
+]

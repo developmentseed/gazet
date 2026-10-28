@@ -1,0 +1,817 @@
+## 0 [s7_003 easy] rows=16
+Q: road length by category km
+SELECT class AS road_category, ROUND(SUM(ST_Length_Spheroid(geometry)) / 1000.0, 2) AS total_km FROM lisbon_roads GROUP BY class ORDER BY total_km DESC;
+-> [['residential', '1329.66'], ['footway', '1218.73']]
+
+## 1 [s7_008 hard] rows=5
+Q: List the top 5 taxi zones in Queens with the highest average tip amounts for trips originating inside the bounding box from -73.9 to -73.8 longitude and 40.7 to 40.75 latitude, sorted by average tip descending.
+SELECT tz.zone, AVG(tt.tip_amount) AS avg_tip FROM nyc_taxi_trips tt JOIN nyc_taxi_zones tz ON tt.PULocationID = tz.location_id WHERE tz.borough = 'Queens' AND EXISTS (SELECT 1 FROM nyc_taxi_zones tz2 WHERE tz2.location_id = tt.PULocationID AND ST_Intersects(tz2.geometry, ST_MakeEnvelope(-73.9, 40.7, -73.8, 40.75))) GROUP BY tz.zone ORDER BY avg_tip DESC LIMIT 5
+-> [['Flushing Meadows-Corona Park', '7.77'], ['Maspeth', '5.058695652173912']]
+
+## 2 [s7_011 hard] rows=4
+Q: For countries classified as High income: OECD with GDP above 500 billion dollars, aggregate total airports per subregion. Which subregions contain more than 15 airports in total?
+WITH eligible_countries AS (SELECT c.subregion, c.geometry FROM countries c WHERE c.income_grp = '1. High income: OECD' AND c.gdp_md > 500000), joined AS (SELECT ec.subregion, a.geometry AS airport_geom FROM eligible_countries ec JOIN airports a ON ST_Within(a.geometry, ec.geometry)) SELECT subregion, COUNT(airport_geom) AS total_airports FROM joined GROUP BY subregion HAVING COUNT(airport_geom) > 15 ORDER BY total_airports DESC
+-> [['Northern America', '174'], ['Western Europe', '32']]
+
+## 3 [s7_010 medium] rows=4
+Q: Can you show me all the open restaurants in the downtown Baixa area? I'm looking for places to eat around there.
+SELECT names.primary AS place_name, basic_category, operating_status FROM lisbon_places WHERE basic_category = 'restaurant' AND operating_status = 'open' AND ST_Within(geometry, ST_MakeEnvelope(-9.142, 38.707, -9.125, 38.715)) LIMIT 20
+-> [['RIB Beef and Wine', 'restaurant', 'open'], ['Taberna da Praça Lisboa', 'restaurant', 'open']]
+
+## 4 [s7_011 hard] rows=11
+Q: Which countries have more than 5 major airports within their boundaries, and what is the total estimated population of those countries?
+SELECT c.name, SUM(c.pop_est) AS total_population FROM countries c JOIN airports a ON ST_Within(a.geometry, c.geometry) WHERE a.type = 'major' GROUP BY c.name HAVING COUNT(a.*) > 5
+-> [['Italy', '482379168'], ['Brazil', '1477346689']]
+
+## 5 [s7_006 easy] rows=893
+Q: Show a running total of how many airports you have encountered as you move eastward across the dataset (ordered by longitude).
+SELECT name,
+       iata_code,
+       ST_X(geometry) AS lon,
+       ROW_NUMBER() OVER (ORDER BY ST_X(geometry)) AS seq,
+       COUNT(*) OVER (ORDER BY ST_X(geometry) ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_count
+FROM airports
+ORDER BY lon;
+-> [["Fua'amotu Int'l", 'TBU', '-175.135635', '1', '1'], ["Vava'u Int'l", 'VAV', '-173.96809394415877', '2', '2']]
+
+## 6 [s7_010 medium] rows=39
+Q: Which historic sites are completely enclosed within the district boundary represented by the polygon covering coordinates near (-9.14, 38.71) to (-9.13, 38.72)?
+WITH district AS (SELECT ST_MakePolygon(ST_MakeLine([ST_Point(-9.14, 38.71), ST_Point(-9.13, 38.71), ST_Point(-9.13, 38.72), ST_Point(-9.14, 38.72), ST_Point(-9.14, 38.71)])) AS geom) SELECT lp.names.primary AS site_name FROM lisbon_places lp, district d WHERE lp.taxonomy.primary = 'historic_site' AND ST_Within(lp.geometry, d.geom)
+-> [['FootIocker Outlet Store'], ['奥古斯塔街凯旋门']]
+
+## 7 [s7_008 hard] rows=1
+Q: Among January 2024 yellow-taxi trips, how many started in the rectangle around the Upper West Side between 74.00°W and 73.95°W, 40.76°N and 40.81°N, and ended in the rectangle around Downtown Brooklyn between 73.99°W and 73.96°W, 40.68°N and 40.71°N?
+WITH uws AS (SELECT ST_MakeEnvelope(-74.00, 40.76, -73.95, 40.81) AS geom), downtown_bk AS (SELECT ST_MakeEnvelope(-73.99, 40.68, -73.96, 40.71) AS geom) SELECT count(*) AS trip_count FROM nyc_taxi_trips t JOIN nyc_taxi_zones pz ON t.PULocationID = pz.location_id JOIN nyc_taxi_zones dz ON t.DOLocationID = dz.location_id CROSS JOIN uws CROSS JOIN downtown_bk WHERE t.tpep_pickup_datetime >= TIMESTAMP '2024-01-01' AND t.tpep_pickup_datetime < TIMESTAMP '2024-02-01' AND ST_Intersects(pz.geometry, uws.geom) AND ST_Intersects(dz.geometry, downtown_bk.geom);
+-> [['829']]
+
+## 8 [s7_003 easy] rows=1
+Q: total area of residential buildings in lisbon in hectares
+SELECT SUM(ST_Area_Spheroid(geometry)) / 10000.0 AS total_area_hectares FROM lisbon_buildings WHERE class = 'residential'
+-> [['85.30883815702737']]
+
+## 9 [s7_009 easy] rows=10
+Q: service road centroids geojson
+SELECT names.primary AS name, ST_AsGeoJSON(ST_Centroid(geometry)) AS centroid_geojson FROM lisbon_roads WHERE class = 'service' AND names.primary IS NOT NULL LIMIT 10;
+-> [['Largo da Fundação Champalimaud', '{"type":"Point","coordinates":[-9.220...'], ['Largo da Fundação Champalimaud', '{"type":"Point","coordinates":[-9.220...']]
+
+## 10 [s7_001 medium] rows=4
+Q: Give me a list of all major airports within 500 kilometers of the point at longitude -100 and latitude 40.
+SELECT name FROM airports WHERE ST_Distance_Sphere(ST_Point(-100, 40), geometry) <= 500000 AND type = 'major'
+-> [["Kansas City Int'l"], ['City of Colorado Springs']]
+
+## 11 [s7_005 hard] rows=6
+Q: split every ride total into its charge components and rank the components by total dollars, with revenue share and per-ride average
+WITH components AS (
+  SELECT UNNEST([
+    struct_pack(component := 'base_fare', amount := fare_amount),
+    struct_pack(component := 'surcharges', amount := extra + mta_tax + improvement_surcharge),
+    struct_pack(component := 'tolls', amount := tolls_amount),
+    struct_pack(component := 'congestion', amount := congestion_surcharge),
+    struct_pack(component := 'airport', amount := Airport_fee),
+    struct_pack(component := 'tip', amount := tip_amount)
+  ]) AS fee
+  FROM nyc_taxi_trips
+  WHERE total_amount > 0
+)
+SELECT fee.component,
+       count(*) AS line_items,
+       round(sum(fee.amount), 2) AS total_usd,
+       round(avg(fee.amount), 2) AS avg_usd,
+       round(100.0 * sum(fee.amount) / sum(sum(fee.amount)) OVER (), 2) AS pct_of_revenue
+FROM components
+GROUP BY fee.component
+ORDER BY total_usd DESC
+-> [['base_fare', '197691', '3693412.17', '18.68', '66.91'], ['tip', '197691', '668626.41', '3.38', '12.11']]
+
+## 12 [s7_003 easy] rows=1
+Q: total length of residential roads km
+SELECT SUM(ST_Length_Spheroid(geometry)) / 1000 AS total_length_km FROM lisbon_roads WHERE class = 'residential';
+-> [['1329.6631260307568']]
+
+## 13 [s7_009 easy] rows=5
+Q: name class label concat
+SELECT names.primary AS name, UPPER(class) AS class_upper, class || ' (' || COALESCE(subclass, 'none') || ')' AS class_label FROM lisbon_roads WHERE names.primary IS NOT NULL LIMIT 5
+-> [['Passeio Marítimo de Algés', 'PEDESTRIAN', 'pedestrian (none)'], ['Avenida da Índia', 'PRIMARY', 'primary (none)']]
+
+## 14 [s7_002 hard] rows=1
+Q: distance between brazil and argentina borders in meters
+WITH brazil AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom FROM countries WHERE iso_a3 = 'BRA'), argentina AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom FROM countries WHERE iso_a3 = 'ARG') SELECT ROUND(ST_Distance(brazil.geom, argentina.geom)) AS border_distance_meters FROM brazil, argentina
+-> [['0.0']]
+
+## 15 [s7_010 medium] rows=1
+Q: Which places are inside the area covered by the main boulevard running through the city?
+SELECT p.names->>'primary' AS name FROM lisbon_places p WHERE ST_Within(p.geometry, ST_GeomFromText('LINESTRING(-9.19 38.71, -9.15 38.71, -9.12 38.71)'))
+-> [['Teatro Cão Solteiro']]
+
+## 16 [s7_008 hard] rows=5
+Q: Which five neighborhoods have the largest area of their shape inside the rectangle covering central Manhattan (40.70N to 40.80N, 74.02W to 73.95W), and how many square kilometres of each neighborhood fall inside that rectangle?
+WITH rectangle AS (
+  SELECT ST_MakeEnvelope(-74.02, 40.70, -73.95, 40.80) AS geom
+)
+SELECT z.zone AS neighborhood,
+       z.borough,
+       ST_Area_Spheroid(ST_Intersection(z.geometry, r.geom)) / 1000000.0 AS overlap_sq_km,
+       ST_Area_Spheroid(z.geometry) / 1000000.0 AS total_sq_km
+FROM nyc_taxi_zones z
+CROSS JOIN rectangle r
+WHERE ST_Intersects(z.geometry, r.geom)
+ORDER BY overlap_sq_km DESC
+LIMIT 5;
+-> [['Central Park', 'Manhattan', '3.5479672563734703', '3.55889861797183'], ['Greenpoint', 'Brooklyn', '1.5760035750124666', '3.286543981979201']]
+
+## 17 [s7_010 medium] rows=20
+Q: Which open restaurants are located inside the area that encloses all historic sites in Lisbon?
+WITH historic_area AS (
+  SELECT ST_ConvexHull(ST_Collect(list(geometry))) AS geom
+  FROM lisbon_places
+  WHERE taxonomy.primary = 'historic_site'
+)
+SELECT p.names.primary AS restaurant_name
+FROM lisbon_places p, historic_area h
+WHERE p.basic_category = 'restaurant'
+  AND p.operating_status = 'open'
+  AND p.names.primary IS NOT NULL
+  AND ST_Contains(h.geom, p.geometry)
+LIMIT 20;
+-> [['Zahir Kebab'], ['Casa do Lago by SOI Lisboa']]
+
+## 18 [s7_007 medium] rows=235
+Q: centroid of each category as GeoJSON
+WITH per_cat AS (
+  SELECT basic_category,
+         ST_Collect(LIST(geometry)) AS geom_collection
+  FROM lisbon_places
+  GROUP BY basic_category
+)
+SELECT basic_category,
+       ST_AsGeoJSON(ST_Centroid(geom_collection)) AS centroid_geojson
+FROM per_cat;
+-> [['health_care', '{"type":"Point","coordinates":[-9.160...'], ['corporate_or_business_office', '{"type":"Point","coordinates":[-9.156...']]
+
+## 19 [s7_007 medium] rows=5
+Q: top 5 open basic categories by count
+SELECT basic_category, COUNT(*) AS cnt FROM lisbon_places WHERE operating_status = 'open' GROUP BY basic_category ORDER BY cnt DESC LIMIT 5
+-> [['travel_service', '131'], ['shipping_or_delivery_service', '82']]
+
+## 20 [s7_007 medium] rows=4
+Q: operating status counts with percentage and report date
+WITH counts AS (
+  SELECT operating_status, COUNT(*) AS n
+  FROM lisbon_places
+  GROUP BY operating_status
+)
+SELECT current_date AS asof_date,
+       operating_status,
+       n,
+       ROUND(100.0 * n / SUM(n) OVER (), 2) AS pct
+FROM counts
+ORDER BY n DESC;
+-> [['2026-10-28', 'None', '51916', '98.31'], ['2026-10-28', 'open', '846', '1.6']]
+
+## 21 [s7_004 medium] rows=1
+Q: Consider all Brazilian cities with more than 100,000 inhabitants. Draw the smallest convex polygon that contains them. How much of that polygon's area lies outside Brazil's territory? Give the area in square kilometers.
+WITH brazil AS (
+  SELECT geometry AS geom FROM countries WHERE name = 'Brazil'
+),
+brazil_cities AS (
+  SELECT geometry AS geom FROM populated_places
+  WHERE country = 'Brazil' AND pop_max > 100000
+),
+collected AS (
+  SELECT ST_Collect(list(geom)) AS geom FROM brazil_cities
+),
+hull AS (
+  SELECT ST_ConvexHull(geom) AS geom FROM collected
+),
+outside AS (
+  SELECT ST_Difference(h.geom, b.geom) AS geom
+  FROM hull h, brazil b
+)
+SELECT ST_Area_Spheroid(geom) / 1e6 AS area_sqkm
+FROM outside
+WHERE geom IS NOT NULL AND NOT ST_IsEmpty(geom);
+-> [['909002.2700702954']]
+
+## 22 [s7_002 hard] rows=3
+Q: 3 closest country pairs Europe km apart
+SELECT c1.name AS country_a, c2.name AS country_b, ST_Distance(ST_Transform(c1.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Transform(c2.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true)) / 1000 AS dist_km FROM countries c1 JOIN countries c2 ON c1.name < c2.name WHERE c1.continent = 'Europe' AND c2.continent = 'Europe' ORDER BY dist_km LIMIT 3
+-> [['Bosnia and Herz.', 'Croatia', '0.0'], ['Austria', 'Czechia', '0.0']]
+
+## 23 [s7_007 medium] rows=5
+Q: highest confidence POI per category Lisbon top 5 types
+SELECT basic_category, names.primary AS place_name, confidence, operating_status FROM lisbon_places WHERE basic_category IN ('restaurant', 'personal_or_beauty_service', 'fashion_and_apparel_store', 'professional_service', 'wellness_service') QUALIFY ROW_NUMBER() OVER (PARTITION BY basic_category ORDER BY confidence DESC) = 1 ORDER BY confidence DESC
+-> [['fashion_and_apparel_store', 'Parfois', '1.0', 'open'], ['restaurant', 'Zahir Kebab', '1.0', 'open']]
+
+## 24 [s7_003 easy] rows=1
+Q: show the total number of residential buildings
+SELECT COUNT(*) AS count FROM lisbon_buildings WHERE class = 'residential'
+-> [['3352']]
+
+## 25 [s7_010 medium] rows=109
+Q: Which restaurants are located within 300 meters of the Praça do Comércio in Lisbon?
+SELECT p.id, p.names.primary AS name, p.addresses[1].freeform AS address, ST_Distance_Sphere(p.geometry, ST_Point(-9.1406, 38.7079)) AS distance_m FROM lisbon_places p WHERE p.basic_category = 'restaurant' AND ST_Distance_Sphere(p.geometry, ST_Point(-9.1406, 38.7079)) <= 300 ORDER BY distance_m;
+-> [['fc03c7b7-026e-4556-9b18-0e75150afc48', 'Restaurante Lorde em Lisboa', 'Rua Vítor Cordon, 14 A', '24.351181992463'], ['586f17d8-900a-4ac7-8436-d61e39263474', 'Cantina das Freiras', 'Tv. do Ferragial 1', '40.1271901172022']]
+
+## 26 [s7_001 medium] rows=2
+Q: Compare the number of airports in Europe (west of 30°E) versus Asia (east of 30°E), excluding Antarctica.
+SELECT CASE WHEN ST_X(geometry) < 30 THEN 'Europe' ELSE 'Asia' END AS region, COUNT(*) AS airport_count FROM airports WHERE ST_Y(geometry) > -60 GROUP BY region
+-> [['Europe', '558'], ['Asia', '335']]
+
+## 27 [s7_000 easy] rows=177
+Q: building footprints that intersect the Tagus River line
+SELECT id, class, subtype, ST_AsGeoJSON(geometry) AS geojson
+FROM lisbon_buildings
+WHERE ST_Intersects(
+        geometry,
+        ST_MakeLine(ST_Point(-9.200, 38.700), ST_Point(-9.100, 38.800))
+      );
+-> [['dc8cdbb8-ac6e-424f-829e-b732386f0c8a', 'apartments', 'residential', '{"type":"Polygon","coordinates":[[[-9...'], ['96343a06-bba9-4d1b-a0db-3ef98f4c84f3', 'apartments', 'residential', '{"type":"Polygon","coordinates":[[[-9...']]
+
+## 28 [s7_006 easy] rows=18
+Q: Give me the two most prominent airports for each airport type with their locations.
+WITH ranked AS (SELECT name, type, scalerank, geometry, ROW_NUMBER() OVER (PARTITION BY type ORDER BY scalerank ASC) AS rn FROM airports) SELECT name, type, scalerank, ST_AsGeoJSON(geometry) AS geojson FROM ranked WHERE rn <= 2 ORDER BY type, scalerank
+-> [["Hong Kong Int'l", 'major', '2', '{"type":"Point","coordinates":[113.93...'], ['Taoyuan', 'major', '2', '{"type":"Point","coordinates":[121.23...']]
+
+## 29 [s7_002 hard] rows=5
+Q: 5 nearest countries France
+SELECT c2.name, ST_Distance_Sphere(ST_Centroid(c1.geometry), ST_Centroid(c2.geometry)) / 1000 AS dist_km FROM countries c1, countries c2 WHERE c1.name = 'France' AND c2.name != 'France' ORDER BY dist_km LIMIT 5;
+-> [['Spain', '226.92552744185036'], ['Andorra', '357.4711304052464']]
+
+## 30 [s7_001 medium] rows=5
+Q: Compare the number of airports within 500 km of the five highest-ranked major airports.
+WITH hubs AS (SELECT name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_3857 FROM airports WHERE type = 'major' ORDER BY scalerank ASC, name LIMIT 5), buffers AS (SELECT name, ST_Buffer(geom_3857, 500000) AS geom_3857 FROM hubs), airports_3857 AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_3857 FROM airports) SELECT b.name, count(*) AS airport_count FROM buffers b JOIN airports_3857 a ON ST_Intersects(a.geom_3857, b.geom_3857) GROUP BY b.name ORDER BY airport_count DESC;
+-> [['Atatürk Hava Limani', '6'], ['Arlanda', '4']]
+
+## 31 [s7_004 medium] rows=7
+Q: Leaving Antarctica out, where is the center point of each continent if all of its countries were fused into one piece? Give me the longitude and latitude of each continent's center.
+WITH fused AS (
+    SELECT continent, ST_Union_Agg(geometry) AS geom
+    FROM countries
+    WHERE continent <> 'Antarctica'
+    GROUP BY continent
+)
+SELECT continent,
+       ROUND(ST_X(ST_Centroid(geom)), 3) AS center_lon,
+       ROUND(ST_Y(ST_Centroid(geom)), 3) AS center_lat
+FROM fused
+ORDER BY continent;
+-> [['Africa', '18.28', '6.43'], ['Asia', '84.568', '32.243']]
+
+## 32 [s7_001 medium] rows=2
+Q: List how many airports are in the northern hemisphere versus the southern hemisphere
+WITH hemis AS (SELECT 'Northern' AS name, ST_MakeEnvelope(-180,0,180,90) AS geom UNION ALL SELECT 'Southern', ST_MakeEnvelope(-180,-90,0,0)) SELECT h.name, COUNT(a.name) AS airport_count FROM hemis h JOIN airports a ON ST_Within(a.geometry, h.geom) GROUP BY h.name
+-> [['Southern', '75'], ['Northern', '738']]
+
+## 33 [s7_007 medium] rows=47
+Q: poi counts per postcode prefix, 50+
+SELECT split_part(a.postcode, '-', 1) AS postcode_prefix,
+       count(*) AS pois
+FROM lisbon_places, UNNEST(addresses) AS u(a)
+WHERE a.postcode IS NOT NULL
+GROUP BY 1
+HAVING count(*) >= 50
+ORDER BY pois DESC
+-> [['1200', '3831'], ['1050', '3103']]
+
+## 34 [s7_009 easy] rows=1
+Q: primary names of residential roads
+SELECT STRING_AGG(DISTINCT l.names.primary, ', ') AS residential_names
+FROM lisbon_roads AS l
+WHERE l.class = 'residential' AND l.names.primary IS NOT NULL;
+-> [['Vila Ribeiro Seabra, Rua Fernão Mende...']]
+
+## 35 [s7_010 medium] rows=1001
+Q: List the names of all road segments that lie completely within the area bounded by longitude -9.20 to -9.18 and latitude 38.70 to 38.72.
+SELECT names.primary AS road_name, class FROM lisbon_roads WHERE ST_Within(geometry, ST_MakeEnvelope(-9.20, 38.70, -9.18, 38.72))
+-> [['None', 'steps'], ['None', 'footway']]
+
+## 36 [s7_001 medium] rows=4
+Q: Compare the four global quadrants — north-west, north-east, south-west and south-east relative to the equator and prime meridian — by number of airports and by average importance rank in each.
+WITH quadrants(name, w, s, e, n) AS (
+  VALUES
+    ('north-west', -180.0, 0.0, 0.0, 90.0),
+    ('north-east', 0.0, 0.0, 180.0, 90.0),
+    ('south-west', -180.0, -90.0, 0.0, 0.0),
+    ('south-east', 0.0, -90.0, 180.0, 0.0)
+)
+SELECT
+  q.name AS quadrant,
+  COUNT(*) AS airport_count,
+  ROUND(AVG(a.scalerank), 2) AS avg_importance_rank
+FROM quadrants q
+JOIN airports a
+  ON ST_Intersects(ST_MakeEnvelope(q.w, q.s, q.e, q.n), a.geometry)
+GROUP BY q.name
+ORDER BY airport_count DESC;
+-> [['north-east', '400', '6.0'], ['north-west', '338', '5.97']]
+
+## 37 [s7_009 easy] rows=1001
+Q: roads with sidewalk subclass
+SELECT id, names."primary" AS name, subclass FROM lisbon_roads WHERE subclass = 'sidewalk'
+-> [['518fbdb5-e524-48d3-b57e-a16aebf40d8f', 'None', 'sidewalk'], ['3423c38c-116c-4736-a204-112e71ce26d5', 'None', 'sidewalk']]
+
+## 38 [s7_006 easy] rows=25
+Q: List the three easternmost airports in each airport type, with their rank.
+WITH ranked AS (
+  SELECT type, name, iata_code, ST_X(geometry) AS lon,
+         RANK() OVER(PARTITION BY type ORDER BY ST_X(geometry) DESC) AS eastmost_rank
+  FROM airports
+)
+SELECT type, name, iata_code, ROUND(lon, 4) AS lon, eastmost_rank
+FROM ranked
+WHERE eastmost_rank <= 3
+ORDER BY type, eastmost_rank
+-> [['major', "Wellington Int'l", 'WLG', '174.8117', '1'], ['major', "Auckland Int'l", 'AKL', '174.7917', '2']]
+
+## 39 [s7_003 easy] rows=9
+Q: distance in meters from Torre VTS de Algés to Passeio Marítimo de Algés
+SELECT ST_Distance(
+         ST_Transform(ST_Centroid(b.geometry), 'EPSG:4326', 'EPSG:3763', always_xy := true),
+         ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true)
+       ) AS distance_m
+FROM lisbon_buildings b, lisbon_roads r
+WHERE b.names.primary = 'Torre VTS de Algés'
+  AND r.names.primary = 'Passeio Marítimo de Algés';
+-> [['432.61458166725373'], ['474.22007478651693']]
+
+## 40 [s7_004 medium] rows=1
+Q: Find the center point of the convex hull that contains all populated places in South America.
+SELECT ST_AsGeoJSON(ST_Centroid(ST_ConvexHull(ST_Union_Agg(geometry)))) AS center_point FROM populated_places WHERE country IN (SELECT name FROM countries WHERE continent = 'South America')
+-> [['{"type":"Point","coordinates":[-64.15...']]
+
+## 41 [s7_005 hard] rows=20
+Q: taxi zones with highest average tip percentage for credit card payments in January 2024
+WITH trip_tips AS (SELECT PULocationID, tip_amount, total_amount FROM nyc_taxi_trips WHERE payment_type = 1 AND tpep_pickup_datetime >= '2024-01-01' AND tpep_pickup_datetime < '2024-02-01' AND total_amount > 0), zone_stats AS (SELECT tz.location_id, AVG(tt.tip_amount / tt.total_amount * 100) AS avg_tip_percent FROM trip_tips tt JOIN nyc_taxi_zones tz ON tt.PULocationID = tz.location_id GROUP BY tz.location_id) SELECT location_id, avg_tip_percent FROM zone_stats ORDER BY avg_tip_percent DESC LIMIT 20
+-> [['133', '30.967741935483872'], ['207', '20.0']]
+
+## 42 [s7_002 hard] rows=5
+Q: rivers within 200 km of 31.24E 30.04N, excluding canals and lake centerlines, nearest 5, km
+WITH pt AS (
+  SELECT ST_Transform(ST_Point(31.24, 30.04), 'EPSG:4326', 'EPSG:32636', always_xy := true) AS g
+),
+rivers_m AS (
+  SELECT name, feature_class, ST_Transform(geometry, 'EPSG:4326', 'EPSG:32636', always_xy := true) AS g
+  FROM rivers
+  WHERE geometry IS NOT NULL
+)
+SELECT r.name AS river,
+       r.feature_class,
+       ROUND(ST_Distance(pt.g, r.g) / 1000.0, 1) AS dist_km
+FROM pt, rivers_m r
+WHERE ST_DWithin(pt.g, r.g, 200000)
+  AND r.feature_class = 'River'
+ORDER BY ST_Distance(pt.g, r.g)
+LIMIT 5
+-> [['Nile', 'River', '1.4'], ['Ismailiya Canal', 'River', '8.9']]
+
+## 43 [s7_008 hard] rows=66
+Q: How many yellow taxi trips in January 2024 started in zones that intersect the area bounded by longitude -74.05 to -73.95 and latitude 40.70 to 40.80, broken down by neighborhood?
+WITH env AS (SELECT ST_MakeEnvelope(-74.05, 40.70, -73.95, 40.80) AS geom) SELECT z.zone, z.borough, COUNT(*) AS trip_count FROM nyc_taxi_zones z JOIN nyc_taxi_trips t ON t.PULocationID = z.location_id CROSS JOIN env WHERE tpep_pickup_datetime >= TIMESTAMP '2024-01-01' AND tpep_pickup_datetime < TIMESTAMP '2024-02-01' AND ST_Intersects(z.geometry, env.geom) GROUP BY z.zone, z.borough ORDER BY trip_count DESC
+-> [['Upper East Side South', 'Manhattan', '9673'], ['Midtown Center', 'Manhattan', '9613']]
+
+## 44 [s7_008 hard] rows=2
+Q: Which taxi zones are completely inside the rectangle that covers Central Park (roughly between longitude ‑73.985 and ‑73.949, latitude 40.764 and 40.800)? List their names and boroughs.
+SELECT zone, borough
+FROM nyc_taxi_zones
+WHERE ST_Within(geometry, ST_MakeEnvelope(-73.985, 40.764, -73.949, 40.800))
+-> [['Upper East Side North', 'Manhattan'], ['Upper West Side North', 'Manhattan']]
+
+## 45 [s7_009 easy] rows=10
+Q: steps roads start end coords rounded 5 decimals
+SELECT id, names.primary AS name, ROUND(ST_X(ST_StartPoint(geometry)), 5) AS start_lon, ROUND(ST_Y(ST_StartPoint(geometry)), 5) AS start_lat, ROUND(ST_X(ST_EndPoint(geometry)), 5) AS end_lon, ROUND(ST_Y(ST_EndPoint(geometry)), 5) AS end_lat FROM lisbon_roads WHERE class = 'steps' LIMIT 10
+-> [['cb8924d1-0bda-4b76-b1cb-dc0e9a6a1101', 'None', '-9.22887', '38.6948', '-9.22892', '38.69483'], ['323d88dd-4461-4f65-9d19-8a811ef97417', 'None', '-9.22705', '38.69378', '-9.22698', '38.69374']]
+
+## 46 [s7_005 hard] rows=5
+Q: export zone stats as JSON with payment breakdown
+WITH payments AS (
+  SELECT 
+    PULocationID AS zone_id,
+    payment_type,
+    COUNT(*) AS n
+  FROM nyc_taxi_trips
+  WHERE fare_amount > 0
+  GROUP BY PULocationID, payment_type
+),
+zone_payments AS (
+  SELECT 
+    zone_id,
+    LIST(struct_pack(type := payment_type, count := n) ORDER BY payment_type) AS payment_mix
+  FROM payments
+  GROUP BY zone_id
+),
+zone_summary AS (
+  SELECT 
+    PULocationID AS zone_id,
+    COUNT(*) AS trips,
+    ROUND(AVG(fare_amount), 2) AS avg_fare,
+    ROUND(AVG(tip_amount), 2) AS avg_tip,
+    ROUND(AVG(trip_distance), 2) AS avg_distance
+  FROM nyc_taxi_trips
+  WHERE fare_amount > 0
+  GROUP BY PULocationID
+)
+SELECT 
+  TO_JSON({
+    zone: zs.zone_id,
+    summary: {
+      trips: zs.trips,
+      avg_fare: zs.avg_fare,
+      avg_tip: zs.avg_tip,
+      avg_distance: zs.avg_distance
+    },
+    payment_mix: zp.payment_mix
+  }) AS zone_json
+FROM zone_summary zs
+JOIN zone_payments zp ON zs.zone_id = zp.zone_id
+ORDER BY zs.trips DESC
+LIMIT 5;
+-> [['{"zone":237,"summary":{"trips":9588,"...'], ['{"zone":161,"summary":{"trips":9484,"...']]
+
+## 47 [s7_001 medium] rows=14
+Q: Compare airport counts by category between the northern and southern hemispheres – give me a breakdown per hemisphere and per category.
+WITH hemispheres AS (SELECT 'northern' AS hemisphere, ST_MakeEnvelope(-180, 0, 180, 90) AS geom UNION ALL SELECT 'southern' AS hemisphere, ST_MakeEnvelope(-180, -90, 180, 0) AS geom) SELECT h.hemisphere, a.type, COUNT(*) AS airport_count FROM hemispheres h JOIN airports a ON ST_Intersects(a.geometry, h.geom) GROUP BY h.hemisphere, a.type ORDER BY h.hemisphere, airport_count DESC
+-> [['northern', 'mid', '355'], ['northern', 'major', '340']]
+
+## 48 [s7_002 hard] rows=3
+Q: nearest 3 countries to Danube source point
+WITH danube AS (
+  SELECT ST_StartPoint(geometry) AS src FROM rivers WHERE name = 'Danube'
+), centroids AS (
+  SELECT iso_a3, name, ST_Centroid(geometry) AS pt FROM countries
+)
+SELECT c.iso_a3,
+       c.name,
+       ST_Distance_Sphere(danube.src, c.pt) AS dist_m
+FROM danube, centroids c
+ORDER BY dist_m
+LIMIT 3;
+-> [['SVK', 'Slovakia', '182477.92340928764'], ['HUN', 'Hungary', '192103.2524518418']]
+
+## 49 [s7_011 hard] rows=10
+Q: Which ten countries with GDP greater than $10 billion have the most major airports, and how many major airports does each have?
+WITH filtered_countries AS (SELECT iso_a3, name, geometry FROM countries WHERE gdp_md > 10000) SELECT c.name AS country, COUNT(a.iata_code) AS major_airport_count FROM filtered_countries c LEFT JOIN airports a ON ST_Contains(c.geometry, a.geometry) AND a.type = 'major' GROUP BY c.name ORDER BY major_airport_count DESC LIMIT 10;
+-> [['United States of America', '93'], ['China', '26']]
+
+## 50 [s7_010 medium] rows=50
+Q: Which restaurants are located in central Lisbon?
+SELECT p.names."primary" AS name, p.basic_category, p.confidence FROM lisbon_places p WHERE p.basic_category = 'restaurant' AND ST_Contains(ST_MakeEnvelope(-9.20, 38.70, -9.10, 38.78), p.geometry) LIMIT 50
+-> [['O Fogão', 'restaurant', '0.4021391272544861'], ['Snack-Bar O Lugar', 'restaurant', '0.273443341255188']]
+
+## 51 [s7_006 easy] rows=421
+Q: List the top 3 most populous populated places in each country, ordered by population descending.
+SELECT name, country, pop_max FROM (SELECT name, country, pop_max, ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn FROM populated_places) WHERE rn <= 3 ORDER BY country, pop_max DESC
+-> [['Kabul', 'Afghanistan', '3277000'], ['Kandahar', 'Afghanistan', '715542']]
+
+## 52 [s7_000 easy] rows=10
+Q: buildings containing multiple pois
+SELECT b.names.primary, b.subtype, COUNT(*) as poi_count FROM lisbon_buildings b JOIN lisbon_places p ON ST_Contains(b.geometry, p.geometry) GROUP BY b.names.primary, b.subtype HAVING COUNT(*) > 1 ORDER BY poi_count DESC LIMIT 10
+-> [['None', 'None', '10789'], ['None', 'residential', '10513']]
+
+## 53 [s7_003 easy] rows=12
+Q: avg building area by roof shape
+SELECT roof_shape, AVG(ST_Area_Spheroid(geometry)) AS avg_area_m2 FROM lisbon_buildings GROUP BY roof_shape ORDER BY avg_area_m2 DESC;
+-> [['dome', '2203.0376799693004'], ['flat', '849.2690794771261']]
+
+## 54 [s7_005 hard] rows=24
+Q: hourly trip counts avg median fare distribution jan 2024
+WITH hourly_lists AS (SELECT EXTRACT(HOUR FROM tpep_pickup_datetime) AS hr, list(fare_amount) AS fare_list FROM nyc_taxi_trips WHERE tpep_pickup_datetime >= '2024-01-01' AND tpep_pickup_datetime < '2024-02-01' AND fare_amount > 0 AND fare_amount < 500 AND trip_distance > 0 AND trip_distance < 100 GROUP BY hr), expanded AS (SELECT hr, UNNEST(fare_list) AS fare FROM hourly_lists) SELECT hr, COUNT(*) AS trips, AVG(fare) AS avg_fare, MEDIAN(fare) AS median_fare, quantile_cont(fare, 0.9) AS p90_fare FROM expanded GROUP BY hr ORDER BY hr
+-> [['0', '5203', '19.904036133000243', '14.2', '40.8'], ['1', '3262', '18.18315757204174', '12.8', '35.335000000000015']]
+
+## 55 [s7_006 easy] rows=1001
+Q: Calculate the running total of population by country, ordered from largest to smallest city
+SELECT name, country, pop_max,
+       SUM(pop_max) OVER (PARTITION BY country ORDER BY pop_max DESC) AS running_pop
+FROM populated_places
+ORDER BY country, pop_max DESC;
+-> [['Kabul', 'Afghanistan', '3277000', '3277000'], ['Kandahar', 'Afghanistan', '715542', '3992542']]
+
+## 56 [s7_009 easy] rows=20
+Q: residential road name class surface labels
+SELECT id, COALESCE(names."primary", '(unnamed)') || ' | ' || class || ' | ' || COALESCE(road_surface[1].value, 'unknown') AS road_label FROM lisbon_roads WHERE class = 'residential' LIMIT 20
+-> [['507e135f-441f-4d41-aa0b-e82bebae1238', 'Doca do Bom Sucesso | residential | p...'], ['2f3fd616-cee0-4ca3-a1d9-15eda8ee91da', 'Rua da Praia do Bom Sucesso | residen...']]
+
+## 57 [s7_007 medium] rows=3
+Q: restaurants within 1 km of Praça do Comércio by certainty bucket
+WITH center AS (SELECT ST_Transform(ST_Point(-9.1393, 38.7071), 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom), near AS (SELECT p.*, ST_Distance(ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), c.geom) AS dist_m FROM lisbon_places p, center c WHERE p.basic_category = 'restaurant' AND ST_Distance(ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), c.geom) <= 1000) SELECT CASE WHEN confidence >= 0.8 THEN 'high' WHEN confidence >= 0.5 THEN 'medium' ELSE 'low' END AS confidence_bucket, count(*) AS n FROM near GROUP BY confidence_bucket ORDER BY confidence_bucket
+-> [['high', '651'], ['low', '126']]
+
+## 58 [s7_007 medium] rows=52
+Q: count of open vs closed places by category
+SELECT basic_category, operating_status, COUNT(*) AS count FROM lisbon_places WHERE operating_status IN ('open', 'permanently_closed') GROUP BY basic_category, operating_status ORDER BY basic_category, operating_status
+-> [['air_transport_facility_or_service', 'open', '1'], ['animal_or_pet_service', 'open', '5']]
+
+## 59 [s7_006 easy] rows=6
+Q: List the two most populous places in each of China, India and Russia and show them on a map
+WITH ranked AS (SELECT name, country, pop_max, ST_AsGeoJSON(geometry) AS geom_json, ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn FROM populated_places WHERE country IN ('China', 'India', 'Russia') AND ST_Within(geometry, ST_MakeEnvelope(30, 0, 180, 80))) SELECT name, country, pop_max, geom_json FROM ranked WHERE rn <= 2 ORDER BY country, rn
+-> [['Shanghai', 'China', '14987000', '{"type":"Point","coordinates":[121.43...'], ['Beijing', 'China', '11106000', '{"type":"Point","coordinates":[116.39...']]
+
+## 60 [s7_005 hard] rows=5
+Q: return the average trip distance and total number of trips per payment type
+SELECT payment_type, AVG(trip_distance) AS avg_distance, COUNT(*) AS trip_count FROM nyc_taxi_trips WHERE tpep_pickup_datetime >= '2024-01-01' AND tpep_pickup_datetime < '2024-02-01' GROUP BY payment_type ORDER BY payment_type
+-> [['0', '9.163022156883347', '9523'], ['1', '3.2552796456330655', '156448']]
+
+## 61 [s7_000 easy] rows=1001
+Q: adjacent residential buildings in central Lisbon
+SELECT a.id AS building_a, b.id AS building_b FROM lisbon_buildings a JOIN lisbon_buildings b ON a.id < b.id AND ST_Touches(a.geometry, b.geometry) WHERE a.subtype='residential' AND b.subtype='residential' AND ST_Intersects(a.geometry, ST_MakeEnvelope(-9.14,38.707,-9.12,38.72))
+-> [['cdc7f248-315e-44c1-a131-2c528f5e4d4a', 'f2d593e7-c8ff-4166-9c81-b8f73f4de81f'], ['a205fdda-142f-4da1-8eee-3fc48a7a5c18', 'f2d593e7-c8ff-4166-9c81-b8f73f4de81f']]
+
+## 62 [s7_010 medium] rows=247
+Q: Find restaurants within 500 meters of Praça do Comércio
+SELECT names, basic_category FROM lisbon_places WHERE basic_category = 'restaurant' AND ST_Distance_Sphere(geometry, ST_Point(-9.1363, 38.7077)) < 500
+-> [["{'primary': 'Desafio Vegetariano Port...", 'restaurant'], ["{'primary': 'Cais 1929', 'common': No...", 'restaurant']]
+
+## 63 [s7_005 hard] rows=20
+Q: top 3 dropoff zones per pickup zone with trip counts
+WITH route_counts AS (SELECT PULocationID, DOLocationID, COUNT(*) AS trips FROM nyc_taxi_trips GROUP BY PULocationID, DOLocationID), ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY PULocationID ORDER BY trips DESC, DOLocationID) AS rn FROM route_counts) SELECT PULocationID, list(struct_pack(dropoff_zone := DOLocationID, trips := trips) ORDER BY trips DESC) AS top_dropoffs, SUM(trips) AS total_trips FROM ranked WHERE rn <= 3 GROUP BY PULocationID ORDER BY total_trips DESC LIMIT 20;
+-> [['237', "[{'dropoff_zone': 236, 'trips': 1458}...", '3044'], ['236', "[{'dropoff_zone': 237, 'trips': 1294}...", '2832']]
+
+## 64 [s7_004 medium] rows=1
+Q: Which countries are intersected by a 50‑kilometre buffer around the capital city of France, and how large is the overlapping area for each?
+WITH france_cap AS (SELECT geometry FROM populated_places WHERE country = 'France' AND is_capital), buffer AS (SELECT ST_Transform(ST_Buffer(ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), 50000), 'EPSG:3857', 'EPSG:4326', always_xy := true) AS geom FROM france_cap) SELECT c.name, (ST_Area_Spheroid(ST_Intersection(c.geometry, b.geom)) / 1e6) AS intersect_km2 FROM countries c, buffer b WHERE ST_Intersects(c.geometry, b.geom) ORDER BY intersect_km2 DESC;
+-> [['France', '3380.9712189486618']]
+
+## 65 [s7_004 medium] rows=1
+Q: If we draw a 100 km circle around every capital city in Europe and merge them into one shape, how many square kilometers does that combined area cover?
+WITH european_capitals AS (SELECT ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3035', always_xy := true) AS geom FROM populated_places p JOIN countries c ON p.country = c.name WHERE p.is_capital = true AND c.continent = 'Europe'), merged_buffers AS (SELECT ST_Union_Agg(ST_Buffer(geom, 100000)) AS geom FROM european_capitals) SELECT ST_Area(geom) / 1000000 AS area_km2 FROM merged_buffers;
+-> [['1255017.2251346083']]
+
+## 66 [s7_001 medium] rows=1
+Q: Find the grid cell that has the highest number of airports whose IATA code starts with the letter ‘A’, and return the cell geometry as GeoJSON together with the count.
+WITH grid AS ( SELECT i AS lat_idx, j AS lon_idx, ST_MakeEnvelope(j*10-180, i*10-90, (j+1)*10-180, (i+1)*10-90) AS geom FROM generate_series(0,17) i CROSS JOIN generate_series(0,35) j ), filtered AS ( SELECT a.*, grid.lon_idx, grid.lat_idx, grid.geom FROM airports a JOIN grid ON ST_Contains(grid.geom, a.geometry) WHERE a.iata_code IS NOT NULL AND a.iata_code LIKE 'A%' ) SELECT ST_AsGeoJSON(filtered.geom) AS cell_geojson, COUNT(*) AS airport_count FROM filtered GROUP BY filtered.lon_idx, filtered.lat_idx, filtered.geom ORDER BY airport_count DESC LIMIT 1;
+-> [['{"type":"Polygon","coordinates":[[[30...', '5']]
+
+## 67 [s7_000 easy] rows=1001
+Q: find places within 500 meters of the tower
+SELECT id, names->>'primary' AS name FROM lisbon_places WHERE ST_Distance_Sphere(geometry, ST_Point(-9.1393, 38.7072)) < 500
+-> [['920986ff-94db-4e1b-8836-ecb03bf1c7a5', 'Desafio Vegetariano Portugal'], ['efd438d9-3565-4fbe-811f-739351ea1014', 'Stazione di Lisbona Sul e Sueste']]
+
+## 68 [s7_001 medium] rows=5
+Q: List the 5 closest airports to Paris with their distances in kilometers.
+SELECT name, iata_code, ST_Distance_Sphere(geometry, ST_Point(2.3522, 48.8566)) / 1000 AS distance_km FROM airports ORDER BY distance_km LIMIT 5
+-> [['Paris Orly', 'ORY', '13.976683571034684'], ["Charles de Gaulle Int'l", 'CDG', '22.358439083228877']]
+
+## 69 [s7_000 easy] rows=61
+Q: find museums that are not inside any building footprint
+SELECT lp.names.primary AS museum_name, lp.geometry FROM lisbon_places lp WHERE lp.taxonomy.primary = 'museum' AND NOT EXISTS (SELECT 1 FROM lisbon_buildings lb WHERE ST_Contains(lb.geometry, lp.geometry))
+-> [['Museu do Combatente', 'b\'\\x01\\x01\\x00\\x00\\x00\\xeam;\\x86*o"\\x...'], ['Aqueduto das Águas Livres', "b'\\x01\\x01\\x00\\x00\\x00\\x05\\xea \\xf1#U..."]]
+
+## 70 [s7_009 easy] rows=50
+Q: paved footway WKT
+SELECT ST_AsText(geometry) AS wkt FROM lisbon_roads WHERE class = 'footway' AND road_surface[1].value = 'paved' LIMIT 50
+-> [['LINESTRING (-9.2269936 38.6940601, -9...'], ['LINESTRING (-9.2138789 38.6936012, -9...']]
+
+## 71 [s7_000 easy] rows=16
+Q: historic sites within POLYGON((-9.2220 38.6900, -9.2220 38.7090, -9.1950 38.7090, -9.1950 38.6900, -9.2220 38.6900))
+SELECT names['primary'] AS name, taxonomy['primary'] AS site_type FROM lisbon_places WHERE taxonomy['primary'] = 'historic_site' AND ST_Within(geometry, ST_GeomFromText('POLYGON ((-9.2220 38.6900, -9.2220 38.7090, -9.1950 38.7090, -9.1950 38.6900, -9.2220 38.6900))')) LIMIT 50;
+-> [['벨렘탑', 'historic_site'], ['Menara Belém', 'historic_site']]
+
+## 72 [s7_011 hard] rows=5
+Q: For each continent, what is the total number of airports and the combined GDP in billions of USD for countries that have at least one airport? Only include continents where the total population of these countries exceeds 100 million.
+WITH country_airport_counts AS (
+    SELECT 
+        c.iso_a3,
+        c.continent,
+        c.pop_est,
+        c.gdp_md,
+        COUNT(a.name) AS airport_count
+    FROM countries c
+    INNER JOIN airports a ON ST_Within(a.geometry, c.geometry)
+    GROUP BY c.iso_a3, c.continent, c.pop_est, c.gdp_md
+)
+SELECT 
+    continent,
+    SUM(airport_count) AS total_airports,
+    SUM(gdp_md) / 1e9 AS total_gdp_billion_usd,
+    SUM(pop_est) AS total_population
+FROM country_airport_counts
+GROUP BY continent
+HAVING SUM(pop_est) > 100000000
+ORDER BY total_airports DESC;
+-> [['North America', '245', '0.025075713', '583086523'], ['Asia', '210', '0.033067018', '4540885306']]
+
+## 73 [s7_007 medium] rows=86
+Q: count of places by category with more than 100 instances
+SELECT basic_category, COUNT(*) AS count FROM lisbon_places GROUP BY basic_category HAVING COUNT(*) > 100 ORDER BY count DESC
+-> [['restaurant', '6126'], ['personal_or_beauty_service', '2714']]
+
+## 74 [s7_009 easy] rows=10
+Q: WKT of footways with road surface and name
+SELECT ST_AsText(geometry) AS wkt, names.primary AS name, road_surface[1].value AS surface FROM lisbon_roads WHERE class = 'footway' AND road_surface IS NOT NULL AND len(road_surface) > 0 LIMIT 10;
+-> [['LINESTRING (-9.2269936 38.6940601, -9...', 'None', 'paved'], ['LINESTRING (-9.2265816 38.694089, -9....', 'None', 'metal']]
+
+## 75 [s7_010 medium] rows=11
+Q: Which named streets pass within 250 metres of Belém Tower, located at longitude -9.2160 and latitude 38.6916?
+SELECT DISTINCT names."primary" AS street_name
+FROM lisbon_roads
+WHERE names."primary" IS NOT NULL
+  AND ST_Intersects(
+        ST_Transform(geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true),
+        ST_Buffer(
+          ST_Transform(ST_Point(-9.2160, 38.6916), 'EPSG:4326', 'EPSG:3763', always_xy := true),
+          250
+        )
+      );
+-> [['Avenida da Torre de Belém'], ['Ciclovia do Jardim António Viana Barreto']]
+
+## 76 [s7_003 easy] rows=1
+Q: total footway length km Lisbon
+SELECT SUM(ST_Length_Spheroid(geometry)) / 1000.0 AS total_km FROM lisbon_roads WHERE class = 'footway'
+-> [['1218.725915134002']]
+
+## 77 [s7_008 hard] rows=59
+Q: Which neighborhoods are completely inside the rectangular map window that covers central Manhattan from about longitude -74.02, latitude 40.70 in the southwest corner to -73.93, 40.82 in the northeast corner?
+WITH bbox AS (SELECT ST_MakeEnvelope(-74.02, 40.70, -73.93, 40.82) AS env) SELECT z.zone, z.borough FROM nyc_taxi_zones z, bbox WHERE ST_Within(z.geometry, bbox.env) ORDER BY z.zone
+-> [['Alphabet City', 'Manhattan'], ['Battery Park', 'Manhattan']]
+
+## 78 [s7_001 medium] rows=4
+Q: Compare airports by distance from Kansas City Int'l. Group all airports into distance bands (0-500 km, 500-1000 km, 1000-2000 km, beyond 2000 km) and list how many airports fall into each band.
+WITH ref AS (
+  SELECT geometry FROM airports WHERE name = 'Kansas City Int''l'
+),
+distances AS (
+  SELECT a.name, ST_Distance_Sphere(ref.geometry, a.geometry) / 1000.0 AS dist_km
+  FROM airports a, ref
+)
+SELECT CASE
+    WHEN dist_km <= 500 THEN '0-500 km'
+    WHEN dist_km <= 1000 THEN '500-1000 km'
+    WHEN dist_km <= 2000 THEN '1000-2000 km'
+    ELSE '>2000 km'
+  END AS distance_band,
+  COUNT(*) AS airport_count
+FROM distances
+GROUP BY distance_band
+ORDER BY distance_band;
+-> [['0-500 km', '14'], ['1000-2000 km', '203']]
+
+## 79 [s7_011 hard] rows=8
+Q: In South America, which countries have an airport count at least equal to the median number of airports across all South American countries? Return country name and airport count.
+WITH counts AS (SELECT c.name, COUNT(a.iata_code) AS airport_count FROM countries c LEFT JOIN airports a ON ST_Within(a.geometry, c.geometry) WHERE c.continent='South America' GROUP BY c.name) SELECT c.name, c.airport_count FROM counts c CROSS JOIN (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY airport_count) AS med FROM counts) m WHERE c.airport_count >= m.med ORDER BY c.airport_count DESC
+-> [['Brazil', '31'], ['Argentina', '13']]
+
+## 80 [s7_011 hard] rows=10
+Q: How many major airports does each country with a population greater than 50 million have? Show the top 10 countries by major airport count.
+SELECT c.name, COUNT(*) AS major_airport_count FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE a.type = 'major' AND c.pop_est > 50000000 GROUP BY c.name ORDER BY major_airport_count DESC LIMIT 10;
+-> [['United States of America', '93'], ['China', '26']]
+
+## 81 [s7_006 easy] rows=5
+Q: Compare the five most populous capital cities by their distance in kilometres from the spot where the equator crosses the prime meridian (0°E, 0°N), ranked from nearest to farthest.
+SELECT name, country, pop_max, ROUND(ST_Distance_Sphere(geometry, ST_Point(0, 0)) / 1000.0, 1) AS km_from_0_0, RANK() OVER (ORDER BY ST_Distance_Sphere(geometry, ST_Point(0, 0)) ASC) AS proximity_rank FROM populated_places WHERE is_capital ORDER BY pop_max DESC LIMIT 5
+-> [['Tokyo', 'Japan', '35676000', '14267.3', '187'], ['Mexico City', 'Mexico', '19028000', '10964.7', '171']]
+
+## 82 [s7_006 easy] rows=200
+Q: List capital cities per country ranked by population, and show the cumulative population of capitals within each country, plus longitude.
+WITH capitals AS (SELECT country, name, pop_max, ST_X(geometry) AS lon, ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn, SUM(pop_max) OVER (PARTITION BY country ORDER BY pop_max DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cum_pop FROM populated_places WHERE is_capital = true) SELECT country, name, pop_max, cum_pop, lon FROM capitals ORDER BY country, rn;
+-> [['Afghanistan', 'Kabul', '3277000', '3277000', '69.1813142'], ['Albania', 'Tirana', '895350', '895350', '19.818883']]
+
+## 83 [s7_005 hard] rows=7
+Q: cost component totals across trips: fare, tip, tolls, surcharges as struct array unnest
+WITH trip_components AS (
+  SELECT [
+    struct_pack(name := 'fare', amount := fare_amount),
+    struct_pack(name := 'tip', amount := tip_amount),
+    struct_pack(name := 'tolls', amount := tolls_amount),
+    struct_pack(name := 'mta_tax', amount := mta_tax),
+    struct_pack(name := 'improvement_surcharge', amount := improvement_surcharge),
+    struct_pack(name := 'congestion_surcharge', amount := congestion_surcharge),
+    struct_pack(name := 'airport_fee', amount := Airport_fee)
+  ] AS components
+  FROM nyc_taxi_trips
+),
+expanded AS (
+  SELECT comp.name AS component_name,
+         comp.amount
+  FROM trip_components AS tc, LATERAL UNNEST(tc.components) AS t(comp)
+)
+SELECT component_name,
+       COUNT(*) AS n,
+       ROUND(SUM(amount), 2) AS total_amount,
+       ROUND(AVG(amount), 4) AS avg_amount
+FROM expanded
+WHERE amount != 0
+GROUP BY component_name
+ORDER BY total_amount DESC;
+-> [['fare', '199944', '3646988.93', '18.2401'], ['tip', '152038', '668799.46', '4.3989']]
+
+## 84 [s7_000 easy] rows=50
+Q: buildings containing restaurants
+SELECT b.id AS building_id, b.subtype, b.height, b.num_floors FROM lisbon_buildings b JOIN lisbon_places p ON ST_Contains(b.geometry, p.geometry) WHERE p.basic_category = 'restaurant' LIMIT 50;
+-> [['92cab5eb-1f87-4a24-82c8-c04e8f35b2fd', 'None', '3.0', 'None'], ['09c5de90-4faf-42cf-bd7c-9461cbd19e8a', 'None', '11.0', 'None']]
+
+## 85 [s7_006 easy] rows=16
+Q: Show the names of the top 2 airports in each scalerank category based on IATA code.
+SELECT scalerank, name, iata_code FROM (SELECT scalerank, name, iata_code, ROW_NUMBER() OVER (PARTITION BY scalerank ORDER BY iata_code) AS rn FROM airports) ranked WHERE rn <= 2 ORDER BY scalerank, iata_code
+-> [['2', "Auckland Int'l", 'AKL'], ['2', 'Schiphol', 'AMS']]
+
+## 86 [s7_011 hard] rows=3
+Q: Ignoring Antarctica, how many countries with at least 1 million residents contain no airports at all within their territory? For each continent give the count of such countries and their combined population in millions, sorted by the count descending.
+SELECT c.continent,
+       COUNT(*) AS countries_without_airports,
+       ROUND(SUM(c.pop_est) / 1000000.0, 1) AS combined_population_millions
+FROM countries c
+WHERE c.continent <> 'Antarctica'
+  AND c.pop_est >= 1000000
+  AND NOT EXISTS (
+        SELECT 1
+        FROM airports a
+        WHERE ST_Intersects(c.geometry, a.geometry)
+      )
+GROUP BY c.continent
+ORDER BY countries_without_airports DESC
+-> [['Africa', '8', '44.2'], ['Asia', '4', '23.2']]
+
+## 87 [s7_011 hard] rows=5
+Q: Identify the countries in the 'Americas' region that have a total land area greater than 5 million square kilometers and contain more than 10 airports, returning their names and total airport counts.
+SELECT c.name, COUNT(a.iata_code) AS airport_count FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.region_un = 'Americas' AND ST_Area_Spheroid(c.geometry) > 5000000000 GROUP BY c.iso_a3, c.name HAVING COUNT(a.iata_code) > 10
+-> [['United States of America', '130'], ['Brazil', '31']]
+
+## 88 [s7_008 hard] rows=5
+Q: For each borough, picture the smallest rectangle that encloses all of its taxi zones. Which pairs of boroughs end up with rectangles that overlap one another? List each pair only once.
+WITH borough_boxes AS (SELECT borough, ST_Extent_Agg(geometry) AS env FROM nyc_taxi_zones GROUP BY borough) SELECT a.borough AS borough_a, b.borough AS borough_b FROM borough_boxes a JOIN borough_boxes b ON a.borough < b.borough AND a.env && b.env ORDER BY borough_a, borough_b
+-> [['Bronx', 'Manhattan'], ['Bronx', 'Queens']]
+
+## 89 [s7_011 hard] rows=21
+Q: For every country with a population estimate of at least 5 million, count the airports located inside its borders. Report the country, its population, the airport count, and airport density per million inhabitants, but only for countries containing at least 8 airports, ranked by density descending.
+WITH per_country AS (SELECT c.name AS country, c.pop_est AS population, COUNT(a.name) AS airports FROM countries c JOIN airports a ON ST_Within(a.geometry, c.geometry) WHERE c.pop_est >= 5000000 GROUP BY c.name, c.pop_est) SELECT country, population, airports, ROUND(airports * 1000000.0 / population, 3) AS airports_per_million FROM per_country WHERE airports >= 8 ORDER BY airports_per_million DESC
+-> [['Canada', '37589262', '43', '1.144'], ['Australia', '25364307', '14', '0.552']]
+
+## 90 [s7_003 easy] rows=1
+Q: total commercial flat roof building area m2 via transform
+SELECT SUM(ST_Area(ST_Transform(geometry, 'EPSG:4326','EPSG:3763', always_xy := true))) AS total_m2 FROM lisbon_buildings WHERE subtype = 'commercial' AND roof_shape = 'flat'
+-> [['45965.04083610516']]
+
+## 91 [s7_002 hard] rows=50
+Q: nearest river per European country
+SELECT c.name AS country, r.name AS river, r.dist_m
+FROM countries c,
+LATERAL (
+    SELECT r.name, ST_Distance_Sphere(ST_Centroid(c.geometry), ST_Centroid(r.geometry)) AS dist_m
+    FROM rivers r
+    WHERE r.geometry IS NOT NULL
+    ORDER BY dist_m
+    LIMIT 1
+) r
+WHERE c.continent = 'Europe' AND c.geometry IS NOT NULL
+-> [['Vatican', 'Po', '410293.8815692294'], ['United Kingdom', 'Thames', '316916.58079030196']]
+
+## 92 [s7_004 medium] rows=1
+Q: Can you draw the smallest convex outline that encloses all the populated places in Australia?
+SELECT ST_AsGeoJSON(ST_ConvexHull(ST_Collect(list(geometry)))) AS convex_hull FROM populated_places WHERE country = 'Australia'
+-> [['{"type":"Polygon","coordinates":[[[14...']]
+
+## 93 [s7_009 easy] rows=5
+Q: list roads with class residential and geometry
+SELECT names->'primary' AS name, ST_AsGeoJSON(geometry) AS geom FROM lisbon_roads WHERE class = 'residential' LIMIT 5
+-> [['"Doca do Bom Sucesso"', '{"type":"LineString","coordinates":[[...'], ['"Rua da Praia do Bom Sucesso"', '{"type":"LineString","coordinates":[[...']]
+
+## 94 [s7_000 easy] rows=100
+Q: commercial buildings containing restaurants
+SELECT b.id AS building_id, b.names.primary AS building_name, p.id AS place_id, p.names.primary AS place_name FROM lisbon_buildings b JOIN lisbon_places p ON ST_Contains(b.geometry, p.geometry) WHERE b.subtype = 'commercial' AND p.basic_category = 'restaurant' LIMIT 100
+-> [['95144536-0bf1-48d8-9bbf-06e22c7f785c', "Caravela d'Ouro Marisqueira", '73925f9c-dddd-4b5f-897e-91b2929e6fdc', "Caravela d'Ouro"], ['3850bdb6-f0fc-4215-8ec3-e11ce89b0d81', 'New Life Miraflores', 'cc5c9d31-d25a-46bc-bdc9-26228a8c398a', 'Food Mood Miraflores']]
+
+## 95 [s7_000 easy] rows=20
+Q: restaurants in central Lisbon bbox
+SELECT p.id, p.names."primary" AS name, p.basic_category, p.addresses[1].freeform AS address FROM lisbon_places p WHERE p.basic_category = 'restaurant' AND ST_Intersects(p.geometry, ST_MakeEnvelope(-9.20, 38.70, -9.10, 38.76)) LIMIT 20;
+-> [['ab8bf421-5093-4996-bc3e-906520927914', 'O Fogão', 'restaurant', 'Avenida Ressano Garcia 36A'], ['dff05f11-85aa-4293-85ee-7611bf7baf5e', 'Snack-Bar O Lugar', 'restaurant', 'Rua Campolide 297']]
+
+## 96 [s7_004 medium] rows=1
+Q: What is the total land area in square kilometres covered by a 100 kilometre buffer around every capital city in Europe, counting overlapping buffers only once?
+WITH capitals AS (SELECT pp.geometry FROM populated_places pp JOIN countries c ON c.iso_a2 = pp.iso_a2 WHERE pp.is_capital = true AND c.continent = 'Europe'), buffered AS (SELECT ST_Buffer(ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), 100000) AS geom FROM capitals) SELECT ST_Area(ST_Union_Agg(geom))/1000000.0 AS total_area_km2 FROM buffered;
+-> [['1310685.3393041037']]
+
+## 97 [s7_008 hard] rows=1
+Q: What is the geographic bounding box that contains all taxi zones in Queens?
+SELECT ST_XMin(ST_Extent_Agg(geometry)) AS xmin, ST_YMin(ST_Extent_Agg(geometry)) AS ymin, ST_XMax(ST_Extent_Agg(geometry)) AS xmax, ST_YMax(ST_Extent_Agg(geometry)) AS ymax FROM nyc_taxi_zones WHERE borough = 'Queens'
+-> [['-73.96262085588614', '40.54182008707774', '-73.7000090639354', '40.80101146781926']]
+
+## 98 [s7_004 medium] rows=1
+Q: What is the total land area of all countries in South America combined?
+SELECT ST_Area_Spheroid(ST_Union_Agg(geometry)) / 1000000 AS total_area_km2
+FROM countries
+WHERE continent = 'South America';
+-> [['17609174.402135316']]
+
+## 99 [s7_002 hard] rows=5
+Q: nearest countries to Ob river distance km
+WITH ob AS (
+  SELECT geometry FROM rivers WHERE name = 'Ob' LIMIT 1
+)
+SELECT c.name AS country,
+       ST_Distance(
+         ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true),
+         ST_Transform(ob.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true)
+       ) / 1000.0 AS dist_km
+FROM countries c, ob
+ORDER BY dist_km
+LIMIT 5;
+-> [['Russia', '0.0'], ['Kazakhstan', '391.61069488788564']]
+
+## 100 [s7_003 easy] rows=16
+Q: road length by class km
+SELECT class, SUM(ST_Length_Spheroid(geometry)) / 1000 AS length_km FROM lisbon_roads GROUP BY class ORDER BY length_km DESC;
+-> [['residential', '1329.6631260307568'], ['footway', '1218.725915134002']]
+
+## 101 [s7_004 medium] rows=1
+Q: Create a polygon representing the intersection of the territories of China and Vietnam.
+SELECT ST_AsGeoJSON(ST_Intersection(c1.geometry, c2.geometry)) AS geojson FROM countries c1, countries c2 WHERE c1.name = 'China' AND c2.name = 'Vietnam'
+-> [['{"type":"MultiLineString","coordinate...']]

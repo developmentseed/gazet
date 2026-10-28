@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Show me all the restaurants near the Tagus River in Lisbon.",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p WHERE p.basic_category = 'restaurant' AND ST_Intersects(p.geometry, ST_GeomFromText('LINESTRING(-9.15 38.7, -9.05 38.7)'))",
+    "skills": ["ST_Intersects"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find all places that are within 500 meters of the historic center of Lisbon.",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p WHERE ST_DWithin_Sphere(p.geometry, ST_Point(-9.1333, 38.7222), 500)",
+    "skills": ["ST_DWithin_Sphere"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List all road segments that touch the boundary of the city park near Alfama.",
+    "sql": "SELECT r.names->>'primary' AS name FROM lisbon_roads r WHERE ST_Touches(r.geometry, ST_GeomFromText('POLYGON((-9.13 38.7, -9.13 38.72, -9.11 38.72, -9.11 38.7, -9.13 38.7))'))",
+    "skills": ["ST_Touches"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which places are inside the area covered by the main boulevard running through the city?",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p WHERE ST_Within(p.geometry, ST_GeomFromText('LINESTRING(-9.19 38.71, -9.15 38.71, -9.12 38.71)'))",
+    "skills": ["ST_Within"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show me the names of all roads located within the northern part of the city.",
+    "sql": "SELECT r.names->>'primary' AS name FROM lisbon_roads r WHERE ST_Within(r.geometry, ST_MakeEnvelope(-9.25, 38.75, -9.09, 38.8, 'EPSG:4326'))",
+    "skills": ["ST_Within"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find all buildings or structures that contain the point at longitude -9.14 and latitude 38.71.",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p WHERE ST_Contains(p.geometry, ST_Point(-9.14, 38.71))",
+    "skills": ["ST_Contains"],
+    "difficulty": "medium"
+  }
+]

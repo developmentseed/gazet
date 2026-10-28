@@ -1,0 +1,38 @@
+[
+  {
+    "question": "restaurants within 1km of tagus river",
+    "sql": "WITH tagus AS (SELECT ST_GeomFromText('LINESTRING(-9.15 38.7, -9.05 38.7)') AS geom) SELECT p.id, p.names->>'primary' AS name FROM lisbon_places p, tagus t WHERE p.basic_category = 'restaurant' AND ST_Distance(p.geometry, t.geom, 'spheroid') < 1000",
+    "skills": ["spatial join", "distance", "filtering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "count of places by category with at least 50 entries",
+    "sql": "SELECT basic_category, COUNT(*) AS count FROM lisbon_places GROUP BY basic_category HAVING COUNT(*) >= 50 ORDER BY count DESC",
+    "skills": ["GROUP BY", "HAVING", "count"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "top 3 neighborhoods with most historic sites",
+    "sql": "WITH neighborhoods AS (SELECT p.addresses[1]->>'locality' AS neighborhood, p.taxonomy->>'primary' AS category FROM lisbon_places p WHERE p.taxonomy->>'primary' = 'historic_site') SELECT neighborhood, COUNT(*) AS count FROM neighborhoods GROUP BY neighborhood ORDER BY count DESC LIMIT 3",
+    "skills": ["CTE", "GROUP BY", "filtering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "open places with websites sorted by name",
+    "sql": "SELECT names->>'primary' AS name, websites FROM lisbon_places WHERE operating_status = 'open' AND websites IS NOT NULL AND ARRAY_LENGTH(websites) > 0 ORDER BY names->>'primary'",
+    "skills": ["filtering", "ordering", "array handling"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "places with phone numbers and social media links",
+    "sql": "SELECT id, names->>'primary' AS name FROM lisbon_places WHERE ARRAY_LENGTH(phones) > 0 AND ARRAY_LENGTH(socials) > 0",
+    "skills": ["array handling", "filtering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "number of places per country of address",
+    "sql": "SELECT addresses[1]->>'country' AS country, COUNT(*) AS count FROM lisbon_places GROUP BY addresses[1]->>'country' ORDER BY count DESC",
+    "skills": ["GROUP BY", "array access", "count"],
+    "difficulty": "medium"
+  }
+]

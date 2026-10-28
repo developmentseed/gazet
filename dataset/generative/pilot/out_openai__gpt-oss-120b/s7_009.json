@@ -1,0 +1,38 @@
+[
+  {
+    "question": "GeoJSON of all footway segments named 'Rua da Prata'",
+    "sql": "SELECT id, ST_AsGeoJSON(geometry) AS geojson\nFROM lisbon_roads\nWHERE class = 'footway'\n  AND names.primary = 'Rua da Prata';",
+    "skills": ["ST_AsGeoJSON", "filtering", "string matching"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Road name and average max speed (km/h) for residential roads, rounded",
+    "sql": "WITH speeds AS (\n  SELECT\n    names.primary AS road_name,\n    sl.max_speed.value AS max_speed\n  FROM lisbon_roads\n  LEFT JOIN UNNEST(speed_limits) AS sl\n  WHERE class = 'residential'\n    AND sl.max_speed.value IS NOT NULL\n)\nSELECT\n  CONCAT(road_name, ': ', CAST(ROUND(AVG(max_speed)) AS VARCHAR), ' km/h') AS road_avg_speed\nFROM speeds\nGROUP BY road_name\nLIMIT 10;",
+    "skills": ["UNNEST", "AVG", "ROUND", "string concatenation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Centroid lon/lat of the longest tertiary segment (5 decimals)",
+    "sql": "SELECT\n  CONCAT(\n    CAST(ROUND(ST_X(ST_Centroid(geometry))::NUMERIC, 5) AS VARCHAR), ', ',\n    CAST(ROUND(ST_Y(ST_Centroid(geometry))::NUMERIC, 5) AS VARCHAR)\n  ) AS centroid_lon_lat,\n  id\nFROM lisbon_roads\nWHERE class = 'tertiary'\nORDER BY ST_Length(geometry) DESC\nLIMIT 1;",
+    "skills": ["ST_Length", "ST_Centroid", "ST_X", "ST_Y", "ROUND", "string formatting"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Count service roads with a paved surface",
+    "sql": "SELECT COUNT(*) AS paved_service_count\nFROM lisbon_roads\nWHERE class = 'service'\n  AND EXISTS (\n    SELECT 1\n    FROM UNNEST(road_surface) AS rs\n    WHERE rs.value = 'paved'\n  );",
+    "skills": ["UNNEST", "EXISTS", "COUNT", "filtering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "First 10 crosswalk ids with geometry as WKT",
+    "sql": "SELECT id, ST_AsText(geometry) AS wkt\nFROM lisbon_roads\nWHERE subclass = 'crosswalk'\nLIMIT 10;",
+    "skills": ["ST_AsText", "LIMIT", "filtering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Total length (km) of footways with max speed ≤ 5 km/h",
+    "sql": "WITH filtered AS (\n  SELECT geometry\n  FROM lisbon_roads\n  LEFT JOIN UNNEST(speed_limits) AS sl\n  WHERE class = 'footway'\n    AND sl.max_speed.value IS NOT NULL\n    AND sl.max_speed.value <= 5\n)\nSELECT ROUND(SUM(ST_Length(ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', true))) / 1000, 2) AS total_km\nFROM filtered;",
+    "skills": ["UNNEST", "ST_Transform", "ST_Length", "SUM", "ROUND"],
+    "difficulty": "easy"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "show zones with multiple taxi pickups and their average trip distance",
+    "sql": "SELECT ST_AsGeoJSON(z.geom) AS geom, COUNT(*) AS pickup_count, AVG(t.trip_distance) AS avg_distance FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE t.tpep_pickup_datetime >= '2024-01-01' AND t.tpep_pickup_datetime < '2024-02-01' GROUP BY z.location_id, z.geom HAVING COUNT(*) > 1 ORDER BY pickup_count DESC LIMIT 5",
+    "skills": ["nested Overture-style data", "struct fields", "UNNEST", "list functions", "JSON-like attributes"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "find the zone with highest total fare and return its centroid and area in km²",
+    "sql": "SELECT ST_AsGeoJSON(ST_Centroid(z.geom)) AS centroid, ST_Area_Spheroid(z.geom) / 1000000 AS area_km2 FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE t.tpep_pickup_datetime >= '2024-01-01' AND t.tpep_pickup_datetime < '2024-02-01' GROUP BY z.location_id, z.geom ORDER BY SUM(t.fare_amount) DESC LIMIT 1",
+    "skills": ["nested Overture-style data", "struct fields", "list functions", "JSON-like attributes"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "list the top 3 zones by total tip amount and include the number of trips that occurred there",
+    "sql": "SELECT ST_AsGeoJSON(z.geom) AS geom, SUM(t.tip_amount) AS total_tips, COUNT(*) AS trip_count FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE t.tpep_pickup_datetime >= '2024-01-01' AND t.tpep_pickup_datetime < '2024-02-01' GROUP BY z.location_id, z.geom ORDER BY total_tips DESC LIMIT 3",
+    "skills": ["nested Overture-style data", "struct fields", "UNNEST", "list functions", "JSON-like attributes"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "count how many trips had a passenger count greater than 2 and total amount over 50",
+    "sql": "SELECT COUNT(*) AS trip_count FROM nyc_taxi_trips WHERE passenger_count > 2 AND total_amount > 50 AND tpep_pickup_datetime >= '2024-01-01' AND tpep_pickup_datetime < '2024-02-01'",
+    "skills": ["nested Overture-style data", "struct fields", "list functions", "JSON-like attributes"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "find the zone with the greatest distance between pickup and dropoff and return its name",
+    "sql": "SELECT z.zone AS zone_name FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE ST_Distance_Sphere(ST_Point(z.longitude, z.latitude), ST_Point(z.longitude, z.latitude)) > 10000 AND t.tpep_pickup_datetime >= '2024-01-01' AND t.tpep_pickup_datetime < '2024-02-01' GROUP BY z.location_id, z.zone ORDER BY MAX(ST_Distance_Sphere(ST_Point(z.longitude, z.latitude), ST_Point(z.longitude, z.latitude))) DESC LIMIT 1",
+    "skills": ["nested Overture-style data", "struct fields", "UNNEST", "list functions", "JSON-like attributes"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "return the average trip distance and total number of trips per payment type",
+    "sql": "SELECT payment_type, AVG(trip_distance) AS avg_distance, COUNT(*) AS trip_count FROM nyc_taxi_trips WHERE tpep_pickup_datetime >= '2024-01-01' AND tpep_pickup_datetime < '2024-02-01' GROUP BY payment_type ORDER BY payment_type",
+    "skills": ["nested Overture-style data", "struct fields", "UNNEST", "list functions", "JSON-like attributes"],
+    "difficulty": "hard"
+  }
+]

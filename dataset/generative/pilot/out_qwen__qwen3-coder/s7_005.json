@@ -1,0 +1,38 @@
+[
+  {
+    "question": "zones with highest tip per passenger",
+    "sql": "SELECT tz.zone, MAX(t.tip_amount / NULLIF(t.passenger_count, 0)) AS max_tip_per_passenger FROM nyc_taxi_trips t JOIN nyc_taxi_zones tz ON t.PULocationID = tz.location_id GROUP BY tz.zone ORDER BY max_tip_per_passenger DESC LIMIT 10",
+    "skills": ["aggregation", "division handling nulls", "join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "longest trips by distance with pickup geometry",
+    "sql": "SELECT t.trip_distance, ST_AsGeoJSON(tz.geometry) AS pickup_geom FROM nyc_taxi_trips t JOIN nyc_taxi_zones tz ON t.PULocationID = tz.location_id WHERE tz.geometry IS NOT NULL ORDER BY t.trip_distance DESC LIMIT 5",
+    "skills": ["join", "spatial geometry output", "ordering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "trips with multiple intermediate stops",
+    "sql": "SELECT t.*, ARRAY_AGG(tz.zone) AS stop_zones FROM nyc_taxi_trips t JOIN nyc_taxi_zones tz ON t.PULocationID = tz.location_id OR t.DOLocationID = tz.location_id GROUP BY t.VendorID, t.tpep_pickup_datetime, t.tpep_dropoff_datetime, t.passenger_count, t.trip_distance, t.RatecodeID, t.PULocationID, t.DOLocationID, t.payment_type, t.fare_amount, t.extra, t.mta_tax, t.tip_amount, t.tolls_amount, t.improvement_surcharge, t.total_amount, t.congestion_surcharge, t.Airport_fee HAVING COUNT(DISTINCT tz.location_id) > 2 LIMIT 10",
+    "skills": ["grouping", "array aggregation", "having clause"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "average speed per trip in km/h",
+    "sql": "SELECT t.trip_distance, EXTRACT(EPOCH FROM (t.tpep_dropoff_datetime - t.tpep_pickup_datetime))/3600 AS duration_hours, (t.trip_distance * 1.60934) / NULLIF(EXTRACT(EPOCH FROM (t.tpep_dropoff_datetime - t.tpep_pickup_datetime))/3600, 0) AS avg_speed_kmh FROM nyc_taxi_trips t WHERE t.tpep_dropoff_datetime > t.tpep_pickup_datetime AND t.trip_distance > 0 ORDER BY avg_speed_kmh DESC LIMIT 10",
+    "skills": ["datetime arithmetic", "unit conversion", "safe division"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "pickup zones within 500m of Central Park",
+    "sql": "WITH cp_centroid AS (SELECT ST_Centroid(geometry) AS geom FROM nyc_taxi_zones WHERE zone LIKE '%Central Park%' LIMIT 1) SELECT tz.zone, ST_AsGeoJSON(tz.geometry) AS geom FROM nyc_taxi_zones tz, cp_centroid cp WHERE ST_Distance(ST_Transform(tz.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Transform(cp.geom, 'EPSG:4326', 'EPSG:3857', always_xy := true)) < 500 AND tz.geometry IS NOT NULL",
+    "skills": ["spatial join", "metric distance calculation", "CTE usage"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "payment type distribution for high-value trips",
+    "sql": "SELECT t.payment_type, COUNT(*) AS trip_count, LIST[t.total_amount] AS amounts FROM nyc_taxi_trips t WHERE t.total_amount > (SELECT PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY total_amount) FROM nyc_taxi_trips) GROUP BY t.payment_type ORDER BY trip_count DESC",
+    "skills": ["subquery percentile", "list aggregation", "filtering"],
+    "difficulty": "hard"
+  }
+]

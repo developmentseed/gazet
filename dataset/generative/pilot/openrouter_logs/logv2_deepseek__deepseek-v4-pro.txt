@@ -1,0 +1,2 @@
+12 scenarios to (re)generate
+deepseek/deepseek-v4-pro: 12/12 ok, cost $0.4883, providers ['Alibaba', 'Novita', 'SiliconFlow', 'StreamLake'], avg completion 12395 tok (reasoning 11252)

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "total residential building area km2",
+    "sql": "WITH res AS (\n  SELECT ST_Area_Spheroid(geometry) AS area_m2\n  FROM lisbon_buildings\n  WHERE subtype = 'residential'\n)\nSELECT ROUND(SUM(area_m2) / 1e6, 3) AS total_residential_area_km2\nFROM res;",
+    "skills": ["measurement", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "longest road segment length m and class",
+    "sql": "WITH seg AS (\n  SELECT class,\n         ST_Length_Spheroid(geometry) AS len_m\n  FROM lisbon_roads\n)\nSELECT class,\n       ROUND(len_m, 2) AS length_m\nFROM seg\nORDER BY len_m DESC\nLIMIT 1;",
+    "skills": ["measurement", "ordering", "limit"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "average building height per roof shape",
+    "sql": "SELECT roof_shape,\n       ROUND(AVG(height), 2) AS avg_height_m,\n       COUNT(*) AS building_count\nFROM lisbon_buildings\nGROUP BY roof_shape\nHAVING COUNT(*) >= 10\nORDER BY avg_height_m DESC;",
+    "skills": ["aggregation", "grouping"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "total footway length km",
+    "sql": "WITH foot AS (\n  SELECT ST_Length_Spheroid(geometry) AS len_m\n  FROM lisbon_roads\n  WHERE class = 'footway'\n)\nSELECT ROUND(SUM(len_m) / 1000, 3) AS total_footway_km\nFROM foot;",
+    "skills": ["measurement", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "tall buildings >100m footprint area and geojson",
+    "sql": "SELECT id,\n       height,\n       ROUND(ST_Area_Spheroid(geometry), 2) AS area_m2,\n       ST_AsGeoJSON(geometry) AS geojson\nFROM lisbon_buildings\nWHERE height > 100\nLIMIT 10;",
+    "skills": ["measurement", "filtering", "geometry output"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "average max speed km/h for residential roads",
+    "sql": "WITH sl AS (\n  SELECT sl.max_speed.value AS max_speed_kmh\n  FROM lisbon_roads,\n       UNNEST(speed_limits) AS sl\n  WHERE class = 'residential'\n    AND sl.max_speed.value IS NOT NULL\n)\nSELECT ROUND(AVG(max_speed_kmh), 1) AS avg_max_speed_kmh\nFROM sl;",
+    "skills": ["measurement", "aggregation", "struct handling"],
+    "difficulty": "easy"
+  }
+]

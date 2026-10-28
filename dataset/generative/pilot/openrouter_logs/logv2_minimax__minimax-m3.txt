@@ -1,0 +1,2 @@
+12 scenarios to (re)generate
+minimax/minimax-m3: 12/12 ok, cost $0.1065, providers ['ModelRun', 'Parasail', 'Venice'], avg completion 6898 tok (reasoning 6082)

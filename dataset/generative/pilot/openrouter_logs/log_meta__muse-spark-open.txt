@@ -1,0 +1,1 @@
+meta/muse-spark-open: 12/12 ok, cost $0.3015, providers ['BaseTen', 'Makora', 'Modal', 'Nebius', 'Together'], avg completion 5630 tok (reasoning 5162)

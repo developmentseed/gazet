@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "CoreWeave",
+  "wall_s": 12.7,
+  "prompt_tokens": 1558,
+  "completion_tokens": 3800,
+  "reasoning_tokens": 3119,
+  "cost": 0.00267254
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "InferenceNet",
+  "wall_s": 57.4,
+  "prompt_tokens": 840,
+  "completion_tokens": 9533,
+  "reasoning_tokens": 8233,
+  "cost": 0.00580632
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "Baidu",
+  "wall_s": 69.0,
+  "prompt_tokens": 1180,
+  "completion_tokens": 12925,
+  "reasoning_tokens": 11645,
+  "cost": 0.0047592
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "InferenceNet",
+  "wall_s": 14.0,
+  "prompt_tokens": 1514,
+  "completion_tokens": 2657,
+  "reasoning_tokens": 2165,
+  "cost": 0.001652862
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "Baidu",
+  "wall_s": 58.2,
+  "prompt_tokens": 1331,
+  "completion_tokens": 9792,
+  "reasoning_tokens": 8678,
+  "cost": 0.00364491
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "AtlasCloud",
+  "wall_s": 51.0,
+  "prompt_tokens": 1029,
+  "completion_tokens": 8772,
+  "reasoning_tokens": 7817,
+  "cost": 0.004875795
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "AtlasCloud",
+  "wall_s": 24.3,
+  "prompt_tokens": 1130,
+  "completion_tokens": 4125,
+  "reasoning_tokens": 3217,
+  "cost": 0.00238005
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "CoreWeave",
+  "wall_s": 23.6,
+  "prompt_tokens": 1169,
+  "completion_tokens": 9996,
+  "reasoning_tokens": 8819,
+  "cost": 0.00664937
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "Baidu",
+  "wall_s": 66.5,
+  "prompt_tokens": 1189,
+  "completion_tokens": 11971,
+  "reasoning_tokens": 10589,
+  "cost": 0.0043488324
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "CoreWeave",
+  "wall_s": 14.4,
+  "prompt_tokens": 1120,
+  "completion_tokens": 4903,
+  "reasoning_tokens": 4302,
+  "cost": 0.003234246
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "CoreWeave",
+  "wall_s": 31.7,
+  "prompt_tokens": 1664,
+  "completion_tokens": 11644,
+  "reasoning_tokens": 10437,
+  "cost": 0.007719384
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "Baidu",
+  "wall_s": 56.0,
+  "prompt_tokens": 1240,
+  "completion_tokens": 8909,
+  "reasoning_tokens": 7594,
+  "cost": 0.0032962608
+ }
+]

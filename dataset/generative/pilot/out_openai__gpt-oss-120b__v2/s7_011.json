@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which ten countries with GDP greater than $10 billion have the most major airports, and how many major airports does each have?",
+    "sql": "WITH filtered_countries AS (SELECT iso_a3, name, geometry FROM countries WHERE gdp_md > 10000) SELECT c.name AS country, COUNT(a.iata_code) AS major_airport_count FROM filtered_countries c LEFT JOIN airports a ON ST_Contains(c.geometry, a.geometry) AND a.type = 'major' GROUP BY c.name ORDER BY major_airport_count DESC LIMIT 10;",
+    "skills": ["spatial join", "aggregation", "filter", "ranking"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the total estimated population of all countries that have at least one airport located within 50 km of their border?",
+    "sql": "SELECT SUM(c.pop_est) AS total_population FROM countries c WHERE EXISTS (SELECT 1 FROM airports a WHERE ST_Distance_Spheroid(a.geometry, c.geometry, 'WGS84') <= 50000);",
+    "skills": ["spatial join", "aggregation", "distance filter"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For European countries, which five have the highest average distance (in kilometres) from their 'mid' airports to the country centroid, and what are those average distances?",
+    "sql": "WITH europe_countries AS (SELECT iso_a3, geometry FROM countries WHERE continent = 'Europe'), airport_country AS (SELECT a.iata_code, c.iso_a3, ST_Distance_Spheroid(a.geometry, ST_Centroid(c.geometry), 'WGS84')/1000.0 AS dist_km FROM airports a JOIN europe_countries c ON ST_Contains(c.geometry, a.geometry) WHERE a.type = 'mid') SELECT c.name AS country, AVG(ac.dist_km) AS avg_distance_km FROM airport_country ac JOIN countries c ON c.iso_a3 = ac.iso_a3 GROUP BY c.name ORDER BY avg_distance_km DESC LIMIT 5;",
+    "skills": ["spatial join", "aggregation", "distance calculation", "centroid"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What are the land areas (in km²) of countries that contain more than five airports of any type, listed from largest to smallest?",
+    "sql": "WITH airport_counts AS (SELECT c.iso_a3, COUNT(a.iata_code) AS airport_cnt FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) GROUP BY c.iso_a3 HAVING COUNT(a.iata_code) > 5) SELECT c.name, (ST_Area_Spheroid(c.geometry, 'WGS84')/1e6) AS area_km2 FROM countries c JOIN airport_counts ac ON c.iso_a3 = ac.iso_a3 ORDER BY area_km2 DESC;",
+    "skills": ["spatial join", "aggregation", "area calculation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which airports are situated no more than 200 km from a low‑income country yet lie outside its territory, and what is the nearest low‑income country and the distance in kilometres for each?",
+    "sql": "WITH low_income AS (SELECT iso_a3, name, geometry FROM countries WHERE income_grp = '5. Low income') SELECT a.name AS airport_name, a.iata_code, li.name AS nearest_low_income_country, (ST_Distance_Spheroid(a.geometry, li.geometry, 'WGS84')/1000.0) AS distance_km FROM airports a JOIN low_income li ON ST_Distance_Spheroid(a.geometry, li.geometry, 'WGS84') <= 200000 WHERE NOT EXISTS (SELECT 1 FROM low_income li2 WHERE ST_Contains(li2.geometry, a.geometry)) QUALIFY ROW_NUMBER() OVER (PARTITION BY a.iata_code ORDER BY ST_Distance_Spheroid(a.geometry, li.geometry, 'WGS84')) = 1;",
+    "skills": ["spatial join", "distance filter", "nearest neighbor", "exclusion"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each continent, what percentage of its total population lives in countries that host at least one 'major and military' airport?",
+    "sql": "WITH continent_pop AS (SELECT continent, SUM(pop_est) AS total_pop FROM countries GROUP BY continent), countries_with_airport AS (SELECT DISTINCT c.iso_a3, c.continent, c.pop_est FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE a.type = 'major and military') SELECT cp.continent, cp_sum.total_pop, SUM(cp.pop_est) AS pop_with_major_military, (SUM(cp.pop_est)::DOUBLE / cp_sum.total_pop) * 100.0 AS percent_population FROM countries_with_airport cp JOIN continent_pop cp_sum ON cp.continent = cp_sum.continent GROUP BY cp.continent, cp_sum.total_pop ORDER BY percent_population DESC;",
+    "skills": ["spatial join", "aggregation", "percentage calculation"],
+    "difficulty": "hard"
+  }
+]

@@ -1,0 +1,56 @@
+[
+  {
+    "question": "Give me the number of major airports within 100 kilometers of Rotterdam, grouped by airport type.",
+    "sql": "WITH rotterdam AS (SELECT geometry FROM airports WHERE name LIKE '%Rotterdam%') SELECT a.type, COUNT(*) AS airport_count FROM airports a, rotterdam r WHERE ST_Distance_Sphere(a.geometry, r.geometry) < 100000 GROUP BY a.type",
+    "skills": [
+      "spatial join",
+      "aggregation"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List all airport types and their total count located within 50 km of Birmingham Int'l airport.",
+    "sql": "WITH birmingham AS (SELECT geometry FROM airports WHERE name = 'Birmingham Int''l') SELECT a.type, COUNT(*) AS count FROM airports a, birmingham b WHERE ST_Distance_Sphere(a.geometry, b.geometry) <= 50000 GROUP BY a.type",
+    "skills": [
+      "spatial join",
+      "aggregation"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map the number of airports per 1-degree latitude bin across Europe (latitude between 35 and 60).",
+    "sql": "SELECT FLOOR(ST_Y(geometry))::INTEGER AS lat_bin, COUNT(*) AS airport_count FROM airports WHERE ST_Y(geometry) BETWEEN 35 AND 60 GROUP BY lat_bin ORDER BY lat_bin",
+    "skills": [
+      "spatial aggregation",
+      "binning"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare the number of military-related airports (type contains 'military') versus civilian ones in the northern hemisphere.",
+    "sql": "SELECT CASE WHEN type LIKE '%military%' THEN 'Military' ELSE 'Civilian' END AS airport_category, COUNT(*) AS count FROM airports WHERE ST_Y(geometry) > 0 GROUP BY airport_category",
+    "skills": [
+      "conditional aggregation",
+      "spatial filtering"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Give me all mid-sized airports within 200 km of the point (-0.1278, 51.5074), ordered by distance.",
+    "sql": "SELECT name, ST_Distance_Sphere(geometry, ST_Point(-0.1278, 51.5074)) AS dist_meters FROM airports WHERE type = 'mid' AND ST_Distance_Sphere(geometry, ST_Point(-0.1278, 51.5074)) < 200000 ORDER BY dist_meters",
+    "skills": [
+      "spatial filtering",
+      "ordering"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find the density (count per 1000 km²) of airports around Kansas City within a bounding box of ±2 degrees.",
+    "sql": "WITH bbox AS (SELECT ST_Envelope(ST_Buffer(ST_Transform(ST_Point(-94.5786, 39.2903), 'EPSG:4326', 'EPSG:3857'), 200000)) AS geom), relevant_airports AS (SELECT * FROM airports WHERE ST_X(geometry) BETWEEN -96.5786 AND -92.5786 AND ST_Y(geometry) BETWEEN 37.2903 AND 41.2903) SELECT COUNT(*) / (ST_Area(ST_Transform(b.geom, 'EPSG:4326', 'EPSG:3857')) / 1000000) * 1000 AS density_per_1000km2 FROM bbox b, relevant_airports a WHERE ST_Intersects(ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:3857'), b.geom)",
+    "skills": [
+      "spatial density",
+      "area calculation"
+    ],
+    "difficulty": "medium"
+  }
+]

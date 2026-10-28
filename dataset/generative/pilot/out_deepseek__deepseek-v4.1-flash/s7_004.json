@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Show me the shape of the area within 100 km of Brazil's capital, but only the part that lies inside Brazil.",
+    "sql": "WITH city AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom FROM populated_places WHERE country = 'Brazil' AND is_capital = true LIMIT 1), country AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom FROM countries WHERE name = 'Brazil' LIMIT 1) SELECT ST_AsGeoJSON(ST_Transform(ST_Intersection(ST_Buffer(city.geom, 100000), country.geom), 'EPSG:3857', 'EPSG:4326', always_xy := true)) AS shape FROM city, country;",
+    "skills": ["ST_Buffer", "ST_Intersection", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which countries have a convex hull that contains at least one city with more than 10 million people? Show the country name and the convex hull shape.",
+    "sql": "SELECT c.name, ST_AsGeoJSON(ST_ConvexHull(c.geometry)) AS hull FROM countries c WHERE EXISTS (SELECT 1 FROM populated_places p WHERE p.pop_max > 10000000 AND ST_Contains(ST_ConvexHull(c.geometry), p.geometry)) LIMIT 10;",
+    "skills": ["ST_ConvexHull", "ST_Contains"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each continent, show the merged outline of all its countries and the number of countries in that continent.",
+    "sql": "SELECT continent, COUNT(*) AS country_count, ST_AsGeoJSON(ST_Union_Agg(geometry)) AS combined_shape FROM countries WHERE continent IS NOT NULL GROUP BY continent;",
+    "skills": ["ST_Union_Agg"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find the part of Russia that lies within 500 km of any city with more than 1 million people, and return the merged shape.",
+    "sql": "WITH city_buffers AS (SELECT ST_Buffer(ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), 500000) AS geom FROM populated_places WHERE country = 'Russia' AND pop_max > 1000000), russia AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom FROM countries WHERE name = 'Russia' LIMIT 1), merged AS (SELECT ST_Union_Agg(geom) AS geom FROM city_buffers) SELECT ST_AsGeoJSON(ST_Transform(ST_Intersection(russia.geom, merged.geom), 'EPSG:3857', 'EPSG:4326', always_xy := true)) AS shape FROM russia, merged;",
+    "skills": ["ST_Buffer", "ST_Union_Agg", "ST_Intersection", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show the remote parts of Brazil that are at least 200 km away from any city with more than 500,000 people.",
+    "sql": "WITH cities AS (SELECT ST_Union_Agg(ST_Buffer(ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), 200000)) AS geom FROM populated_places WHERE country = 'Brazil' AND pop_max > 500000), brazil AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom FROM countries WHERE name = 'Brazil' LIMIT 1) SELECT ST_AsGeoJSON(ST_Transform(ST_Difference(brazil.geom, cities.geom), 'EPSG:3857', 'EPSG:4326', always_xy := true)) AS remote_shape FROM brazil, cities;",
+    "skills": ["ST_Buffer", "ST_Union_Agg", "ST_Difference", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the center point of the combined shape of all countries in South America? Return it as GeoJSON.",
+    "sql": "WITH south_america AS (SELECT ST_Union_Agg(geometry) AS geom FROM countries WHERE continent = 'South America') SELECT ST_AsGeoJSON(ST_Centroid(geom)) AS center FROM south_america;",
+    "skills": ["ST_Union_Agg", "ST_Centroid"],
+    "difficulty": "medium"
+  }
+]

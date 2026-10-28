@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "AkashML",
+  "wall_s": 12.6,
+  "prompt_tokens": 1307,
+  "completion_tokens": 1876,
+  "reasoning_tokens": 1129,
+  "cost": 0.000390022
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "SiliconFlow",
+  "wall_s": 82.1,
+  "prompt_tokens": 616,
+  "completion_tokens": 3959,
+  "reasoning_tokens": 3044,
+  "cost": 0.0024678
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "DekaLLM",
+  "wall_s": 71.3,
+  "prompt_tokens": 943,
+  "completion_tokens": 2980,
+  "reasoning_tokens": 2288,
+  "cost": 0.00056469
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "AkashML",
+  "wall_s": 14.6,
+  "prompt_tokens": 1251,
+  "completion_tokens": 1606,
+  "reasoning_tokens": 0,
+  "cost": 0.000337852
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "SiliconFlow",
+  "wall_s": 45.2,
+  "prompt_tokens": 1090,
+  "completion_tokens": 3270,
+  "reasoning_tokens": 2204,
+  "cost": 0.0021255
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "Crusoe",
+  "wall_s": 11.4,
+  "prompt_tokens": 800,
+  "completion_tokens": 2935,
+  "reasoning_tokens": 2083,
+  "cost": 0.00077375
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "AkashML",
+  "wall_s": 15.0,
+  "prompt_tokens": 894,
+  "completion_tokens": 2588,
+  "reasoning_tokens": 1465,
+  "cost": 0.000510776
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "DeepInfra",
+  "wall_s": 82.5,
+  "prompt_tokens": 921,
+  "completion_tokens": 2170,
+  "reasoning_tokens": 1324,
+  "cost": 0.000402977
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "AkashML",
+  "wall_s": 33.6,
+  "prompt_tokens": 949,
+  "completion_tokens": 4038,
+  "reasoning_tokens": 0,
+  "cost": 0.000783576
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "AkashML",
+  "wall_s": 14.7,
+  "prompt_tokens": 872,
+  "completion_tokens": 2187,
+  "reasoning_tokens": 1293,
+  "cost": 0.000435129
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "AkashML",
+  "wall_s": 33.3,
+  "prompt_tokens": 1404,
+  "completion_tokens": 2945,
+  "reasoning_tokens": 0,
+  "cost": 0.000592835
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "AkashML",
+  "wall_s": 37.7,
+  "prompt_tokens": 1007,
+  "completion_tokens": 3425,
+  "reasoning_tokens": 0,
+  "cost": 0.000670685
+ }
+]

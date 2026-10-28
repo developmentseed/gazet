@@ -1,0 +1,38 @@
+[
+  {
+    "question": "How many airports are located within 500 kilometers of any country in the 'Europe' continent?",
+    "sql": "SELECT COUNT(*) AS airport_count FROM airports a, countries c WHERE ST_Distance(a.geometry, c.geometry, 'spheroid') <= 500000 AND c.continent = 'Europe'",
+    "skills": ["spatial join with aggregation", "distance calculation in meters"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the total GDP of all countries in the 'Asia' region that have at least one airport with a 'major' type?",
+    "sql": "SELECT SUM(c.gdp_md) AS total_gdp FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.region_un = 'Asia' AND a.type = 'major'",
+    "skills": ["spatial join with aggregation", "filtering by attribute"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How many countries in the 'South America' subregion have a population greater than 10 million and are within 200 kilometers of at least one international airport?",
+    "sql": "SELECT COUNT(*) AS country_count FROM countries c WHERE c.subregion = 'South America' AND c.pop_est > 10000000 AND EXISTS (SELECT 1 FROM airports a WHERE ST_Distance(a.geometry, c.geometry, 'spheroid') <= 200000 AND a.type IN ('major', 'major and military'))",
+    "skills": ["spatial join with aggregation", "existence check", "distance filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which country in the 'Africa' continent has the highest GDP per capita (GDP divided by population) among those with more than 5 airports?",
+    "sql": "SELECT c.name FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.continent = 'Africa' GROUP BY c.iso_a3, c.name, c.gdp_md, c.pop_est HAVING COUNT(a.iata_code) > 5 ORDER BY (c.gdp_md * 1.0 / c.pop_est) DESC LIMIT 1",
+    "skills": ["spatial join with aggregation", "ratio calculation", "grouping and filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How many airports are located within 100 kilometers of any country classified as 'Developing region' and what is the total population of those countries?",
+    "sql": "SELECT COUNT(a.iata_code) AS airport_count, SUM(c.pop_est) AS total_population FROM airports a JOIN countries c ON ST_Distance(a.geometry, c.geometry, 'spheroid') <= 100000 WHERE c.economy = '6. Developing region'",
+    "skills": ["spatial join with aggregation", "distance filtering", "aggregation over joined data"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the average population density (population per square kilometer) of countries in the 'Oceania' region that contain at least one airport with a 'military' type?",
+    "sql": "SELECT AVG(c.pop_est / (ST_Area(c.geometry, 'spheroid') / 1000000)) AS avg_density FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.region_un = 'Oceania' AND a.type LIKE '%military%'",
+    "skills": ["spatial join with aggregation", "area and density calculation", "filtering on type"],
+    "difficulty": "hard"
+  }
+]

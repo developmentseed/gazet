@@ -1,0 +1,39 @@
+You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
+
+Below are the tables available. Each is a DuckDB view with exactly the columns shown.
+
+TABLE lisbon_places  -- Overture Maps places (POIs, points) in Lisbon. EPSG:4326. rows=52807
+  id VARCHAR  -- distinct~53391 e.g. ['02e95c49-e4fd-4723-b440-5d1c08f6fa01', 'f09acdea-bba1-4c00-93d2-61ad8f011ccf']
+  names STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[])  -- example={'primary': '벨렘탑', 'common': None, 'rules': None}
+  basic_category VARCHAR  -- distinct~229 top=['restaurant', 'personal_or_beauty_service', 'fashion_and_apparel_store', 'professional_service', 'wellness_service', 'real_estate_service']
+  taxonomy STRUCT("primary" VARCHAR, hierarchy VARCHAR[], alternates VARCHAR[])  -- example={'primary': 'historic_site', 'hierarchy': ['cultural_and_historic', 'historic_site'], 'alternates': None}
+  confidence DOUBLE  -- range=[0.0, 1.0]
+  operating_status VARCHAR  -- distinct~3 top=['open', 'permanently_closed', 'temporarily_closed']
+  websites VARCHAR[]  -- example=['http://www.torrebelem.pt/']
+  socials VARCHAR[]  -- example=['https://www.facebook.com/563315307113311']
+  phones VARCHAR[]  -- example=['+351933158503']
+  addresses STRUCT(freeform VARCHAR, locality VARCHAR, postcode VARCHAR, region VARCHAR, country VARCHAR)[]  -- example=[{'freeform': None, 'locality': 'Lisboa', 'postcode': None, 'region': None, 'country': 'PT'}]
+  brand STRUCT(wikidata VARCHAR, "names" STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[]))  -- example={'wikidata': None, 'names': {'primary': None, 'common': None, 'rules': None}}
+  geometry GEOMETRY('OGC:CRS84')  -- types=['POINT'] extent=[-9.25, 38.68, -9.091, 38.8]
+
+Write 6 diverse (question, sql) pairs for these tables.
+- Focus skill: analytical SQL: GROUP BY / HAVING / CTEs / CASE / date-time functions / QUALIFY
+- Difficulty: medium
+- Question style: terse keyword-style requests a GIS analyst types into a search box
+
+Rules:
+- SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
+- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Only reference values that plausibly exist in the data (use the top values / ranges shown). The query should return at least one row.
+- Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
+- Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
+- Make the 6 pairs differ in intent, not just in literal values.
+
+DuckDB spatial is NOT PostGIS. `SET geometry_always_xy = true` is active (lon/lat order). Differences that matter:
+- No SRID arguments and no ST_SetSRID: ST_MakeEnvelope(xmin, ymin, xmax, ymax), ST_GeomFromText(wkt), ST_Point(lon, lat).
+- ST_Transform takes CRS strings, not integers: ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true).
+- No GEOGRAPHY type and no 'spheroid' / use_spheroid argument on ST_Distance or ST_Area. For metres use ST_Distance_Sphere / ST_Distance_Spheroid / ST_DWithin_Spheroid (POINT inputs only), ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS. For distances involving lines or polygons, transform to a metric CRS first.
+- ST_Collect takes a list: ST_Collect(list(geom)). Aggregates are ST_Union_Agg(geom) and ST_Extent_Agg(geom).
+
+Return ONLY a JSON array, no markdown fences:
+[{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "medium"}]

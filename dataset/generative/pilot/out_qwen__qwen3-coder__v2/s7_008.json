@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which taxi zones are located within the rectangular area defined by longitude -74.0 to -73.9 and latitude 40.7 to 40.8?",
+    "sql": "SELECT location_id, zone, borough FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.0, 40.7, -73.9, 40.8))",
+    "skills": ["bounding-box filtering", "spatial intersection"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Find all pickup locations in Manhattan where the dropoff was in a zone with an average trip distance greater than 5 miles, and both locations fall within the bounding box from -74.01 to -73.96 longitude and 40.74 to 40.76 latitude.",
+    "sql": "WITH filtered_trips AS (SELECT PULocationID, DOLocationID FROM nyc_taxi_trips WHERE PULocationID IN (SELECT location_id FROM nyc_taxi_zones WHERE borough = 'Manhattan') AND DOLocationID IN (SELECT location_id FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.01, 40.74, -73.96, 40.76))) GROUP BY PULocationID, DOLocationID HAVING AVG(trip_distance) > 5), pickup_zones AS (SELECT tz.location_id, tz.zone, tz.borough FROM nyc_taxi_zones tz JOIN filtered_trips ft ON tz.location_id = ft.PULocationID WHERE ST_Intersects(tz.geometry, ST_MakeEnvelope(-74.01, 40.74, -73.96, 40.76))) SELECT * FROM pickup_zones",
+    "skills": ["bounding-box filtering", "subquery aggregation", "spatial join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What are the total number of trips and average fare amount for journeys that started and ended within the bounding box covering most of Brooklyn, specifically between longitudes -74.05 to -73.85 and latitudes 40.6 to 40.7?",
+    "sql": "SELECT COUNT(*) AS trip_count, AVG(fare_amount) AS avg_fare FROM nyc_taxi_trips t JOIN nyc_taxi_zones z1 ON t.PULocationID = z1.location_id JOIN nyc_taxi_zones z2 ON t.DOLocationID = z2.location_id WHERE ST_Intersects(z1.geometry, ST_MakeEnvelope(-74.05, 40.6, -73.85, 40.7)) AND ST_Intersects(z2.geometry, ST_MakeEnvelope(-74.05, 40.6, -73.85, 40.7))",
+    "skills": ["bounding-box filtering", "spatial self-join", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Show me the convex hull polygon encompassing all taxi zones whose centroids lie within the rectangle bounded by -74.02 to -73.93 longitude and 40.7 to 40.8 latitude.",
+    "sql": "SELECT ST_AsGeoJSON(ST_ConvexHull(ST_Collect(list(geometry)))) AS convex_hull FROM nyc_taxi_zones WHERE ST_Intersects(ST_Centroid(geometry), ST_MakeEnvelope(-74.02, 40.7, -73.93, 40.8))",
+    "skills": ["bounding-box filtering", "centroid operations", "convex hull"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Identify the largest cluster of taxi pickups (by count) happening within any 0.01 degree by 0.01 degree grid cell that overlaps with the area from -74.01 to -73.95 longitude and 40.7 to 40.75 latitude.",
+    "sql": "WITH grid_cells AS (SELECT CAST((ST_XMin(ST_MakeEnvelope(-74.01, 40.7, -73.95, 40.75)) + (i * 0.01)) AS DOUBLE) AS xmin, CAST((ST_YMin(ST_MakeEnvelope(-74.01, 40.7, -73.95, 40.75)) + (j * 0.01)) AS DOUBLE) AS ymin FROM generate_series(0, CAST((ST_XMax(ST_MakeEnvelope(-74.01, 40.7, -73.95, 40.75)) - ST_XMin(ST_MakeEnvelope(-74.01, 40.7, -73.95, 40.75))) / 0.01 AS INTEGER)) AS i, generate_series(0, CAST((ST_YMax(ST_MakeEnvelope(-74.01, 40.7, -73.95, 40.75)) - ST_YMin(ST_MakeEnvelope(-74.01, 40.7, -73.95, 40.75))) / 0.01 AS INTEGER)) AS j), enriched_trips AS (SELECT t.*, z.zone AS pickup_zone, z.borough AS pickup_borough FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE ST_Intersects(z.geometry, ST_MakeEnvelope(-74.01, 40.7, -73.95, 40.75))), clustered_counts AS (SELECT gc.xmin, gc.ymin, COUNT(et.*) AS trip_count FROM grid_cells gc, enriched_trips et JOIN nyc_taxi_zones z ON et.PULocationID = z.location_id WHERE ST_Intersects(z.geometry, ST_MakeEnvelope(gc.xmin, gc.ymin, gc.xmin + 0.01, gc.ymin + 0.01)) GROUP BY gc.xmin, gc.ymin) SELECT xmin, ymin, trip_count FROM clustered_counts ORDER BY trip_count DESC LIMIT 1",
+    "skills": ["grid-based clustering", "bounding-box filtering", "spatial aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "List the top 5 taxi zones in Queens with the highest average tip amounts for trips originating inside the bounding box from -73.9 to -73.8 longitude and 40.7 to 40.75 latitude, sorted by average tip descending.",
+    "sql": "SELECT tz.zone, AVG(tt.tip_amount) AS avg_tip FROM nyc_taxi_trips tt JOIN nyc_taxi_zones tz ON tt.PULocationID = tz.location_id WHERE tz.borough = 'Queens' AND EXISTS (SELECT 1 FROM nyc_taxi_zones tz2 WHERE tz2.location_id = tt.PULocationID AND ST_Intersects(tz2.geometry, ST_MakeEnvelope(-73.9, 40.7, -73.8, 40.75))) GROUP BY tz.zone ORDER BY avg_tip DESC LIMIT 5",
+    "skills": ["bounding-box filtering", "conditional joins", "top-k aggregation"],
+    "difficulty": "hard"
+  }
+]

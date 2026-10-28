@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the top 2 most populated places in each country, including the country, place name, population, and longitude.",
+    "sql": "WITH ranked AS (SELECT country, name, pop_max, ST_X(geometry) AS lon, ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn FROM populated_places) SELECT country, name, pop_max, lon FROM ranked WHERE rn <= 2 ORDER BY country, rn;",
+    "skills": ["ROW_NUMBER", "partition by", "spatial attribute"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the top 3 airports per type ordered by scalerank (lower means more important), showing type, airport name, scalerank, longitude, and latitude.",
+    "sql": "WITH ranked AS (SELECT type, name, scalerank, ST_X(geometry) AS lon, ST_Y(geometry) AS lat, RANK() OVER (PARTITION BY type ORDER BY scalerank ASC) AS rnk FROM airports) SELECT type, name, scalerank, lon, lat FROM ranked WHERE rnk <= 3 ORDER BY type, rnk;",
+    "skills": ["RANK", "partition by", "spatial attribute"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each country, list the 3 populated places closest to the equator, showing country, place name, and absolute latitude.",
+    "sql": "WITH ranked AS (SELECT country, name, ABS(ST_Y(geometry)) AS abs_lat, ROW_NUMBER() OVER (PARTITION BY country ORDER BY ABS(ST_Y(geometry)) ASC) AS rn FROM populated_places) SELECT country, name, abs_lat FROM ranked WHERE rn <= 3 ORDER BY country, rn;",
+    "skills": ["ROW_NUMBER", "partition by", "spatial attribute"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each airport type, list airports ordered by scalerank and show a running total of airports seen so far in that type, along with longitude.",
+    "sql": "SELECT type, name, scalerank, ST_X(geometry) AS lon, COUNT(*) OVER (PARTITION BY type ORDER BY scalerank ASC, name) AS running_count FROM airports ORDER BY type, scalerank, name;",
+    "skills": ["running total", "COUNT OVER", "partition by", "spatial attribute"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List capital cities per country ranked by population, and show the cumulative population of capitals within each country, plus longitude.",
+    "sql": "WITH capitals AS (SELECT country, name, pop_max, ST_X(geometry) AS lon, ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn, SUM(pop_max) OVER (PARTITION BY country ORDER BY pop_max DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cum_pop FROM populated_places WHERE is_capital = true) SELECT country, name, pop_max, cum_pop, lon FROM capitals ORDER BY country, rn;",
+    "skills": ["ROW_NUMBER", "SUM OVER", "cumulative sum", "partition by", "spatial attribute"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each airport type, find the airport farthest from the equator and show its name, absolute latitude, and distance from the equator in kilometers.",
+    "sql": "WITH ranked AS (SELECT type, name, ABS(ST_Y(geometry)) AS abs_lat, ST_Distance_Spheroid(geometry, ST_Point(ST_X(geometry), 0)) / 1000 AS dist_km, ROW_NUMBER() OVER (PARTITION BY type ORDER BY ABS(ST_Y(geometry)) DESC) AS rn FROM airports) SELECT type, name, abs_lat, dist_km FROM ranked WHERE rn = 1 ORDER BY type;",
+    "skills": ["ROW_NUMBER", "partition by", "spatial distance", "spheroid distance"],
+    "difficulty": "easy"
+  }
+]

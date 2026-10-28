@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Find all restaurants located within 500 meters of the Tagus River waterfront area defined by the bounding box from -9.18 to -9.15 longitude and 38.70 to 38.72 latitude.",
+    "sql": "SELECT lp.names.primary AS restaurant_name, lp.geometry FROM lisbon_places lp WHERE lp.basic_category = 'restaurant' AND ST_DWithin_Spheroid(lp.geometry, ST_Centroid(ST_Union_Agg(ST_MakeEnvelope(-9.18, 38.70, -9.15, 38.72))), 500.0)",
+    "skills": ["ST_DWithin_Spheroid", "ST_Centroid", "ST_Union_Agg", "ST_MakeEnvelope"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List parks or green spaces that intersect with roads classified as secondary in Lisbon.",
+    "sql": "SELECT DISTINCT lp.names.primary AS park_name FROM lisbon_places lp JOIN lisbon_roads lr ON ST_Intersects(lp.geometry, lr.geometry) WHERE lp.taxonomy.primary IN ('park', 'garden', 'green_space') AND lr.class = 'secondary'",
+    "skills": ["ST_Intersects"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which historic sites are completely enclosed within the district boundary represented by the polygon covering coordinates near (-9.14, 38.71) to (-9.13, 38.72)?",
+    "sql": "WITH district AS (SELECT ST_MakePolygon(ST_MakeLine([ST_Point(-9.14, 38.71), ST_Point(-9.13, 38.71), ST_Point(-9.13, 38.72), ST_Point(-9.14, 38.72), ST_Point(-9.14, 38.71)])) AS geom) SELECT lp.names.primary AS site_name FROM lisbon_places lp, district d WHERE lp.taxonomy.primary = 'historic_site' AND ST_Within(lp.geometry, d.geom)",
+    "skills": ["ST_Within", "ST_MakePolygon", "ST_MakeLine", "ST_Point"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Identify any footpaths that touch but do not cross major train tracks in the city.",
+    "sql": "SELECT lr1.names.primary AS footpath_name FROM lisbon_roads lr1 JOIN lisbon_roads lr2 ON ST_Touches(lr1.geometry, lr2.geometry) WHERE lr1.class = 'footway' AND lr2.subtype = 'rail'",
+    "skills": ["ST_Touches"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show me cafes along Rua Augusta that are within walking distance (100 meters) of public transport stops.",
+    "sql": "WITH rua_augusta AS (SELECT geometry FROM lisbon_roads WHERE names.primary LIKE '%Rua Augusta%'), nearby_stops AS (SELECT lp.geometry AS stop_geom FROM lisbon_places lp WHERE lp.basic_category = 'public_transport' OR lp.taxonomy.primary IN ('bus_stop', 'tram_stop')) SELECT DISTINCT cp.names.primary AS cafe_name FROM lisbon_places cp, rua_augusta ra, nearby_stops ns WHERE cp.basic_category = 'cafe' AND ST_DWithin_Spheroid(cp.geometry, ra.geometry, 100.0) AND ST_DWithin_Spheroid(cp.geometry, ns.stop_geom, 100.0)",
+    "skills": ["ST_DWithin_Spheroid"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Are there any closed businesses directly adjacent to metro stations in Lisbon?",
+    "sql": "SELECT lp.names.primary AS business_name, lp.operating_status FROM lisbon_places lp JOIN lisbon_places metro ON ST_Touches(lp.geometry, metro.geometry) WHERE lp.operating_status IN ('permanently_closed', 'temporarily_closed') AND metro.taxonomy.primary = 'metro_station'",
+    "skills": ["ST_Touches"],
+    "difficulty": "medium"
+  }
+]

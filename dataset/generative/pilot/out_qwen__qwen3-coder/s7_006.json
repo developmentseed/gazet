@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the three largest cities (by maximum population) in each country.",
+    "sql": "SELECT country, name, pop_max FROM (SELECT country, name, pop_max, ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn FROM populated_places) WHERE rn <= 3",
+    "skills": ["window functions", "ranking"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List all airports within 50 kilometers of any world city, showing airport name and the nearest city.",
+    "sql": "SELECT a.name AS airport_name, p.name AS city_name FROM airports a JOIN populated_places p ON ST_Distance_Sphere(a.geometry, p.geometry) < 50000",
+    "skills": ["spatial join", "distance filtering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Map the biggest airport by scalerank in each country's airspace (based on nearby cities).",
+    "sql": "WITH ranked_airports AS (SELECT a.name AS airport_name, p.country, a.scalerank, ROW_NUMBER() OVER (PARTITION BY p.country ORDER BY a.scalerank DESC) AS rn FROM airports a JOIN populated_places p ON ST_Distance_Sphere(a.geometry, p.geometry) < 100000) SELECT airport_name, country FROM ranked_airports WHERE rn = 1",
+    "skills": ["window functions", "spatial join", "ranking"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Compare the total population (pop_max) of capital vs non-capital cities globally.",
+    "sql": "SELECT is_capital, SUM(pop_max) AS total_population FROM populated_places GROUP BY is_capital",
+    "skills": ["aggregation", "grouping"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Show the cumulative population of cities ordered by their longitude (eastward).",
+    "sql": "SELECT name, pop_max, SUM(pop_max) OVER (ORDER BY ST_X(geometry)) AS cumulative_pop FROM populated_places ORDER BY ST_X(geometry)",
+    "skills": ["window functions", "running totals", "ordering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Find the most populous city in each administrative region (admin1), excluding capitals.",
+    "sql": "SELECT admin1, name, pop_max FROM (SELECT admin1, name, pop_max, ROW_NUMBER() OVER (PARTITION BY admin1 ORDER BY pop_max DESC) AS rn FROM populated_places WHERE NOT is_capital) WHERE rn = 1",
+    "skills": ["window functions", "ranking", "filtering"],
+    "difficulty": "easy"
+  }
+]

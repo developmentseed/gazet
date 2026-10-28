@@ -1,0 +1,38 @@
+[
+  {
+    "question": "roads with max speed over 50 km/h",
+    "sql": "SELECT id, names.primary AS name, speed_limits[1].max_speed.value AS max_speed FROM lisbon_roads WHERE speed_limits[1].max_speed.value > 50",
+    "skills": ["filtering", "attribute selection"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "show sidewalks as WKT",
+    "sql": "SELECT id, ST_AsText(geometry) AS geom_wkt FROM lisbon_roads WHERE subclass = 'sidewalk'",
+    "skills": ["geometry output", "ST_AsText"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "roundabout geometries as geojson",
+    "sql": "SELECT id, ST_AsGeoJSON(geometry) AS geojson FROM lisbon_roads WHERE class = 'tertiary' AND names.primary ILIKE '%rotunda%'",
+    "skills": ["geometry output", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "residential roads with unpaved surface",
+    "sql": "SELECT id, names.primary AS name, road_surface[1].value AS surface FROM lisbon_roads WHERE class = 'residential' AND road_surface[1].value != 'paved'",
+    "skills": ["filtering", "nested struct access"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "start point of secondary roads",
+    "sql": "SELECT id, ROUND(ST_X(ST_StartPoint(geometry))::NUMERIC, 5) AS start_lon, ROUND(ST_Y(ST_StartPoint(geometry))::NUMERIC, 5) AS start_lat FROM lisbon_roads WHERE class = 'secondary'",
+    "skills": ["geometry functions", "ST_X/ST_Y", "ROUND"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "road names containing 'Avenida'",
+    "sql": "SELECT id, names.primary AS name FROM lisbon_roads WHERE names.primary ILIKE '%Avenida%'",
+    "skills": ["string filtering", "attribute selection"],
+    "difficulty": "easy"
+  }
+]

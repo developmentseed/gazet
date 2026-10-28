@@ -1,0 +1,38 @@
+[
+  {
+    "question": "What are the taxi zones that are completely inside the area bounded by -74.05 to -73.9 longitude and 40.7 to 40.85 latitude? Give me the names and the shapes.",
+    "sql": "SELECT zone, ST_AsGeoJSON(geometry) FROM nyc_taxi_zones WHERE ST_Within(geometry, ST_MakeEnvelope(-74.05, 40.7, -73.9, 40.85))",
+    "skills": ["ST_MakeEnvelope", "ST_Within", "ST_AsGeoJSON"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How many taxi trips started in the Midtown area (between -74.0 and -73.96 longitude, 40.75 and 40.80 latitude) and ended more than 3 kilometers from the pickup point?",
+    "sql": "WITH midtown_zones AS (SELECT location_id, ST_Centroid(geometry) AS centroid FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.0, 40.75, -73.96, 40.80))) SELECT COUNT(*) FROM nyc_taxi_trips t JOIN midtown_zones mz ON t.PULocationID = mz.location_id JOIN nyc_taxi_zones dz ON t.DOLocationID = dz.location_id WHERE ST_Distance_Spheroid(mz.centroid, ST_Centroid(dz.geometry)) > 3000",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "ST_Centroid", "ST_Distance_Spheroid", "CTE"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the geographic bounding box that contains all taxi zones in Queens?",
+    "sql": "SELECT ST_XMin(ST_Extent_Agg(geometry)) AS xmin, ST_YMin(ST_Extent_Agg(geometry)) AS ymin, ST_XMax(ST_Extent_Agg(geometry)) AS xmax, ST_YMax(ST_Extent_Agg(geometry)) AS ymax FROM nyc_taxi_zones WHERE borough = 'Queens'",
+    "skills": ["ST_Extent_Agg", "ST_XMin", "ST_YMin", "ST_XMax", "ST_YMax"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How many taxi trips both started and ended in the downtown Brooklyn area (between -74.0 and -73.94 longitude, 40.65 and 40.72 latitude)?",
+    "sql": "SELECT COUNT(*) FROM nyc_taxi_trips t JOIN nyc_taxi_zones p ON t.PULocationID = p.location_id JOIN nyc_taxi_zones d ON t.DOLocationID = d.location_id WHERE ST_Within(p.geometry, ST_MakeEnvelope(-74.0, 40.65, -73.94, 40.72)) AND ST_Within(d.geometry, ST_MakeEnvelope(-74.0, 40.65, -73.94, 40.72))",
+    "skills": ["ST_MakeEnvelope", "ST_Within", "spatial join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What are the different city areas that have taxi zones intersecting with the area covering the Bronx (between -73.93 and -73.84 longitude, 40.79 and 40.91 latitude), and how many zones in each?",
+    "sql": "SELECT borough, COUNT(*) AS zone_count FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-73.93, 40.79, -73.84, 40.91)) GROUP BY borough",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "GROUP BY"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How many taxi trips went from a neighborhood in Midtown (between -74.0 and -73.96 longitude, 40.75 and 40.80 latitude) to a neighborhood in the Financial District (between -74.02 and -73.99 longitude, 40.70 and 40.74 latitude)?",
+    "sql": "SELECT COUNT(*) FROM nyc_taxi_trips t JOIN nyc_taxi_zones p ON t.PULocationID = p.location_id JOIN nyc_taxi_zones d ON t.DOLocationID = d.location_id WHERE ST_Within(p.geometry, ST_MakeEnvelope(-74.0, 40.75, -73.96, 40.80)) AND ST_Within(d.geometry, ST_MakeEnvelope(-74.02, 40.70, -73.99, 40.74))",
+    "skills": ["ST_MakeEnvelope", "ST_Within", "spatial join", "bbox filtering"],
+    "difficulty": "hard"
+  }
+]

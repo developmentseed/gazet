@@ -1,0 +1,38 @@
+[
+  {
+    "question": "historic sites that intersect any building footprint",
+    "sql": "SELECT p.id,\n       p.names.primary AS name,\n       ST_AsGeoJSON(p.geometry) AS geo\nFROM lisbon_places AS p\nJOIN lisbon_buildings AS b\n  ON ST_Intersects(p.geometry, b.geometry)\nWHERE p.taxonomy.primary = 'historic_site'\nLIMIT 100;",
+    "skills": ["ST_Intersects"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "restaurants within 200 meters of a building taller than 80 meters",
+    "sql": "WITH tall_buildings AS (\n  SELECT geometry\n  FROM lisbon_buildings\n  WHERE height > 80\n)\nSELECT p.id,\n       p.names.primary AS name,\n       p.basic_category\nFROM lisbon_places AS p\nJOIN tall_buildings AS b\n  ON ST_Distance(\n       ST_Transform(p.geometry, 4326, 3857, true),\n       ST_Transform(b.geometry, 4326, 3857, true)\n     ) <= 200\nWHERE p.basic_category = 'restaurant'\nLIMIT 100;",
+    "skills": ["ST_Distance"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings that contain a coffee shop",
+    "sql": "SELECT b.id,\n       b.subtype,\n       b.height\nFROM lisbon_buildings AS b\nJOIN lisbon_places AS p\n  ON ST_Contains(b.geometry, p.geometry)\nWHERE p.basic_category = 'restaurant'\n  AND p.names.primary ILIKE '%coffee%'\nLIMIT 100;",
+    "skills": ["ST_Contains"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "places that touch any school building",
+    "sql": "SELECT p.id,\n       p.names.primary AS name,\n       p.basic_category\nFROM lisbon_places AS p\nJOIN lisbon_buildings AS b\n  ON ST_Touches(p.geometry, b.geometry)\nWHERE b.class = 'school'\nLIMIT 100;",
+    "skills": ["ST_Touches"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings within 500 meters of the Tagus river line",
+    "sql": "SELECT b.id,\n       b.subtype,\n       b.height\nFROM lisbon_buildings AS b\nWHERE ST_Distance(\n        ST_Transform(b.geometry, 4326, 3857, true),\n        ST_Transform(\n          ST_GeomFromText('LINESTRING(-9.2 38.7, -9.1 38.71)', 4326),\n          4326, 3857, true\n        )\n      ) <= 500;\n",
+    "skills": ["ST_Distance"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "open personal or beauty services inside residential buildings",
+    "sql": "SELECT p.id,\n       p.names.primary AS name\nFROM lisbon_places AS p\nJOIN lisbon_buildings AS b\n  ON ST_Within(p.geometry, b.geometry)\nWHERE p.basic_category = 'personal_or_beauty_service'\n  AND p.operating_status = 'open'\n  AND b.subtype = 'residential'\nLIMIT 100;",
+    "skills": ["ST_Within"],
+    "difficulty": "easy"
+  }
+]

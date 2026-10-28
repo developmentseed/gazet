@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Show the area of land that is within 50 kilometers of the coast of Mexico, but not covered by any major city within that distance.",
+    "sql": "WITH mexico_coast AS (SELECT ST_Buffer(geometry, 50000, 'spheroid') AS buffer_geom FROM countries WHERE name_long = 'Mexico'), major_cities AS (SELECT ST_Union_Agg(geometry) AS city_geom FROM populated_places WHERE country = 'Mexico' AND pop_max > 5000000) SELECT ST_AsGeoJSON(ST_Difference(buffer_geom, city_geom)) AS area FROM mexico_coast, major_cities",
+    "skills": ["ST_Buffer", "ST_Union_Agg", "ST_Difference"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find the central point of all populated places in the United States that have a population over one million.",
+    "sql": "SELECT ST_AsGeoJSON(ST_Centroid(ST_Union_Agg(geometry))) AS centroid_point FROM populated_places WHERE country = 'United States of America' AND pop_max > 1000000",
+    "skills": ["ST_Centroid", "ST_Union_Agg"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the shape of the smallest circle that can contain all the major cities in China?",
+    "sql": "SELECT ST_AsGeoJSON(ST_ConvexHull(ST_Union_Agg(geometry))) AS bounding_shape FROM populated_places WHERE country = 'China' AND pop_max > 5000000",
+    "skills": ["ST_ConvexHull", "ST_Union_Agg"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Identify the regions in South America where the total area covered by countries exceeds 5 million square kilometers.",
+    "sql": "WITH south_america_countries AS (SELECT geometry FROM countries WHERE continent = 'South America'), total_area AS (SELECT ST_Area(ST_Union_Agg(geometry), 'spheroid') AS area FROM south_america_countries) SELECT ST_AsGeoJSON(ST_Union_Agg(geometry)) AS region_shape FROM countries WHERE continent = 'South America' AND ST_Area(geometry, 'spheroid') > (SELECT area / 1000000.0 FROM total_area) GROUP BY name_long",
+    "skills": ["ST_Union_Agg", "ST_Area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show the outlines of all countries in Africa that are within 100 kilometers of the Sahara desert.",
+    "sql": "WITH sahara_buffer AS (SELECT ST_Buffer(geometry, 100000, 'spheroid') AS buffer_geom FROM countries WHERE name_long = 'Sahara Desert'), african_countries AS (SELECT geometry FROM countries WHERE continent = 'Africa') SELECT ST_AsGeoJSON(african_countries.geometry) AS country_outline FROM african_countries, sahara_buffer WHERE ST_Intersects(african_countries.geometry, sahara_buffer.buffer_geom)",
+    "skills": ["ST_Buffer", "ST_Intersects"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Calculate the average distance in kilometers between all capital cities in Europe and the European Union boundary.",
+    "sql": "WITH eu_boundary AS (SELECT ST_Union_Agg(geometry) AS eu_geom FROM countries WHERE region_un = 'Europe'), capitals AS (SELECT geometry FROM populated_places WHERE is_capital = TRUE AND country IN (SELECT name_long FROM countries WHERE region_un = 'Europe')) SELECT AVG(ST_Distance(capitals.geometry, eu_boundary.eu_geom, 'spheroid') / 1000.0) AS avg_distance_km FROM capitals, eu_boundary",
+    "skills": ["ST_Distance", "ST_Union_Agg"],
+    "difficulty": "medium"
+  }
+]

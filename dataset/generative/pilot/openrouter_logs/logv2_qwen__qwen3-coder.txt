@@ -1,0 +1,2 @@
+12 scenarios to (re)generate
+qwen/qwen3-coder: 12/12 ok, cost $0.0192, providers ['Venice'], avg completion 799 tok (reasoning 0)

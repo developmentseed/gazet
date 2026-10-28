@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Find all restaurants that are on residential streets.",
+    "sql": "WITH buffered_roads AS (\n  SELECT r.id, ST_Buffer(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true), 50) AS geom\n  FROM lisbon_roads r\n  WHERE r.class = 'residential'\n)\nSELECT DISTINCT p.names.primary AS name, p.basic_category AS category, p.addresses[1].locality AS locality\nFROM lisbon_places p\nJOIN buffered_roads br ON ST_Within(ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true), br.geom)\nWHERE p.basic_category = 'restaurant';",
+    "skills": ["ST_Within", "ST_Buffer", "ST_Transform", "spatial join"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which roads pass by the Belém Tower?",
+    "sql": "WITH tower AS (\n  SELECT ST_Buffer(ST_Transform(geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true), 50) AS geom\n  FROM lisbon_places\n  WHERE names.primary = '벨렘탑'\n)\nSELECT r.names.primary AS road_name, r.class AS road_class\nFROM lisbon_roads r\nJOIN tower t ON ST_Intersects(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true), t.geom);",
+    "skills": ["ST_Intersects", "ST_Buffer", "ST_Transform", "spatial join"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find all clothing stores within 100 meters of the promenade called 'Passeio Marítimo de Algés'.",
+    "sql": "SELECT p.names.primary AS name, p.basic_category AS category\nFROM lisbon_places p, lisbon_roads r\nWHERE r.names.primary = 'Passeio Marítimo de Algés'\n  AND p.basic_category = 'fashion_and_apparel_store'\n  AND ST_DWithin(ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true), ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32629', always_xy := true), 100);",
+    "skills": ["ST_DWithin", "ST_Transform", "spatial join"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which roads connect to Passeio Marítimo de Algés?",
+    "sql": "SELECT r2.names.primary AS connecting_road, r2.class AS road_class\nFROM lisbon_roads r1, lisbon_roads r2\nWHERE r1.names.primary = 'Passeio Marítimo de Algés'\n  AND r1.id != r2.id\n  AND ST_Touches(r1.geometry, r2.geometry);",
+    "skills": ["ST_Touches", "self-join"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List all restaurants in the Belém district.",
+    "sql": "SELECT p.names.primary AS name, p.basic_category AS category, p.addresses[1].locality AS locality\nFROM lisbon_places p\nWHERE p.basic_category = 'restaurant'\n  AND ST_Within(p.geometry, ST_GeomFromText('POLYGON((-9.215 38.690, -9.195 38.690, -9.195 38.705, -9.215 38.705, -9.215 38.690))', 'EPSG:4326'));",
+    "skills": ["ST_Within", "ST_GeomFromText"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find all footpaths that are entirely inside the Parque das Nações area.",
+    "sql": "SELECT r.names.primary AS name, r.class AS road_class\nFROM lisbon_roads r\nWHERE r.class = 'footway'\n  AND ST_Contains(ST_GeomFromText('POLYGON((-9.11 38.75, -9.09 38.75, -9.09 38.77, -9.11 38.77, -9.11 38.75))', 'EPSG:4326'), r.geometry);",
+    "skills": ["ST_Contains", "ST_GeomFromText"],
+    "difficulty": "medium"
+  }
+]

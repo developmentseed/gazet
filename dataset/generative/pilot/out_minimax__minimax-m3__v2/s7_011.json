@@ -1,0 +1,38 @@
+[
+  {
+    "question": "How many major airports does each country with a population greater than 50 million have? Show the top 10 countries by major airport count.",
+    "sql": "SELECT c.name, COUNT(*) AS major_airport_count FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE a.type = 'major' AND c.pop_est > 50000000 GROUP BY c.name ORDER BY major_airport_count DESC LIMIT 10;",
+    "skills": ["spatial_join", "point_in_polygon", "count", "filter"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Count the number of major and mid airports per continent. Show continents ordered by major airport count descending.",
+    "sql": "SELECT c.continent, COUNT(*) FILTER (WHERE a.type = 'major') AS major_airports, COUNT(*) FILTER (WHERE a.type = 'mid') AS mid_airports FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) GROUP BY c.continent ORDER BY major_airports DESC;",
+    "skills": ["spatial_join", "conditional_aggregation", "group_by"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which countries with population over 10 million have more than 5 airports within 100 km of their geographic centroid? Show the country name and nearby airport count, ordered by count descending.",
+    "sql": "SELECT c.name, COUNT(*) AS nearby_airport_count FROM countries c JOIN airports a ON ST_DWithin_Spheroid(ST_Centroid(c.geometry), a.geometry, 100000) WHERE c.pop_est > 10000000 GROUP BY c.name HAVING COUNT(*) > 5 ORDER BY nearby_airport_count DESC;",
+    "skills": ["spatial_join", "distance_filter", "spheroid_distance", "having"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For high-income OECD countries, how many airports are there per subregion? Order by airport count descending.",
+    "sql": "SELECT c.subregion, COUNT(*) AS airport_count FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.income_grp = '1. High income: OECD' GROUP BY c.subregion ORDER BY airport_count DESC;",
+    "skills": ["spatial_join", "group_by", "attribute_filter"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each country with population over 10 million, what is the average distance in kilometers from all airports within the country to the country's geographic centroid? Show the top 10 countries with the highest average distance.",
+    "sql": "SELECT c.name, AVG(ST_Distance_Spheroid(ST_Centroid(c.geometry), a.geometry)) / 1000.0 AS avg_distance_km FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.pop_est > 10000000 GROUP BY c.name ORDER BY avg_distance_km DESC LIMIT 10;",
+    "skills": ["spatial_join", "distance_aggregation", "spheroid_distance", "centroid"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which countries with population over 5 million have more than 0.5 major airports per million people? Show country name, major airport count, and the ratio of airports per million people, ordered by the ratio descending.",
+    "sql": "SELECT c.name, COUNT(*) AS major_airport_count, COUNT(*) * 1000000.0 / c.pop_est AS airports_per_million FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE a.type = 'major' AND c.pop_est > 5000000 GROUP BY c.name, c.pop_est HAVING COUNT(*) * 1000000.0 / c.pop_est > 0.5 ORDER BY airports_per_million DESC LIMIT 15;",
+    "skills": ["spatial_join", "density_calculation", "having", "ratio"],
+    "difficulty": "hard"
+  }
+]

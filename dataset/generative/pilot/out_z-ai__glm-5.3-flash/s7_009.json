@@ -1,0 +1,38 @@
+[
+  {
+    "question": "geojson all segments passeio marítimo de algés",
+    "sql": "SELECT id, ST_AsGeoJSON(geometry) AS geojson FROM lisbon_roads WHERE names.\"primary\" = 'Passeio Marítimo de Algés'",
+    "skills": ["ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "wkt of 5 sample sidewalk segments",
+    "sql": "SELECT id, ST_AsText(geometry) AS wkt FROM lisbon_roads WHERE subclass = 'sidewalk' LIMIT 5",
+    "skills": ["ST_AsText"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "start lon lat of each tertiary segment round 6",
+    "sql": "SELECT id, ROUND(ST_X(ST_StartPoint(geometry)), 6) AS start_lon, ROUND(ST_Y(ST_StartPoint(geometry)), 6) AS start_lat FROM lisbon_roads WHERE class = 'tertiary'",
+    "skills": ["ST_X/ST_Y", "ROUND"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "total footway length km 1 decimal",
+    "sql": "SELECT ROUND(SUM(ST_Length_Spheroid(geometry)) / 1000, 1) AS total_km FROM lisbon_roads WHERE class = 'footway'",
+    "skills": ["ROUND", "ST_Length_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "midpoint lat lon string per crosswalk segment",
+    "sql": "SELECT id, printf('%.5f, %.5f', ST_Y(ST_Centroid(geometry)), ST_X(ST_Centroid(geometry))) AS lat_lon FROM lisbon_roads WHERE subclass = 'crosswalk'",
+    "skills": ["ST_X/ST_Y", "string formatting"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "longest secondary segment geojson + km",
+    "sql": "SELECT ST_AsGeoJSON(geometry) AS geojson, ROUND(ST_Length_Spheroid(geometry) / 1000, 2) AS length_km FROM lisbon_roads WHERE class = 'secondary' ORDER BY ST_Length_Spheroid(geometry) DESC LIMIT 1",
+    "skills": ["ST_AsGeoJSON", "ROUND", "ST_Length_Spheroid"],
+    "difficulty": "easy"
+  }
+]

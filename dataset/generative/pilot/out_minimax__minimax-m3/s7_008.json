@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which taxi zones are located in the northern part of Manhattan, above latitude 40.80?",
+    "sql": "SELECT zone, borough FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.05, 40.80, -73.91, 40.88))",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "bbox filter"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the geographic bounding box (minimum and maximum longitude and latitude) that contains all taxi zones in Queens?",
+    "sql": "SELECT ST_XMin(ST_Extent(geometry)) AS min_longitude, ST_YMin(ST_Extent(geometry)) AS min_latitude, ST_XMax(ST_Extent(geometry)) AS max_longitude, ST_YMax(ST_Extent(geometry)) AS max_latitude FROM nyc_taxi_zones WHERE borough = 'Queens'",
+    "skills": ["ST_Extent", "ST_XMin/ST_YMin/ST_XMax/ST_YMax", "aggregate bbox"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How many taxi trips started in zones that fall within a bounding box covering midtown Manhattan?",
+    "sql": "SELECT COUNT(*) AS trip_count FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE ST_Intersects(z.geometry, ST_MakeEnvelope(-74.00, 40.75, -73.97, 40.78))",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "spatial join", "bbox filter"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which zones in Queens have their entire bounding box contained within a specific area in the western part of the borough?",
+    "sql": "SELECT zone FROM nyc_taxi_zones WHERE borough = 'Queens' AND ST_Within(ST_Envelope(geometry), ST_MakeEnvelope(-73.96, 40.70, -73.85, 40.78))",
+    "skills": ["ST_Envelope", "ST_Within", "ST_MakeEnvelope", "envelope comparison"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the average trip distance for trips where the pickup zone is in one bounding box (lower Manhattan) and the dropoff zone is in another (upper Manhattan)?",
+    "sql": "SELECT AVG(t.trip_distance) AS avg_distance FROM nyc_taxi_trips t JOIN nyc_taxi_zones pz ON t.PULocationID = pz.location_id JOIN nyc_taxi_zones dz ON t.DOLocationID = dz.location_id WHERE ST_Intersects(pz.geometry, ST_MakeEnvelope(-74.02, 40.70, -73.98, 40.74)) AND ST_Intersects(dz.geometry, ST_MakeEnvelope(-73.97, 40.78, -73.92, 40.82))",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "dual spatial join", "bbox comparison"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How many distinct taxi zones have any portion of their area within the bounding box covering central Manhattan?",
+    "sql": "SELECT COUNT(DISTINCT zone) AS zone_count FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.05, 40.75, -73.90, 40.85))",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "COUNT DISTINCT", "bbox filter"],
+    "difficulty": "hard"
+  }
+]

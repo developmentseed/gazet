@@ -1,0 +1,38 @@
+[
+  {
+    "question": "closest country to 0,0",
+    "sql": "SELECT name, ST_Distance_Sphere(ST_Point(0, 0), ST_Centroid(geometry)) AS dist_m\nFROM countries\nWHERE geometry IS NOT NULL\nORDER BY dist_m\nLIMIT 1",
+    "skills": ["ST_Distance_Sphere", "ST_Centroid", "nearest neighbor"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "nearest river to Egypt (km)",
+    "sql": "WITH egypt AS (\n    SELECT geometry FROM countries WHERE name = 'Egypt' AND geometry IS NOT NULL\n)\nSELECT r.name, ST_Distance(\n    ST_Transform(e.geometry, 'EPSG:4326', 'EPSG:32636', always_xy := true),\n    ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:32636', always_xy := true)\n) / 1000 AS dist_km\nFROM rivers r, egypt e\nWHERE r.geometry IS NOT NULL\nORDER BY dist_km\nLIMIT 1",
+    "skills": ["ST_Transform", "ST_Distance", "nearest neighbor"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "African countries within 500 km of Nile",
+    "sql": "WITH nile AS (\n    SELECT geometry FROM rivers WHERE name = 'Nile' AND geometry IS NOT NULL\n)\nSELECT c.name\nFROM countries c, nile n\nWHERE c.continent = 'Africa'\n  AND c.geometry IS NOT NULL\n  AND ST_DWithin(\n      ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:3978', always_xy := true),\n      ST_Transform(n.geometry, 'EPSG:4326', 'EPSG:3978', always_xy := true),\n      500000\n  )",
+    "skills": ["ST_Transform", "ST_DWithin", "spatial join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "nearest river per European country",
+    "sql": "SELECT c.name AS country, r.name AS river, r.dist_m\nFROM countries c,\nLATERAL (\n    SELECT r.name, ST_Distance_Sphere(ST_Centroid(c.geometry), ST_Centroid(r.geometry)) AS dist_m\n    FROM rivers r\n    WHERE r.geometry IS NOT NULL\n    ORDER BY dist_m\n    LIMIT 1\n) r\nWHERE c.continent = 'Europe' AND c.geometry IS NOT NULL",
+    "skills": ["LATERAL", "ST_Distance_Sphere", "ST_Centroid", "nearest neighbor"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "longest river inside India",
+    "sql": "WITH india AS (\n    SELECT geometry FROM countries WHERE name = 'India' AND geometry IS NOT NULL\n),\nintersections AS (\n    SELECT r.name, ST_Intersection(r.geometry, i.geometry) AS geom\n    FROM rivers r, india i\n    WHERE r.geometry IS NOT NULL AND ST_Intersects(r.geometry, i.geometry)\n)\nSELECT name, ST_Length_Spheroid(geom) / 1000 AS length_km\nFROM intersections\nORDER BY length_km DESC\nLIMIT 1",
+    "skills": ["ST_Intersects", "ST_Intersection", "ST_Length_Spheroid", "spatial join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "country closest to midpoint of Amazon",
+    "sql": "WITH amazon AS (\n    SELECT geometry FROM rivers WHERE name = 'Amazon' AND geometry IS NOT NULL\n),\nmidpoint AS (\n    SELECT ST_Line_Interpolate_Point(geometry, 0.5) AS geom\n    FROM amazon\n)\nSELECT c.name, ST_Distance_Sphere(m.geom, ST_Centroid(c.geometry)) / 1000 AS dist_km\nFROM countries c, midpoint m\nWHERE c.geometry IS NOT NULL\nORDER BY dist_km\nLIMIT 1",
+    "skills": ["ST_Line_Interpolate_Point", "ST_Distance_Sphere", "ST_Centroid", "nearest neighbor"],
+    "difficulty": "hard"
+  }
+]

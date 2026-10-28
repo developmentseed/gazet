@@ -1,0 +1,38 @@
+[
+  {
+    "question": "List the top 3 most populous cities in each country, ordered by population.",
+    "sql": "SELECT country, name, pop_max FROM (SELECT country, name, pop_max, ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn FROM populated_places) ranked WHERE rn <= 3 ORDER BY country, pop_max DESC",
+    "skills": ["window functions", "per-group ranking", "spatial attributes"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Give me the names of airports ranked by their distance from the nearest major city.",
+    "sql": "SELECT name FROM (SELECT a.name, RANK() OVER (ORDER BY ST_Distance_Sphere(a.geometry, p.geometry)) AS dist_rank FROM airports a JOIN populated_places p ON p.feature_class = 'Admin-1 capital' WHERE p.pop_max > 1000000) ranked WHERE dist_rank <= 3",
+    "skills": ["window functions", "per-group ranking", "spatial distance"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Compare the total number of airports in each airport type category.",
+    "sql": "SELECT type, COUNT(*) AS airport_count FROM airports GROUP BY type ORDER BY airport_count DESC",
+    "skills": ["grouping", "counting"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Show the names of the top 2 airports in each scalerank category based on IATA code.",
+    "sql": "SELECT scalerank, name, iata_code FROM (SELECT scalerank, name, iata_code, ROW_NUMBER() OVER (PARTITION BY scalerank ORDER BY iata_code) AS rn FROM airports) ranked WHERE rn <= 2 ORDER BY scalerank, iata_code",
+    "skills": ["window functions", "per-group ranking", "attribute sorting"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the countries where the highest populated place is also a world city, with their names.",
+    "sql": "SELECT country, name FROM (SELECT country, name, is_world_city, ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn FROM populated_places WHERE is_world_city = TRUE) ranked WHERE rn = 1 ORDER BY country",
+    "skills": ["window functions", "per-group ranking", "spatial attributes"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Find the cumulative count of airports up to each scalerank value, ordered by scalerank.",
+    "sql": "SELECT scalerank, COUNT(*) OVER (ORDER BY scalerank) AS cumulative_airport_count FROM airports GROUP BY scalerank ORDER BY scalerank",
+    "skills": ["window functions", "running totals", "spatial attributes"],
+    "difficulty": "easy"
+  }
+]

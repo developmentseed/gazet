@@ -1,0 +1,8 @@
+# Rebuildable data and tooling (see README)
+lake/
+raw/
+models
+llama/
+.venv/
+# Working output; snapshot meaningful rounds into their own folder (like pilot/)
+runs/

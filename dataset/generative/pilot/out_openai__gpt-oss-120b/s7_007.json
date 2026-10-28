@@ -1,0 +1,38 @@
+[
+  {
+    "question": "top 5 open place categories by count",
+    "sql": "WITH open_places AS (\n    SELECT basic_category\n    FROM lisbon_places\n    WHERE operating_status = 'open'\n)\nSELECT basic_category, COUNT(*) AS cnt\nFROM open_places\nGROUP BY basic_category\nHAVING COUNT(*) > 0\nORDER BY cnt DESC\nLIMIT 5;",
+    "skills": ["GROUP BY", "HAVING", "ORDER BY", "LIMIT"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "restaurants within 500 m of Torre de Belém (lon -9.215, lat 38.692)",
+    "sql": "WITH target AS (\n    SELECT ST_Transform(ST_Point(-9.215, 38.692), 3857, true) AS geom\n)\nSELECT\n    names.primary AS name,\n    ST_Distance(\n        ST_Transform(geometry, 3857, true),\n        (SELECT geom FROM target)\n    ) AS distance_m\nFROM lisbon_places\nWHERE basic_category = 'restaurant'\nQUALIFY distance_m <= 500\nORDER BY distance_m;",
+    "skills": ["CTE", "ST_Transform", "ST_Distance", "QUALIFY", "WHERE"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "average confidence per taxonomy primary for groups with at least 10 places",
+    "sql": "WITH cat_stats AS (\n    SELECT taxonomy.primary AS tax,\n           COUNT(*) AS cnt,\n           AVG(confidence) AS avg_conf\n    FROM lisbon_places\n    GROUP BY taxonomy.primary\n)\nSELECT tax, cnt, avg_conf\nFROM cat_stats\nWHERE cnt >= 10\nORDER BY avg_conf DESC;",
+    "skills": ["CTE", "GROUP BY", "HAVING", "AVG"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "list cafés, flag if open, top 10 by confidence",
+    "sql": "SELECT\n    names.primary AS name,\n    CASE WHEN operating_status = 'open' THEN 1 ELSE 0 END AS is_open,\n    confidence\nFROM lisbon_places\nWHERE LOWER(names.primary) LIKE '%café%'\nQUALIFY ROW_NUMBER() OVER (ORDER BY confidence DESC) <= 10;",
+    "skills": ["CASE", "QUALIFY", "ROW_NUMBER", "LIKE"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "pairs of restaurants closer than 200 m",
+    "sql": "WITH r AS (\n    SELECT id, geometry, names.primary AS name\n    FROM lisbon_places\n    WHERE basic_category = 'restaurant'\n)\nSELECT\n    r1.name AS name1,\n    r2.name AS name2,\n    ST_Distance(\n        ST_Transform(r1.geometry, 3857, true),\n        ST_Transform(r2.geometry, 3857, true)\n    ) AS distance_m\nFROM r r1\nJOIN r r2 ON r1.id < r2.id\nWHERE ST_Distance(\n        ST_Transform(r1.geometry, 3857, true),\n        ST_Transform(r2.geometry, 3857, true)\n      ) <= 200\nORDER BY distance_m;",
+    "skills": ["CTE", "self-join", "ST_Transform", "ST_Distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "bounding polygon of all historic sites",
+    "sql": "SELECT ST_AsGeoJSON(ST_Envelope(ST_Collect(geometry))) AS historic_sites_bbox\nFROM lisbon_places\nWHERE taxonomy.primary = 'historic_site';",
+    "skills": ["ST_Collect", "ST_Envelope", "ST_AsGeoJSON"],
+    "difficulty": "medium"
+  }
+]

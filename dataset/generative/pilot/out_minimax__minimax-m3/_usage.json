@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "ModelRun",
+  "wall_s": 21.3,
+  "prompt_tokens": 1431,
+  "completion_tokens": 2403,
+  "reasoning_tokens": 1757,
+  "cost": 0.0035212
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "ModelRun",
+  "wall_s": 10.6,
+  "prompt_tokens": 1378,
+  "completion_tokens": 2127,
+  "reasoning_tokens": 1703,
+  "cost": 0.0031465
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "Parasail",
+  "wall_s": 31.7,
+  "prompt_tokens": 1003,
+  "completion_tokens": 5062,
+  "reasoning_tokens": 4255,
+  "cost": 0.0063753
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "ModelRun",
+  "wall_s": 22.9,
+  "prompt_tokens": 1050,
+  "completion_tokens": 3175,
+  "reasoning_tokens": 2415,
+  "cost": 0.0042825
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "Venice",
+  "wall_s": 18.4,
+  "prompt_tokens": 1004,
+  "completion_tokens": 4608,
+  "reasoning_tokens": 3784,
+  "cost": 0.0057912
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "ModelRun",
+  "wall_s": 12.9,
+  "prompt_tokens": 994,
+  "completion_tokens": 1669,
+  "reasoning_tokens": 1147,
+  "cost": 0.0024359
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "ModelRun",
+  "wall_s": 56.4,
+  "prompt_tokens": 1530,
+  "completion_tokens": 7473,
+  "reasoning_tokens": 6539,
+  "cost": 0.0100139
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "Venice",
+  "wall_s": 48.3,
+  "prompt_tokens": 670,
+  "completion_tokens": 12612,
+  "reasoning_tokens": 11567,
+  "cost": 0.01517484
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "Novita",
+  "wall_s": 251.6,
+  "prompt_tokens": 1076,
+  "completion_tokens": 25552,
+  "reasoning_tokens": 24206,
+  "cost": 0.0307272
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "Novita",
+  "wall_s": 93.1,
+  "prompt_tokens": 1224,
+  "completion_tokens": 10931,
+  "reasoning_tokens": 9981,
+  "cost": 0.01319088
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "ModelRun",
+  "wall_s": 44.5,
+  "prompt_tokens": 909,
+  "completion_tokens": 6742,
+  "reasoning_tokens": 5375,
+  "cost": 0.0088133
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "Novita",
+  "wall_s": 94.0,
+  "prompt_tokens": 1136,
+  "completion_tokens": 11910,
+  "reasoning_tokens": 10359,
+  "cost": 0.0143604
+ }
+]

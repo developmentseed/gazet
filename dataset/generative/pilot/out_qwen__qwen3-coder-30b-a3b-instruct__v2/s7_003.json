@@ -1,0 +1,38 @@
+[
+  {
+    "question": "what is the total area of all residential buildings in square kilometers",
+    "sql": "SELECT ROUND(SUM(ST_Area_Spheroid(geometry)) / 1000000.0, 2) AS total_area_sqkm FROM lisbon_buildings WHERE class = 'residential'",
+    "skills": ["measurement in real units"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "how long is the total length of all roads in kilometers",
+    "sql": "SELECT ROUND(SUM(ST_Length_Spheroid(geometry)) / 1000.0, 2) AS total_length_km FROM lisbon_roads",
+    "skills": ["measurement in real units"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "find the average height of buildings with a gabled roof",
+    "sql": "SELECT ROUND(AVG(height), 2) AS avg_height FROM lisbon_buildings WHERE roof_shape = 'gabled'",
+    "skills": ["measurement in real units"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "show the total number of residential buildings",
+    "sql": "SELECT COUNT(*) AS count FROM lisbon_buildings WHERE class = 'residential'",
+    "skills": ["measurement in real units"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "what is the longest road segment in meters",
+    "sql": "SELECT ROUND(ST_Length_Spheroid(geometry), 2) AS max_length FROM lisbon_roads ORDER BY ST_Length_Spheroid(geometry) DESC LIMIT 1",
+    "skills": ["measurement in real units"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "calculate the total area of all commercial buildings in square meters",
+    "sql": "SELECT ROUND(SUM(ST_Area_Spheroid(geometry)), 2) AS total_area_sqm FROM lisbon_buildings WHERE subtype = 'commercial'",
+    "skills": ["measurement in real units"],
+    "difficulty": "easy"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "closest river to Uganda",
+    "sql": "WITH ug AS (SELECT ST_Centroid(geometry) AS pt FROM countries WHERE name = 'Uganda')\nSELECT r.name AS river_name,\n       ST_Distance_Sphere(ug.pt, r.geometry) AS distance_m\nFROM rivers r, ug\nORDER BY distance_m\nLIMIT 1;",
+    "skills": ["ST_Distance_Sphere", "nearest neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "countries within 500 km of the Nile",
+    "sql": "SELECT c.name AS country_name, c.iso_a3\nFROM countries c, rivers r\nWHERE r.name = 'Nile'\n  AND ST_DWithin(c.geometry, r.geometry, 500000, true);",
+    "skills": ["ST_DWithin", "spheroid distance"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "nearest river to each African country",
+    "sql": "SELECT c.name AS country,\n       r.river_name,\n       r.distance_m\nFROM countries c\nCROSS JOIN LATERAL (\n  SELECT r.name AS river_name,\n         ST_Distance_Sphere(c.geometry, r.geometry) AS distance_m\n  FROM rivers r\n  ORDER BY distance_m\n  LIMIT 1\n) r\nWHERE c.continent = 'Africa';",
+    "skills": ["LATERAL", "ST_Distance_Sphere", "nearest neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "distance between Nile and Congo in km",
+    "sql": "SELECT ST_Distance_Sphere(nile.geometry, congo.geometry) / 1000.0 AS distance_km\nFROM rivers nile, rivers congo\nWHERE nile.name = 'Nile' AND congo.name = 'Congo';",
+    "skills": ["ST_Distance_Sphere"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "nearest country to each river",
+    "sql": "SELECT rv.name AS river,\n       c.country_name,\n       c.income_grp,\n       c.distance_m\nFROM rivers rv\nCROSS JOIN LATERAL (\n  SELECT c.name AS country_name,\n         c.income_grp,\n         ST_Distance_Sphere(rv.geometry, c.geometry) AS distance_m\n  FROM countries c\n  ORDER BY distance_m\n  LIMIT 1\n) c;",
+    "skills": ["LATERAL", "ST_Distance_Sphere", "nearest neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "low income countries within 1000 km of the Nile",
+    "sql": "SELECT c.name AS country_name, c.iso_a3\nFROM countries c, rivers r\nWHERE r.name = 'Nile'\n  AND c.income_grp = '5. Low income'\n  AND ST_DWithin(c.geometry, r.geometry, 1000000, true);",
+    "skills": ["ST_DWithin", "spheroid distance", "filter"],
+    "difficulty": "hard"
+  }
+]

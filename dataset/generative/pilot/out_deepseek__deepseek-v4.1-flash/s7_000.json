@@ -1,0 +1,38 @@
+[
+  {
+    "question": "restaurants inside buildings",
+    "sql": "SELECT p.names.primary AS restaurant, b.id AS building_id, b.height FROM lisbon_places p JOIN lisbon_buildings b ON ST_Within(p.geometry, b.geometry) WHERE p.basic_category = 'restaurant' LIMIT 10;",
+    "skills": ["ST_Within", "spatial join"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings containing restaurants",
+    "sql": "SELECT b.id, b.height, p.names.primary AS restaurant FROM lisbon_buildings b JOIN lisbon_places p ON ST_Contains(b.geometry, p.geometry) WHERE p.basic_category = 'restaurant' LIMIT 10;",
+    "skills": ["ST_Contains", "spatial join"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings touching other buildings",
+    "sql": "SELECT a.id AS building_a, b.id AS building_b FROM lisbon_buildings a JOIN lisbon_buildings b ON ST_Touches(a.geometry, b.geometry) WHERE a.id < b.id LIMIT 10;",
+    "skills": ["ST_Touches", "self-join"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "POIs intersecting building footprints",
+    "sql": "SELECT p.names.primary AS poi, p.basic_category, b.id AS building_id FROM lisbon_places p JOIN lisbon_buildings b ON ST_Intersects(p.geometry, b.geometry) WHERE p.basic_category IS NOT NULL LIMIT 10;",
+    "skills": ["ST_Intersects", "spatial join"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "school buildings containing places",
+    "sql": "SELECT b.id, b.class, p.names.primary AS place FROM lisbon_buildings b JOIN lisbon_places p ON ST_Contains(b.geometry, p.geometry) WHERE b.class = 'school' LIMIT 10;",
+    "skills": ["ST_Contains", "spatial join"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "residential buildings intersecting restaurants",
+    "sql": "SELECT b.id, b.subtype, p.names.primary AS restaurant FROM lisbon_buildings b JOIN lisbon_places p ON ST_Intersects(b.geometry, p.geometry) WHERE b.subtype = 'residential' AND p.basic_category = 'restaurant' LIMIT 10;",
+    "skills": ["ST_Intersects", "spatial join"],
+    "difficulty": "easy"
+  }
+]

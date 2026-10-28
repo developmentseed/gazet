@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Map global airport density on a 10 by 10 degree grid: give me the GeoJSON polygon of every grid cell that contains at least 5 airports together with its airport count, most crowded cells first.",
+    "sql": "WITH grid AS (\n  SELECT x.i AS gx, y.j AS gy\n  FROM generate_series(-18, 17) AS x(i),\n       generate_series(-6, 7) AS y(j)\n)\nSELECT\n  g.gx * 10 AS cell_lon_west,\n  g.gy * 10 AS cell_lat_south,\n  COUNT(*) AS airport_count,\n  ST_AsGeoJSON(ST_MakeEnvelope(g.gx * 10.0, g.gy * 10.0, g.gx * 10.0 + 10.0, g.gy * 10.0 + 10.0)) AS cell_geojson\nFROM grid g\nJOIN airports a\n  ON ST_Intersects(\n       ST_MakeEnvelope(g.gx * 10.0, g.gy * 10.0, g.gx * 10.0 + 10.0, g.gy * 10.0 + 10.0),\n       a.geometry)\nGROUP BY g.gx, g.gy\nHAVING COUNT(*) >= 5\nORDER BY airport_count DESC;",
+    "skills": ["spatial_join", "aggregation", "point_in_polygon", "grid_generation", "geojson_output"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare the four global quadrants — north-west, north-east, south-west and south-east relative to the equator and prime meridian — by number of airports and by average importance rank in each.",
+    "sql": "WITH quadrants(name, w, s, e, n) AS (\n  VALUES\n    ('north-west', -180.0, 0.0, 0.0, 90.0),\n    ('north-east', 0.0, 0.0, 180.0, 90.0),\n    ('south-west', -180.0, -90.0, 0.0, 0.0),\n    ('south-east', 0.0, -90.0, 180.0, 0.0)\n)\nSELECT\n  q.name AS quadrant,\n  COUNT(*) AS airport_count,\n  ROUND(AVG(a.scalerank), 2) AS avg_importance_rank\nFROM quadrants q\nJOIN airports a\n  ON ST_Intersects(ST_MakeEnvelope(q.w, q.s, q.e, q.n), a.geometry)\nGROUP BY q.name\nORDER BY airport_count DESC;",
+    "skills": ["spatial_join", "aggregation", "point_in_polygon", "comparison"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Give me the catchment size of each major airport: assign every airport to its nearest major airport and count how many airports each major hub ends up closest to, largest catchment first.",
+    "sql": "WITH pairs AS (\n  SELECT\n    a.name AS airport_name,\n    h.name AS hub_name,\n    ST_Distance_Spheroid(a.geometry, h.geometry) AS dist_m\n  FROM airports a\n  JOIN airports h ON h.type = 'major'\n),\nnearest AS (\n  SELECT\n    airport_name,\n    hub_name,\n    ROW_NUMBER() OVER (PARTITION BY airport_name ORDER BY dist_m) AS rn\n  FROM pairs\n)\nSELECT\n  hub_name AS major_hub,\n  COUNT(*) AS airports_in_catchment\nFROM nearest\nWHERE rn = 1\nGROUP BY hub_name\nORDER BY airports_in_catchment DESC;",
+    "skills": ["spatial_join", "aggregation", "spheroid_distance", "window_function"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the 10 most isolated major airports — for each one, the distance in kilometres to the nearest other airport — starting with the most remote.",
+    "sql": "SELECT\n  a.name AS airport,\n  ROUND(MIN(ST_Distance_Spheroid(a.geometry, b.geometry)) / 1000.0, 1) AS km_to_nearest_airport\nFROM airports a\nJOIN airports b ON a.name <> b.name\nWHERE a.type = 'major'\nGROUP BY a.name\nORDER BY km_to_nearest_airport DESC\nLIMIT 10;",
+    "skills": ["spatial_join", "aggregation", "spheroid_distance", "self_join"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Give me a longitudinal profile of the airport network: for every 30-degree band of longitude from 180°W eastward, the number of airports in the band plus the southernmost and northernmost airport latitudes found inside it.",
+    "sql": "WITH strips AS (\n  SELECT i FROM generate_series(-6, 5) AS g(i)\n)\nSELECT\n  s.i * 30 AS band_lon_west,\n  (s.i + 1) * 30 AS band_lon_east,\n  COUNT(*) AS airport_count,\n  ROUND(MIN(ST_Y(a.geometry)), 2) AS southernmost_lat,\n  ROUND(MAX(ST_Y(a.geometry)), 2) AS northernmost_lat\nFROM strips s\nJOIN airports a\n  ON ST_Intersects(ST_MakeEnvelope(s.i * 30.0, -90.0, (s.i + 1) * 30.0, 90.0), a.geometry)\nGROUP BY s.i\nORDER BY s.i;",
+    "skills": ["spatial_join", "aggregation", "point_in_polygon", "coordinate_extraction"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "From the mid-Pacific point at 21.3°N, 157.9°W, give me one row per radius showing how many airports lie within 500 km, 1,000 km, 2,000 km and 4,000 km.",
+    "sql": "WITH rings(radius_km) AS (\n  VALUES (500), (1000), (2000), (4000)\n)\nSELECT\n  r.radius_km AS within_km,\n  COUNT(*) AS airports_within\nFROM rings r\nJOIN airports a\n  ON ST_DWithin_Spheroid(a.geometry, ST_Point(-157.9, 21.3), r.radius_km * 1000.0)\nGROUP BY r.radius_km\nORDER BY r.radius_km;",
+    "skills": ["spatial_join", "aggregation", "spheroid_distance", "radius_search"],
+    "difficulty": "medium"
+  }
+]

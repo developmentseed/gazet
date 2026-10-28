@@ -1,0 +1,38 @@
+[
+  {
+    "question": "How many taxi trips in January 2024 started in a neighborhood that touches the rectangle covering Lower Manhattan (south of 40.74N, between 74.02W and 73.95W)?",
+    "sql": "WITH lower_manhattan_zones AS (\n  SELECT location_id\n  FROM nyc_taxi_zones\n  WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.02, 40.70, -73.95, 40.74))\n)\nSELECT COUNT(*) AS trips_started_in_lower_manhattan\nFROM nyc_taxi_trips t\nWHERE t.PULocationID IN (SELECT location_id FROM lower_manhattan_zones);",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "CTE", "subquery"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which neighborhoods are located completely inside the rectangle covering the southern tip of Manhattan (roughly south of Chambers Street), and how many taxi dropoffs did each neighborhood have?",
+    "sql": "WITH downtown_zones AS (\n  SELECT location_id, zone, borough\n  FROM nyc_taxi_zones\n  WHERE borough = 'Manhattan'\n    AND ST_Within(geometry, ST_MakeEnvelope(-74.02, 40.70, -73.98, 40.72))\n)\nSELECT dz.zone AS neighborhood,\n       dz.borough,\n       COUNT(t.tpep_dropoff_datetime) AS dropoffs\nFROM downtown_zones dz\nLEFT JOIN nyc_taxi_trips t ON dz.location_id = t.DOLocationID\nGROUP BY dz.zone, dz.borough\nORDER BY dropoffs DESC;",
+    "skills": ["ST_MakeEnvelope", "ST_Within", "CTE", "LEFT JOIN"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the geographic rectangle that just covers all Brooklyn neighborhoods that had at least 500 taxi pickups in January 2024? Please return the shape.",
+    "sql": "WITH pickup_counts AS (\n  SELECT PULocationID, COUNT(*) AS cnt\n  FROM nyc_taxi_trips\n  GROUP BY PULocationID\n)\nSELECT ST_AsGeoJSON(ST_Extent_Agg(z.geometry)) AS bounding_box_geojson\nFROM nyc_taxi_zones z\nJOIN pickup_counts pc ON z.location_id = pc.PULocationID\nWHERE z.borough = 'Brooklyn'\n  AND pc.cnt >= 500;",
+    "skills": ["ST_Extent_Agg", "ST_AsGeoJSON", "CTE", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How large, in square kilometres, is the overlap between the rectangle that encloses all Manhattan taxi neighborhoods and the one that encloses all Brooklyn taxi neighborhoods?",
+    "sql": "WITH manhattan_ext AS (\n  SELECT ST_Extent_Agg(geometry) AS bbox\n  FROM nyc_taxi_zones\n  WHERE borough = 'Manhattan'\n),\nbrooklyn_ext AS (\n  SELECT ST_Extent_Agg(geometry) AS bbox\n  FROM nyc_taxi_zones\n  WHERE borough = 'Brooklyn'\n)\nSELECT ST_Area_Spheroid(ST_Intersection(m.bbox, b.bbox)) / 1000000.0 AS overlap_sq_km\nFROM manhattan_ext m\nCROSS JOIN brooklyn_ext b;",
+    "skills": ["ST_Extent_Agg", "ST_Intersection", "ST_Area_Spheroid", "CTE"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How many trips both began and ended in the Midtown Manhattan rectangle between 40.74N and 40.77N and between 74.00W and 73.96W, and what was the average total fare?",
+    "sql": "WITH midtown_zones AS (\n  SELECT location_id\n  FROM nyc_taxi_zones\n  WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.00, 40.74, -73.96, 40.77))\n)\nSELECT COUNT(*) AS trips_inside_midtown,\n       AVG(t.total_amount) AS avg_total_amount\nFROM nyc_taxi_trips t\nWHERE t.PULocationID IN (SELECT location_id FROM midtown_zones)\n  AND t.DOLocationID IN (SELECT location_id FROM midtown_zones);",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "CTE", "subquery"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which five neighborhoods have the largest area of their shape inside the rectangle covering central Manhattan (40.70N to 40.80N, 74.02W to 73.95W), and how many square kilometres of each neighborhood fall inside that rectangle?",
+    "sql": "WITH rectangle AS (\n  SELECT ST_MakeEnvelope(-74.02, 40.70, -73.95, 40.80) AS geom\n)\nSELECT z.zone AS neighborhood,\n       z.borough,\n       ST_Area_Spheroid(ST_Intersection(z.geometry, r.geom)) / 1000000.0 AS overlap_sq_km,\n       ST_Area_Spheroid(z.geometry) / 1000000.0 AS total_sq_km\nFROM nyc_taxi_zones z\nCROSS JOIN rectangle r\nWHERE ST_Intersects(z.geometry, r.geom)\nORDER BY overlap_sq_km DESC\nLIMIT 5;",
+    "skills": ["ST_MakeEnvelope", "ST_Intersection", "ST_Area_Spheroid", "ranking"],
+    "difficulty": "hard"
+  }
+]

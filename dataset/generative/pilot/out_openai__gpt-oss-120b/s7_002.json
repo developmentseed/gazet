@@ -1,0 +1,38 @@
+[
+  {
+    "question": "nearest 5 rivers to Zambia centroid km",
+    "sql": "WITH z AS (SELECT ST_Centroid(geometry) AS pt FROM countries WHERE iso_a3 = 'ZMB'), r AS (SELECT name, geometry FROM rivers) SELECT r.name, ST_Distance_Sphere(z.pt, r.geometry) / 1000.0 AS distance_km FROM z, r ORDER BY distance_km LIMIT 5",
+    "skills": ["nearest", "distance"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "countries within 200km of Nile",
+    "sql": "WITH n AS (SELECT geometry AS geom FROM rivers WHERE name = 'Nile' LIMIT 1) SELECT c.name, ST_Distance_Sphere(c.geometry, n.geom) / 1000.0 AS distance_km FROM countries c, n WHERE ST_Distance_Sphere(c.geometry, n.geom) <= 200000",
+    "skills": ["distance", "buffer"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "longest river wholly inside a single country km",
+    "sql": "WITH river_len AS (SELECT r.name, r.geometry, ST_Length_Sphere(r.geometry) AS len_m FROM rivers r), river_one_country AS (SELECT r.name FROM rivers r JOIN countries c ON ST_Contains(c.geometry, r.geometry) GROUP BY r.name HAVING COUNT(DISTINCT c.iso_a3) = 1) SELECT rl.name, rl.len_m / 1000.0 AS length_km FROM river_len rl JOIN river_one_country rc ON rl.name = rc.name ORDER BY length_km DESC LIMIT 1",
+    "skills": ["length", "containment", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "total population of countries with river <50km",
+    "sql": "SELECT SUM(c.pop_est) AS total_population FROM countries c WHERE EXISTS (SELECT 1 FROM rivers r WHERE ST_Distance_Sphere(c.geometry, r.geometry) <= 50000)",
+    "skills": ["distance", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "river closest to South America centroid km",
+    "sql": "WITH cent AS (SELECT ST_Centroid(ST_Union(geometry)) AS pt FROM countries WHERE continent = 'South America'), r AS (SELECT name, geometry FROM rivers) SELECT r.name, ST_Distance_Sphere(cent.pt, r.geometry) / 1000.0 AS distance_km FROM cent, r ORDER BY distance_km LIMIT 1",
+    "skills": ["nearest", "centroid", "distance"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "top 3 GDP countries crossed by Danube",
+    "sql": "WITH d AS (SELECT geometry FROM rivers WHERE name = 'Danube' LIMIT 1) SELECT c.name, c.gdp_md FROM countries c, d WHERE ST_Intersects(c.geometry, d.geometry) ORDER BY c.gdp_md DESC LIMIT 3",
+    "skills": ["intersection", "ranking"],
+    "difficulty": "hard"
+  }
+]

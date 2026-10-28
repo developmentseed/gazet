@@ -1,0 +1,38 @@
+[
+  {
+    "question": "restaurants inside buildings",
+    "sql": "SELECT p.id, p.names.\"primary\" AS name, p.basic_category, p.addresses[1].locality AS locality FROM lisbon_places p JOIN lisbon_buildings b ON ST_Within(p.geometry, b.geometry) WHERE p.basic_category = 'restaurant' LIMIT 20;",
+    "skills": ["spatial predicate: ST_Within"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings containing wellness service POIs",
+    "sql": "SELECT b.id, b.names.\"primary\" AS name, b.subtype, b.class, b.height FROM lisbon_buildings b WHERE EXISTS (SELECT 1 FROM lisbon_places p WHERE p.basic_category = 'wellness_service' AND ST_Contains(b.geometry, p.geometry)) LIMIT 20;",
+    "skills": ["spatial predicate: ST_Contains"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings that touch another building",
+    "sql": "SELECT b1.id AS building_id, b2.id AS touching_building_id, b1.subtype, b2.subtype FROM lisbon_buildings b1 JOIN lisbon_buildings b2 ON ST_Touches(b1.geometry, b2.geometry) WHERE b1.id < b2.id LIMIT 20;",
+    "skills": ["spatial predicate: ST_Touches"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "restaurants in central Lisbon bbox",
+    "sql": "SELECT p.id, p.names.\"primary\" AS name, p.basic_category, p.addresses[1].freeform AS address FROM lisbon_places p WHERE p.basic_category = 'restaurant' AND ST_Intersects(p.geometry, ST_MakeEnvelope(-9.20, 38.70, -9.10, 38.76)) LIMIT 20;",
+    "skills": ["spatial predicate: ST_Intersects"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings with the most POIs inside",
+    "sql": "SELECT b.id, b.subtype, b.class, COUNT(*) AS num_pois FROM lisbon_buildings b JOIN lisbon_places p ON ST_Contains(b.geometry, p.geometry) GROUP BY b.id, b.subtype, b.class ORDER BY num_pois DESC LIMIT 20;",
+    "skills": ["spatial predicate: ST_Contains", "spatial aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "POIs outside building footprints",
+    "sql": "SELECT p.id, p.names.\"primary\" AS name, p.basic_category FROM lisbon_places p WHERE NOT EXISTS (SELECT 1 FROM lisbon_buildings b WHERE ST_Intersects(p.geometry, b.geometry)) LIMIT 20;",
+    "skills": ["spatial predicate: ST_Intersects"],
+    "difficulty": "easy"
+  }
+]

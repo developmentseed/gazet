@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Show me all pickup zones that are located within a rectangular area defined by the coordinates spanning from the southwest corner at longitude -74.0 and latitude 40.6 to the northeast corner at longitude -73.8 and latitude 40.9.",
+    "sql": "SELECT zone FROM nyc_taxi_zones WHERE ST_Within(geometry, ST_MakeEnvelope(-74.0, 40.6, -73.8, 40.9, 4326))",
+    "skills": ["bounding-box and envelope filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Find the total number of taxi trips that started in zones which are completely contained inside the bounding box formed by longitude range -74.0 to -73.9 and latitude range 40.7 to 40.8.",
+    "sql": "SELECT COUNT(*) AS trip_count FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE ST_Contains(ST_MakeEnvelope(-74.0, 40.7, -73.9, 40.8, 4326), z.geometry)",
+    "skills": ["bounding-box and envelope filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which zones have a bounding box that intersects with the one defined by latitude 40.5 to 40.6 and longitude -74.1 to -74.0?",
+    "sql": "SELECT zone FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.1, 40.5, -74.0, 40.6, 4326))",
+    "skills": ["bounding-box and envelope filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "List the zones whose overall spatial extent (envelope) covers an area larger than 0.001 square degrees.",
+    "sql": "SELECT zone FROM nyc_taxi_zones WHERE ST_Area(ST_Extent(geometry)) > 0.001",
+    "skills": ["bounding-box and envelope filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Identify all zones that are entirely within a square-shaped area centered at longitude -74.0 and latitude 40.7 with each side measuring 0.05 degrees.",
+    "sql": "SELECT zone FROM nyc_taxi_zones WHERE ST_Within(geometry, ST_MakeEnvelope(-74.025, 40.675, -73.975, 40.725, 4326))",
+    "skills": ["bounding-box and envelope filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Determine the average distance in kilometers between pickup and dropoff points for trips that started in zones whose bounding boxes overlap with the rectangle formed by longitude -73.95 to -73.9 and latitude 40.7 to 40.75.",
+    "sql": "SELECT AVG(ST_Distance(ST_Transform(ST_Centroid(z1.geometry), 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Transform(ST_Centroid(z2.geometry), 'EPSG:4326', 'EPSG:3857', always_xy := true)) / 1000.0) AS avg_distance_km FROM nyc_taxi_trips t JOIN nyc_taxi_zones z1 ON t.PULocationID = z1.location_id JOIN nyc_taxi_zones z2 ON t.DOLocationID = z2.location_id WHERE ST_Intersects(z1.geometry, ST_MakeEnvelope(-73.95, 40.7, -73.9, 40.75, 4326))",
+    "skills": ["bounding-box and envelope filtering"],
+    "difficulty": "hard"
+  }
+]

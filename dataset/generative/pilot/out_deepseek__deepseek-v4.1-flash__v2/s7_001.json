@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Map the top 10 ten-degree by ten-degree grid cells by number of airports, returning each cell as GeoJSON along with its count.",
+    "sql": "WITH grid AS (SELECT lon_bin, lat_bin, ST_MakeEnvelope(lon_bin, lat_bin, lon_bin + 10, lat_bin + 10) AS geom FROM (SELECT unnest(range(-180, 180, 10)) AS lon_bin), (SELECT unnest(range(-90, 90, 10)) AS lat_bin)), counts AS (SELECT g.lon_bin, g.lat_bin, g.geom, count(*) AS airport_count FROM airports a JOIN grid g ON ST_Intersects(a.geometry, g.geom) GROUP BY g.lon_bin, g.lat_bin, g.geom) SELECT ST_AsGeoJSON(geom) AS cell_geojson, lon_bin, lat_bin, airport_count FROM counts ORDER BY airport_count DESC LIMIT 10;",
+    "skills": ["spatial join", "aggregation", "GeoJSON"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare the number of airports within 500 km of the five highest-ranked major airports.",
+    "sql": "WITH hubs AS (SELECT name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_3857 FROM airports WHERE type = 'major' ORDER BY scalerank ASC, name LIMIT 5), buffers AS (SELECT name, ST_Buffer(geom_3857, 500000) AS geom_3857 FROM hubs), airports_3857 AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_3857 FROM airports) SELECT b.name, count(*) AS airport_count FROM buffers b JOIN airports_3857 a ON ST_Intersects(a.geom_3857, b.geom_3857) GROUP BY b.name ORDER BY airport_count DESC;",
+    "skills": ["spatial join", "aggregation", "buffer", "metric CRS"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the number of airports in each continent using rough bounding boxes, ordered from most to fewest.",
+    "sql": "WITH regions AS (SELECT 'Europe' AS region, ST_MakeEnvelope(-25, 34, 45, 72) AS geom UNION ALL SELECT 'Africa', ST_MakeEnvelope(-20, -35, 55, 37) UNION ALL SELECT 'Asia', ST_MakeEnvelope(25, 0, 180, 80) UNION ALL SELECT 'North America', ST_MakeEnvelope(-170, 5, -50, 75) UNION ALL SELECT 'South America', ST_MakeEnvelope(-85, -60, -30, 15) UNION ALL SELECT 'Oceania', ST_MakeEnvelope(110, -50, 180, 0)) SELECT r.region, count(a.geometry) AS airport_count FROM regions r LEFT JOIN airports a ON ST_Intersects(a.geometry, r.geom) GROUP BY r.region ORDER BY airport_count DESC;",
+    "skills": ["spatial join", "aggregation", "polygon bounding box"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each hemisphere, give me the five-degree by five-degree cell with the most airports, including the cell's lower-left longitude and latitude.",
+    "sql": "WITH grid AS (SELECT lon_bin, lat_bin, ST_MakeEnvelope(lon_bin, lat_bin, lon_bin + 5, lat_bin + 5) AS geom, CASE WHEN lat_bin >= 0 THEN 'Northern' ELSE 'Southern' END AS hemisphere FROM (SELECT unnest(range(-180, 180, 5)) AS lon_bin), (SELECT unnest(range(-90, 90, 5)) AS lat_bin)), counts AS (SELECT g.hemisphere, g.lon_bin, g.lat_bin, count(*) AS airport_count FROM airports a JOIN grid g ON ST_Intersects(a.geometry, g.geom) GROUP BY g.hemisphere, g.lon_bin, g.lat_bin), ranked AS (SELECT *, row_number() OVER (PARTITION BY hemisphere ORDER BY airport_count DESC) AS rn FROM counts) SELECT hemisphere, lon_bin, lat_bin, airport_count FROM ranked WHERE rn = 1;",
+    "skills": ["spatial join", "aggregation", "window function", "grid"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For the five most prominent major airports, count how many other airports are within 100 km.",
+    "sql": "WITH hubs AS (SELECT name, geometry FROM airports WHERE type = 'major' ORDER BY scalerank ASC, name LIMIT 5) SELECT h.name, count(a.geometry) AS nearby_airport_count FROM hubs h LEFT JOIN airports a ON a.name <> h.name AND ST_DWithin_Spheroid(h.geometry, a.geometry, 100000) GROUP BY h.name ORDER BY nearby_airport_count DESC;",
+    "skills": ["spatial join", "aggregation", "spheroid distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Give me the count of airports by category inside the rough bounding box for Europe.",
+    "sql": "WITH region AS (SELECT ST_MakeEnvelope(-25, 34, 45, 72) AS geom) SELECT a.type, count(*) AS airport_count FROM airports a, region r WHERE ST_Intersects(a.geometry, r.geom) GROUP BY a.type ORDER BY airport_count DESC;",
+    "skills": ["spatial join", "aggregation", "group by category"],
+    "difficulty": "medium"
+  }
+]

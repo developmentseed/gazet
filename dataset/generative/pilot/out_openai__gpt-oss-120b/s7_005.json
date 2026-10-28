@@ -1,0 +1,38 @@
+[
+  {
+    "question": "vendor trips struct list by hour and passenger",
+    "sql": "WITH vendor_structs AS (\n  SELECT VendorID,\n         LIST_AGG(STRUCT(pickup_hour := EXTRACT(HOUR FROM tpep_pickup_datetime), passenger := passenger_count) ORDER BY tpep_pickup_datetime) AS trips\n  FROM nyc_taxi_trips\n  GROUP BY VendorID\n)\nSELECT VendorID,\n       s.pickup_hour,\n       s.passenger\nFROM vendor_structs,\n     UNNEST(trips) AS s(pickup_hour, passenger);",
+    "skills": ["struct", "list_agg", "unnest"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "json array total fare per pickup zone",
+    "sql": "SELECT json_array_agg(\n         json_object('location', PULocationID, 'total_fare', total_fare)\n       ) AS location_fares\nFROM (\n  SELECT PULocationID, SUM(total_amount) AS total_fare\n  FROM nyc_taxi_trips\n  GROUP BY PULocationID\n) AS agg;",
+    "skills": ["json", "aggregation", "list_agg"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "geojson buffer around dummy pickup point for trips >10 miles",
+    "sql": "SELECT row_number() OVER () AS trip_id,\n       ST_AsGeoJSON(\n         ST_Buffer(\n           ST_Point(-73.9857, 40.7484),\n           0.01\n         )\n       ) AS pickup_buffer_geojson\nFROM nyc_taxi_trips\nWHERE trip_distance > 10\nLIMIT 10;",
+    "skills": ["spatial", "geojson", "buffer"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "hourly avg speed struct list sorted desc",
+    "sql": "WITH speeds AS (\n  SELECT EXTRACT(HOUR FROM tpep_pickup_datetime) AS hour,\n         (trip_distance) / (EXTRACT(EPOCH FROM (tpep_dropoff_datetime - tpep_pickup_datetime)) / 3600.0) AS speed\n  FROM nyc_taxi_trips\n  WHERE tpep_dropoff_datetime > tpep_pickup_datetime\n),\nhourly AS (\n  SELECT hour, AVG(speed) AS avg_speed\n  FROM speeds\n  GROUP BY hour\n)\nSELECT LIST_AGG(STRUCT(hour := hour, avg_speed := avg_speed) ORDER BY avg_speed DESC) AS hourly_speed_structs\nFROM hourly;",
+    "skills": ["struct", "list_agg", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "top5 dropoff zones tip totals struct list",
+    "sql": "WITH tip_agg AS (\n  SELECT DOLocationID AS zone,\n         SUM(tip_amount) AS tip_total,\n         COUNT(*) AS trips\n  FROM nyc_taxi_trips\n  GROUP BY DOLocationID\n)\nSELECT (LIST_AGG(STRUCT(zone := zone, tip_total := tip_total, trips := trips) ORDER BY tip_total DESC))[:5] AS top_zones\nFROM tip_agg;",
+    "skills": ["struct", "list_agg", "slice"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "vendor distinct passenger counts unnest list",
+    "sql": "WITH vendor_pass AS (\n  SELECT VendorID,\n         LIST(DISTINCT passenger_count) AS passenger_list\n  FROM nyc_taxi_trips\n  GROUP BY VendorID\n)\nSELECT VendorID, pc AS passenger_count\nFROM vendor_pass,\n     UNNEST(passenger_list) AS pc\nORDER BY VendorID, pc;",
+    "skills": ["list", "distinct", "unnest"],
+    "difficulty": "hard"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which taxi zones overlap the rectangular area that covers the part of Manhattan between longitudes -74.0 and -73.9 and latitudes 40.70 and 40.80? Show the zone name, borough and the zone shape as GeoJSON.",
+    "sql": "SELECT z.zone,\n       z.borough,\n       ST_AsGeoJSON(z.geometry) AS geojson\nFROM nyc_taxi_zones z\nWHERE ST_Intersects(\n        z.geometry,\n        ST_MakeEnvelope(-74.0, 40.70, -73.9, 40.80, 4326)\n      );",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "ST_AsGeoJSON"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How many taxi trips started within one kilometre of Times Square (approximately at longitude -73.9855, latitude 40.7580)?",
+    "sql": "WITH ts_buffer AS (\n  SELECT ST_Buffer(\n           ST_Transform(ST_MakePoint(-73.9855, 40.7580), 'EPSG:4326', 'EPSG:3857', true),\n           1000) AS geom_3857\n)\nSELECT COUNT(*) AS trips_near_times_square\nFROM nyc_taxi_trips t\nJOIN nyc_taxi_zones pz ON t.PULocationID = pz.location_id\nJOIN ts_buffer b\n  ON ST_Intersects(\n        ST_Transform(pz.geometry, 'EPSG:4326', 'EPSG:3857', true),\n        b.geom_3857\n      );",
+    "skills": ["ST_MakePoint", "ST_Transform", "ST_Buffer", "ST_Intersects"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which five zones generated the highest total fare for trips that both began and ended inside Queens, using a bounding box that roughly covers Queens (longitude -73.96 to -73.70, latitude 40.55 to 40.78)? Return the zone name, borough and total fare.",
+    "sql": "WITH queens_env AS (\n  SELECT ST_MakeEnvelope(-73.96, 40.55, -73.70, 40.78, 4326) AS env\n)\nSELECT z.zone,\n       z.borough,\n       SUM(t.fare_amount) AS total_fare\nFROM nyc_taxi_trips t\nJOIN nyc_taxi_zones z ON t.PULocationID = z.location_id\nJOIN nyc_taxi_zones dz ON t.DOLocationID = dz.location_id\nJOIN queens_env q ON ST_Intersects(z.geometry, q.env) AND ST_Intersects(dz.geometry, q.env)\nGROUP BY z.zone, z.borough\nORDER BY total_fare DESC\nLIMIT 5;",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "List the pickup time, drop‑off time and fare for trips that were picked up inside the Bronx but dropped off outside the Bronx, using the Bronx’s overall bounding box.",
+    "sql": "WITH bronx_env AS (\n  SELECT ST_Envelope(ST_Collect(geometry)) AS env\n  FROM nyc_taxi_zones\n  WHERE borough = 'Bronx'\n)\nSELECT t.tpep_pickup_datetime,\n       t.tpep_dropoff_datetime,\n       t.fare_amount\nFROM nyc_taxi_trips t\nJOIN nyc_taxi_zones pz ON t.PULocationID = pz.location_id\nJOIN nyc_taxi_zones dz ON t.DOLocationID = dz.location_id\nJOIN bronx_env b ON\n     ST_Intersects(pz.geometry, b.env) AND NOT ST_Intersects(dz.geometry, b.env);",
+    "skills": ["ST_Envelope", "ST_Collect", "ST_Intersects"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the average trip distance for trips whose pickup zone is completely inside a rectangle that covers Staten Island (longitude -74.25 to -74.05, latitude 40.50 to 40.65)?",
+    "sql": "WITH si_env AS (\n  SELECT ST_MakeEnvelope(-74.25, 40.50, -74.05, 40.65, 4326) AS env\n)\nSELECT AVG(t.trip_distance) AS avg_trip_distance_km\nFROM nyc_taxi_trips t\nJOIN nyc_taxi_zones pz ON t.PULocationID = pz.location_id\nJOIN si_env s ON ST_Contains(s.env, pz.geometry);",
+    "skills": ["ST_MakeEnvelope", "ST_Contains", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which boroughs have at least one zone whose bounding box overlaps a large envelope that includes all of NYC (longitude -74.3 to -73.6, latitude 40.5 to 40.95)? Return each borough only once.",
+    "sql": "WITH nyc_env AS (\n  SELECT ST_MakeEnvelope(-74.3, 40.5, -73.6, 40.95, 4326) AS env\n)\nSELECT DISTINCT z.borough\nFROM nyc_taxi_zones z\nJOIN nyc_env e\n  ON ST_Intersects(ST_Envelope(z.geometry), e.env);",
+    "skills": ["ST_MakeEnvelope", "ST_Envelope", "ST_Intersects"],
+    "difficulty": "hard"
+  }
+]

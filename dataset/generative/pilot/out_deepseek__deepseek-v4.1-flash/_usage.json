@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "Baidu",
+  "wall_s": 18.6,
+  "prompt_tokens": 1306,
+  "completion_tokens": 3460,
+  "reasoning_tokens": 2864,
+  "cost": 0.00136314
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "Baidu",
+  "wall_s": 29.1,
+  "prompt_tokens": 590,
+  "completion_tokens": 5571,
+  "reasoning_tokens": 4233,
+  "cost": 0.00205866
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "AtlasCloud",
+  "wall_s": 29.9,
+  "prompt_tokens": 931,
+  "completion_tokens": 5076,
+  "reasoning_tokens": 4299,
+  "cost": 0.002866725
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "InferenceNet",
+  "wall_s": 40.8,
+  "prompt_tokens": 1264,
+  "completion_tokens": 6223,
+  "reasoning_tokens": 5618,
+  "cost": 0.003863992
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "Morph",
+  "wall_s": 25.7,
+  "prompt_tokens": 779,
+  "completion_tokens": 3915,
+  "reasoning_tokens": 2887,
+  "cost": 0.001533721
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "InferenceNet",
+  "wall_s": 34.5,
+  "prompt_tokens": 881,
+  "completion_tokens": 5588,
+  "reasoning_tokens": 4806,
+  "cost": 0.003443543
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "CoreWeave",
+  "wall_s": 9.7,
+  "prompt_tokens": 870,
+  "completion_tokens": 4031,
+  "reasoning_tokens": 3460,
+  "cost": 0.00273325
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "InferenceNet",
+  "wall_s": 35.5,
+  "prompt_tokens": 1084,
+  "completion_tokens": 5804,
+  "reasoning_tokens": 4749,
+  "cost": 0.003594052
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "Baidu",
+  "wall_s": 34.3,
+  "prompt_tokens": 917,
+  "completion_tokens": 6107,
+  "reasoning_tokens": 5291,
+  "cost": 0.0022133124
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "Baidu",
+  "wall_s": 60.2,
+  "prompt_tokens": 939,
+  "completion_tokens": 11206,
+  "reasoning_tokens": 9639,
+  "cost": 0.0040509324
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "Baidu",
+  "wall_s": 51.4,
+  "prompt_tokens": 1412,
+  "completion_tokens": 8611,
+  "reasoning_tokens": 7682,
+  "cost": 0.0031367232
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "InferenceNet",
+  "wall_s": 57.7,
+  "prompt_tokens": 992,
+  "completion_tokens": 8897,
+  "reasoning_tokens": 7892,
+  "cost": 0.005440376
+ }
+]

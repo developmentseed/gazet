@@ -1,0 +1,38 @@
+[
+  {
+    "question": "restaurants within 500m of a landmark",
+    "sql": "WITH landmarks AS (SELECT geometry FROM lisbon_places WHERE taxonomy->'primary' = 'historic_site') SELECT p.names->'primary' AS name FROM lisbon_places p, landmarks l WHERE p.basic_category = 'restaurant' AND ST_Distance_Sphere(p.geometry, l.geometry) < 500",
+    "skills": ["spatial join", "distance functions"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "count of places by category with more than 100 instances",
+    "sql": "SELECT basic_category, COUNT(*) AS count FROM lisbon_places GROUP BY basic_category HAVING COUNT(*) > 100 ORDER BY count DESC",
+    "skills": ["GROUP BY", "HAVING"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "find places with multiple websites",
+    "sql": "SELECT id, names->'primary' AS name FROM lisbon_places WHERE ARRAY_LENGTH(websites) > 1",
+    "skills": ["array functions"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "average distance from central Lisbon to all restaurants",
+    "sql": "WITH central AS (SELECT ST_Point(-9.1333, 38.7033) AS center) SELECT AVG(ST_Distance_Sphere(p.geometry, c.center)) AS avg_distance FROM lisbon_places p, central c WHERE p.basic_category = 'restaurant'",
+    "skills": ["CTE", "distance functions"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "list places with names in English vs other languages",
+    "sql": "SELECT id, names->'primary' AS name, CASE WHEN names->'rules' IS NOT NULL THEN 'has_rules' ELSE 'no_rules' END AS naming_style FROM lisbon_places WHERE names->'primary' IS NOT NULL",
+    "skills": ["CASE", "JSON functions"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "find places within 1km of a specific point",
+    "sql": "WITH target_point AS (SELECT ST_Point(-9.14, 38.71) AS pt) SELECT id, names->'primary' AS name FROM lisbon_places p, target_point t WHERE ST_Distance_Sphere(p.geometry, t.pt) < 1000",
+    "skills": ["spatial predicate", "distance functions"],
+    "difficulty": "medium"
+  }
+]

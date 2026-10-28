@@ -1,0 +1,38 @@
+[
+  {
+    "question": "show road names and geometry",
+    "sql": "SELECT names->'primary' AS name, ST_AsGeoJSON(geometry) AS geom FROM lisbon_roads LIMIT 5",
+    "skills": ["output shaping", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "find roads with speed limit over 30 km/h",
+    "sql": "SELECT names->'primary' AS name, speed_limits[1]->'max_speed'->'value' AS speed_limit FROM lisbon_roads WHERE speed_limits[1]->'max_speed'->'value' > 30 LIMIT 5",
+    "skills": ["output shaping", "string formatting of results"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "list roads with class residential and geometry",
+    "sql": "SELECT names->'primary' AS name, ST_AsGeoJSON(geometry) AS geom FROM lisbon_roads WHERE class = 'residential' LIMIT 5",
+    "skills": ["output shaping", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "get center point of road geometry",
+    "sql": "SELECT names->'primary' AS name, ST_X(ST_Centroid(geometry)) AS center_lon, ST_Y(ST_Centroid(geometry)) AS center_lat FROM lisbon_roads WHERE class = 'footway' LIMIT 5",
+    "skills": ["output shaping", "ST_X", "ST_Y", "ST_Centroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "what is the total length of residential roads in km",
+    "sql": "SELECT ROUND(SUM(ST_Length_Spheroid(geometry, 'WGS84') / 1000.0), 2) AS total_length_km FROM lisbon_roads WHERE class = 'residential'",
+    "skills": ["output shaping", "ST_Length_Spheroid", "ROUND"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "show the first 3 road names with their class",
+    "sql": "SELECT names->'primary' AS name, class FROM lisbon_roads LIMIT 3",
+    "skills": ["output shaping", "string formatting of results"],
+    "difficulty": "easy"
+  }
+]

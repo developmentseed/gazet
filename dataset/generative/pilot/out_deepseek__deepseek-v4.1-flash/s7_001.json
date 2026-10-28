@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the 10 airports with the most other airports within 10 km, along with their names and the count.",
+    "sql": "WITH metric AS (\n  SELECT name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_3857\n  FROM airports\n)\nSELECT a.name, COUNT(b.name) AS nearby_count\nFROM metric a\nJOIN metric b ON ST_Distance(a.geom_3857, b.geom_3857) < 10000 AND a.name <> b.name\nGROUP BY a.name\nORDER BY nearby_count DESC\nLIMIT 10;",
+    "skills": ["spatial join", "aggregation", "distance", "metric transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List each airport type and the average number of other airports within 25 km, for types with at least 10 airports.",
+    "sql": "WITH metric AS (\n  SELECT type, name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_3857\n  FROM airports\n),\ncounts AS (\n  SELECT a.type, a.name, COUNT(b.name) AS nearby_count\n  FROM metric a\n  JOIN metric b ON ST_Distance(a.geom_3857, b.geom_3857) < 25000 AND a.name <> b.name\n  GROUP BY a.type, a.name\n)\nSELECT type, AVG(nearby_count) AS avg_nearby\nFROM counts\nGROUP BY type\nHAVING COUNT(*) >= 10\nORDER BY avg_nearby DESC;",
+    "skills": ["spatial join", "aggregation", "group by", "having"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each major airport, find the nearest airport of a different type and the distance in kilometers. Return the major airport name, the nearest other airport name, its type, and distance rounded to 1 decimal.",
+    "sql": "WITH metric AS (\n  SELECT name, type, ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_3857\n  FROM airports\n),\nnearest AS (\n  SELECT a.name AS major_name, b.name AS other_name, b.type AS other_type,\n         ST_Distance(a.geom_3857, b.geom_3857) AS dist_m,\n         ROW_NUMBER() OVER (PARTITION BY a.name ORDER BY ST_Distance(a.geom_3857, b.geom_3857)) AS rn\n  FROM metric a\n  JOIN metric b ON a.type = 'major' AND b.type <> 'major' AND a.name <> b.name\n)\nSELECT major_name, other_name, other_type, ROUND(dist_m / 1000.0, 1) AS distance_km\nFROM nearest\nWHERE rn = 1\nORDER BY distance_km\nLIMIT 20;",
+    "skills": ["spatial join", "nearest neighbor", "window function", "distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map all airports that have no other airport within 50 km. Return their name, type, and geometry as GeoJSON.",
+    "sql": "WITH metric AS (\n  SELECT name, type, ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_3857, geometry\n  FROM airports\n),\nisolated AS (\n  SELECT a.name, a.type, a.geometry\n  FROM metric a\n  WHERE NOT EXISTS (\n    SELECT 1 FROM metric b\n    WHERE a.name <> b.name\n      AND ST_Distance(a.geom_3857, b.geom_3857) < 50000\n  )\n)\nSELECT name, type, ST_AsGeoJSON(geometry) AS geojson\nFROM isolated;",
+    "skills": ["spatial join", "anti-join", "geojson", "distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each airport, compute the total distance in km to all other airports within 200 km, and list the top 5 airports by this total.",
+    "sql": "WITH metric AS (\n  SELECT name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_3857\n  FROM airports\n)\nSELECT a.name, ROUND(SUM(ST_Distance(a.geom_3857, b.geom_3857)) / 1000.0, 1) AS total_distance_km\nFROM metric a\nJOIN metric b ON a.name <> b.name AND ST_Distance(a.geom_3857, b.geom_3857) < 200000\nGROUP BY a.name\nORDER BY total_distance_km DESC\nLIMIT 5;",
+    "skills": ["spatial join", "aggregation", "sum", "distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Give me the 10 airports with the highest number of airports of a different type within 20 km.",
+    "sql": "WITH metric AS (\n  SELECT name, type, ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_3857\n  FROM airports\n)\nSELECT a.name, a.type, COUNT(b.name) AS other_type_count\nFROM metric a\nJOIN metric b ON a.name <> b.name AND a.type <> b.type\n  AND ST_Distance(a.geom_3857, b.geom_3857) < 20000\nGROUP BY a.name, a.type\nORDER BY other_type_count DESC\nLIMIT 10;",
+    "skills": ["spatial join", "aggregation", "count", "distance", "filtering"],
+    "difficulty": "medium"
+  }
+]

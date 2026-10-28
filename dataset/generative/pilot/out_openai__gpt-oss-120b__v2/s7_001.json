@@ -1,0 +1,38 @@
+[
+  {
+    "question": "List the five 10° × 10° grid cells that contain the most airports, showing the lower‑left corner coordinates and the airport count.",
+    "sql": "WITH grid AS ( SELECT i AS lat_idx, j AS lon_idx, ST_MakeEnvelope(j*10-180, i*10-90, (j+1)*10-180, (i+1)*10-90) AS geom FROM generate_series(0,17) i CROSS JOIN generate_series(0,35) j ) SELECT grid.lon_idx*10-180 AS lon_min, grid.lat_idx*10-90 AS lat_min, COUNT(a.*) AS airport_count FROM grid LEFT JOIN airports a ON ST_Contains(grid.geom, a.geometry) GROUP BY grid.lon_idx, grid.lat_idx ORDER BY airport_count DESC LIMIT 5;",
+    "skills": ["spatial join", "aggregation", "grid aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Give the number of major airports in each continent (using rough continent bounding boxes).",
+    "sql": "WITH continents AS ( SELECT 'North America' AS name, ST_MakeEnvelope(-168, 7, -52, 83) AS geom UNION ALL SELECT 'South America', ST_MakeEnvelope(-82, -56, -34, 13) UNION ALL SELECT 'Europe', ST_MakeEnvelope(-31, 35, 40, 71) UNION ALL SELECT 'Africa', ST_MakeEnvelope(-17, -35, 51, 38) UNION ALL SELECT 'Asia', ST_MakeEnvelope(26, -11, 180, 81) UNION ALL SELECT 'Oceania', ST_MakeEnvelope(110, -50, 180, 10) ) SELECT c.name, COUNT(a.*) AS major_airport_count FROM continents c LEFT JOIN airports a ON a.type = 'major' AND ST_Contains(c.geom, a.geometry) GROUP BY c.name ORDER BY c.name;",
+    "skills": ["spatial join", "aggregation", "categorical count"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each 10° × 10° grid cell, compute the average scalerank of airports that lie within 200 km of Los Angeles, and show cells that have at least one such airport.",
+    "sql": "WITH grid AS ( SELECT i AS lat_idx, j AS lon_idx, ST_MakeEnvelope(j*10-180, i*10-90, (j+1)*10-180, (i+1)*10-90) AS geom FROM generate_series(0,17) i CROSS JOIN generate_series(0,35) j ), la_point AS ( SELECT ST_Point(-118.2437, 34.0522) AS geom ) SELECT grid.lon_idx*10-180 AS lon_min, grid.lat_idx*10-90 AS lat_min, AVG(a.scalerank) AS avg_scalerank FROM grid JOIN airports a ON ST_Contains(grid.geom, a.geometry) WHERE ST_Distance_Sphere(a.geometry, (SELECT geom FROM la_point)) <= 200000 GROUP BY grid.lon_idx, grid.lat_idx HAVING COUNT(*) > 0 ORDER BY avg_scalerank DESC;",
+    "skills": ["spatial join", "distance filter", "aggregation", "grid aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show the top ten 5° × 5° grid cells by the sum of scalerank values of military airports.",
+    "sql": "WITH grid AS ( SELECT i AS lat_idx, j AS lon_idx, ST_MakeEnvelope(j*5-180, i*5-90, (j+1)*5-180, (i+1)*5-90) AS geom FROM generate_series(0,35) i CROSS JOIN generate_series(0,71) j ) SELECT grid.lon_idx*5-180 AS lon_min, grid.lat_idx*5-90 AS lat_min, SUM(a.scalerank) AS total_scalerank FROM grid JOIN airports a ON ST_Contains(grid.geom, a.geometry) WHERE a.type LIKE '%military%' GROUP BY grid.lon_idx, grid.lat_idx ORDER BY total_scalerank DESC LIMIT 10;",
+    "skills": ["spatial join", "aggregation", "grid aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find the grid cell that has the highest number of airports whose IATA code starts with the letter ‘A’, and return the cell geometry as GeoJSON together with the count.",
+    "sql": "WITH grid AS ( SELECT i AS lat_idx, j AS lon_idx, ST_MakeEnvelope(j*10-180, i*10-90, (j+1)*10-180, (i+1)*10-90) AS geom FROM generate_series(0,17) i CROSS JOIN generate_series(0,35) j ), filtered AS ( SELECT a.*, grid.lon_idx, grid.lat_idx, grid.geom FROM airports a JOIN grid ON ST_Contains(grid.geom, a.geometry) WHERE a.iata_code IS NOT NULL AND a.iata_code LIKE 'A%' ) SELECT ST_AsGeoJSON(filtered.geom) AS cell_geojson, COUNT(*) AS airport_count FROM filtered GROUP BY filtered.lon_idx, filtered.lat_idx, filtered.geom ORDER BY airport_count DESC LIMIT 1;",
+    "skills": ["spatial join", "aggregation", "filter", "geojson output"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare how many airports are in the Northern Hemisphere versus the Southern Hemisphere.",
+    "sql": "WITH hemispheres AS ( SELECT 'Northern' AS hemi, ST_MakeEnvelope(-180, 0, 180, 90) AS geom UNION ALL SELECT 'Southern', ST_MakeEnvelope(-180, -90, 180, 0) ) SELECT h.hemi, COUNT(a.*) AS airport_count FROM hemispheres h LEFT JOIN airports a ON ST_Contains(h.geom, a.geometry) GROUP BY h.hemi ORDER BY h.hemi;",
+    "skills": ["spatial join", "aggregation", "categorical comparison"],
+    "difficulty": "medium"
+  }
+]

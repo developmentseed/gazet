@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which open restaurants are within 100 metres of a pedestrian path?",
+    "sql": "WITH pedestrian_paths AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom\n  FROM lisbon_roads\n  WHERE class = 'footway'\n)\nSELECT DISTINCT p.names.primary AS place_name\nFROM lisbon_places p\nJOIN pedestrian_paths r\n  ON ST_Intersects(\n       ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true),\n       ST_Buffer(r.geom, 100)\n     )\nWHERE p.basic_category = 'restaurant'\n  AND p.operating_status = 'open'\n  AND p.names.primary IS NOT NULL\nLIMIT 20;",
+    "skills": ["ST_Intersects", "ST_Buffer", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which historic sites are within 500 metres of Praça do Comércio?",
+    "sql": "WITH landmark AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom\n  FROM lisbon_places\n  WHERE names.primary = 'Praça do Comércio'\n  LIMIT 1\n)\nSELECT p.names.primary AS historic_site\nFROM lisbon_places p, landmark l\nWHERE p.taxonomy.primary = 'historic_site'\n  AND ST_Within(\n        ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true),\n        ST_Buffer(l.geom, 500)\n      )\nLIMIT 20;",
+    "skills": ["ST_Within", "ST_Buffer", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which streets pass within 200 metres of the Torre de Belém?",
+    "sql": "WITH landmark AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom\n  FROM lisbon_places\n  WHERE names.primary = 'Torre de Belém'\n  LIMIT 1\n)\nSELECT DISTINCT r.names.primary AS street_name\nFROM lisbon_roads r, landmark l\nWHERE r.names.primary IS NOT NULL\n  AND ST_Intersects(\n        ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true),\n        ST_Buffer(l.geom, 200)\n      )\nLIMIT 20;",
+    "skills": ["ST_Intersects", "ST_Buffer", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which streets connect directly to a pedestrian path?",
+    "sql": "SELECT DISTINCT r.names.primary AS street_name\nFROM lisbon_roads r\nJOIN lisbon_roads p\n  ON r.id <> p.id\n  AND p.class = 'footway'\n  AND r.class <> 'footway'\n  AND ST_Touches(r.geometry, p.geometry)\nWHERE r.names.primary IS NOT NULL\nLIMIT 20;",
+    "skills": ["ST_Touches"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which open restaurants are within 50 metres of Avenida da Liberdade?",
+    "sql": "WITH avenue AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom\n  FROM lisbon_roads\n  WHERE names.primary = 'Avenida da Liberdade'\n)\nSELECT DISTINCT p.names.primary AS restaurant_name\nFROM lisbon_places p, avenue a\nWHERE p.basic_category = 'restaurant'\n  AND p.operating_status = 'open'\n  AND p.names.primary IS NOT NULL\n  AND ST_Contains(\n        ST_Buffer(a.geom, 50),\n        ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true)\n      )\nLIMIT 20;",
+    "skills": ["ST_Contains", "ST_Buffer", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which open restaurants are located inside the area that encloses all historic sites in Lisbon?",
+    "sql": "WITH historic_area AS (\n  SELECT ST_ConvexHull(ST_Collect(list(geometry))) AS geom\n  FROM lisbon_places\n  WHERE taxonomy.primary = 'historic_site'\n)\nSELECT p.names.primary AS restaurant_name\nFROM lisbon_places p, historic_area h\nWHERE p.basic_category = 'restaurant'\n  AND p.operating_status = 'open'\n  AND p.names.primary IS NOT NULL\n  AND ST_Contains(h.geom, p.geometry)\nLIMIT 20;",
+    "skills": ["ST_Contains", "ST_ConvexHull", "ST_Collect"],
+    "difficulty": "medium"
+  }
+]

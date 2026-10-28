@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me a list of countries with more than 5 major airports, showing the count of airports per country.",
+    "sql": "SELECT COUNT(*) AS airport_count FROM airports WHERE type = 'major' GROUP BY scalerank HAVING COUNT(*) > 5",
+    "skills": ["spatial join with aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map the total number of airports in each scalerank category and list them from highest to lowest count.",
+    "sql": "SELECT scalerank, COUNT(*) AS total_airports FROM airports GROUP BY scalerank ORDER BY total_airports DESC",
+    "skills": ["spatial join with aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare the number of major airports to mid airports in the dataset.",
+    "sql": "SELECT type, COUNT(*) AS count FROM airports WHERE type IN ('major', 'mid') GROUP BY type ORDER BY count DESC",
+    "skills": ["spatial join with aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the top 3 scalerank values that have the most airports, along with their airport counts.",
+    "sql": "SELECT scalerank, COUNT(*) AS airport_count FROM airports GROUP BY scalerank ORDER BY airport_count DESC LIMIT 3",
+    "skills": ["spatial join with aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find how many airports are located within 1000 km of the equator (latitude 0).",
+    "sql": "SELECT COUNT(*) AS airports_near_equator FROM airports WHERE ST_Distance(ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Point(0, 0)) < 1000000",
+    "skills": ["spatial join with aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show the number of airports by type and scalerank combination, ordered by scalerank and then by count descending.",
+    "sql": "SELECT type, scalerank, COUNT(*) AS airport_count FROM airports GROUP BY type, scalerank ORDER BY scalerank, airport_count DESC",
+    "skills": ["spatial join with aggregation"],
+    "difficulty": "medium"
+  }
+]

@@ -1,0 +1,1 @@
+deepseek/deepseek-v4-pro: 12/12 ok, cost $0.2643, providers ['Alibaba', 'GMICloud', 'Novita', 'SiliconFlow', 'StreamLake'], avg completion 6963 tok (reasoning 6260)

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "show buildings with height over 100 meters",
+    "sql": "SELECT id, height FROM lisbon_buildings WHERE height > 100.0",
+    "skills": ["filtering", "attribute query"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "find total area of residential buildings in square kilometers",
+    "sql": "SELECT SUM(ST_Area_Spheroid(geometry)) / 1000000.0 AS area_sqkm FROM lisbon_buildings WHERE class = 'residential'",
+    "skills": ["measurement", "area calculation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "list roads with speed limit over 50 km/h",
+    "sql": "SELECT id FROM lisbon_roads WHERE max_speed->'value' > 50",
+    "skills": ["filtering", "attribute query"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "how long are all footways in kilometers",
+    "sql": "SELECT SUM(ST_Length_Spheroid(geometry)) / 1000.0 AS total_length_km FROM lisbon_roads WHERE class = 'footway'",
+    "skills": ["measurement", "length calculation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "what is the average number of floors for apartment buildings",
+    "sql": "SELECT AVG(num_floors) AS avg_floors FROM lisbon_buildings WHERE class = 'apartments'",
+    "skills": ["aggregation", "attribute query"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "find buildings with roof shape gabled or hip",
+    "sql": "SELECT id, roof_shape FROM lisbon_buildings WHERE roof_shape IN ('gabled', 'hipped')",
+    "skills": ["filtering", "attribute query"],
+    "difficulty": "easy"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "restaurants near the Tagus River",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p WHERE p.basic_category = 'restaurant' AND ST_Intersects(p.geometry, ST_GeomFromText('LINESTRING(-9.15 38.7, -9.1 38.7)', 4326))",
+    "skills": ["ST_Intersects"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings with height over 50 meters",
+    "sql": "SELECT b.names->>'primary' AS name FROM lisbon_buildings b WHERE b.height > 50.0",
+    "skills": ["comparison"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "residential buildings within 1 km of Alfama district",
+    "sql": "SELECT b.names->>'primary' AS name FROM lisbon_buildings b WHERE b.subtype = 'residential' AND ST_Distance(b.geometry, ST_GeomFromText('POINT(-9.1393 38.7073)', 4326), true) < 1000",
+    "skills": ["ST_Distance"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "places that touch the Lisbon Cathedral",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p WHERE ST_Touches(p.geometry, (SELECT geometry FROM lisbon_places WHERE names->>'primary' = 'Lisbon Cathedral'))",
+    "skills": ["ST_Touches"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "historic sites inside the city center",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p WHERE p.taxonomy->'primary' = 'historic_site' AND ST_Within(p.geometry, ST_GeomFromText('POLYGON((-9.15 38.7, -9.15 38.8, -9.09 38.8, -9.09 38.7, -9.15 38.7))', 4326))",
+    "skills": ["ST_Within"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "commercial buildings taller than 30 meters",
+    "sql": "SELECT b.names->>'primary' AS name FROM lisbon_buildings b WHERE b.subtype = 'commercial' AND b.height > 30.0",
+    "skills": ["comparison"],
+    "difficulty": "easy"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "taxi zones with highest average tip percentage for credit card payments in January 2024",
+    "sql": "WITH trip_tips AS (SELECT PULocationID, tip_amount, total_amount FROM nyc_taxi_trips WHERE payment_type = 1 AND tpep_pickup_datetime >= '2024-01-01' AND tpep_pickup_datetime < '2024-02-01' AND total_amount > 0), zone_stats AS (SELECT tz.location_id, AVG(tt.tip_amount / tt.total_amount * 100) AS avg_tip_percent FROM trip_tips tt JOIN nyc_taxi_zones tz ON tt.PULocationID = tz.location_id GROUP BY tz.location_id) SELECT location_id, avg_tip_percent FROM zone_stats ORDER BY avg_tip_percent DESC LIMIT 20",
+    "skills": ["temporal filtering", "aggregation", "join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "longest taxi trips by distance with pickup/dropoff zones in Manhattan",
+    "sql": "SELECT t.trip_distance, tz1.zone AS pickup_zone, tz2.zone AS dropoff_zone FROM nyc_taxi_trips t JOIN nyc_taxi_zones tz1 ON t.PULocationID = tz1.location_id JOIN nyc_taxi_zones tz2 ON t.DOLocationID = tz2.location_id WHERE tz1.borough = 'Manhattan' AND tz2.borough = 'Manhattan' ORDER BY t.trip_distance DESC LIMIT 100",
+    "skills": ["join", "filtering", "sorting"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "spatial clustering of trips starting near Central Park bounding box",
+    "sql": "WITH central_park_trips AS (SELECT t.*, ST_Point(z.longitude, z.latitude) AS pickup_geom FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE z.longitude BETWEEN -73.98 AND -73.95 AND z.latitude BETWEEN 40.76 AND 40.78), clustered AS (SELECT ST_ClusterDBSCAN(pickup_geom, 100, 3) OVER() AS cluster_id, pickup_geom FROM central_park_trips) SELECT ST_AsGeoJSON(ST_Collect(list(pickup_geom))) AS cluster_geometry FROM clustered WHERE cluster_id IS NOT NULL GROUP BY cluster_id HAVING COUNT(*) >= 5",
+    "skills": ["spatial clustering", "bounding box filter", "ST_Collect", "list aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "trips with largest fare differences between same origin-destination pairs in January",
+    "sql": "WITH od_pairs AS (SELECT PULocationID, DOLocationID, fare_amount, NTILE(4) OVER (PARTITION BY PULocationID, DOLocationID ORDER BY fare_amount) AS quartile FROM nyc_taxi_trips WHERE tpep_pickup_datetime >= '2024-01-01' AND tpep_pickup_datetime < '2024-02-01'), fare_ranges AS (SELECT PULocationID, DOLocationID, MAX(CASE WHEN quartile = 4 THEN fare_amount END) AS q4_fare, MIN(CASE WHEN quartile = 1 THEN fare_amount END) AS q1_fare FROM od_pairs GROUP BY PULocationID, DOLocationID HAVING COUNT(DISTINCT quartile) = 4) SELECT PULocationID, DOLocationID, (q4_fare - q1_fare) AS fare_difference FROM fare_ranges WHERE q4_fare IS NOT NULL AND q1_fare IS NOT NULL ORDER BY fare_difference DESC LIMIT 50",
+    "skills": ["window functions", "NTILE", "conditional aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "zones where trips frequently start but rarely end during rush hours",
+    "sql": "WITH rush_hour_starts AS (SELECT PULocationID, COUNT(*) AS start_count FROM nyc_taxi_trips WHERE EXTRACT(HOUR FROM tpep_pickup_datetime) IN (7, 8, 17, 18) GROUP BY PULocationID), rush_hour_ends AS (SELECT DOLocationID, COUNT(*) AS end_count FROM nyc_taxi_trips WHERE EXTRACT(HOUR FROM tpep_dropoff_datetime) IN (7, 8, 17, 18) GROUP BY DOLocationID), ratios AS (SELECT rs.PULocationID AS location_id, rs.start_count, COALESCE(re.end_count, 0) AS end_count, CAST(rs.start_count AS FLOAT) / (COALESCE(re.end_count, 0) + 1) AS start_to_end_ratio FROM rush_hour_starts rs LEFT JOIN rush_hour_ends re ON rs.PULocationID = re.DOLocationID) SELECT location_id, start_to_end_ratio FROM ratios WHERE start_count > 100 ORDER BY start_to_end_ratio DESC LIMIT 30",
+    "skills": ["time-based filtering", "ratio calculation", "left join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "geometric median pickup point for trips originating in Brooklyn during evening hours",
+    "sql": "WITH brooklyn_trips AS (SELECT ST_Point(z.longitude, z.latitude) AS geom FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE z.borough = 'Brooklyn' AND EXTRACT(HOUR FROM t.tpep_pickup_datetime) >= 18), transformed_points AS (SELECT ST_Transform(geom, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS transformed_geom FROM brooklyn_trips), median_x AS (SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ST_X(transformed_geom)) AS x_med FROM transformed_points), median_y AS (SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ST_Y(transformed_geom)) AS y_med FROM transformed_points), median_point AS (SELECT ST_Transform(ST_Point((SELECT x_med FROM median_x), (SELECT y_med FROM median_y)), 'EPSG:3857', 'EPSG:4326', always_xy := true) AS med_geom) SELECT ST_AsGeoJSON(med_geom) FROM median_point",
+    "skills": ["spatial transformation", "percentile calculation", "median computation", "geometric processing"],
+    "difficulty": "hard"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "total area of residential buildings in lisbon in square meters",
+    "sql": "SELECT SUM(ST_Area_Spheroid(geometry)) AS total_area_sqm FROM lisbon_buildings WHERE class = 'residential'",
+    "skills": ["measurement", "filtering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "length of all footway roads in km",
+    "sql": "SELECT SUM(ST_Length_Spheroid(geometry)) / 1000 AS total_length_km FROM lisbon_roads WHERE class = 'footway'",
+    "skills": ["measurement", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "tallest building in lisbon with name",
+    "sql": "SELECT names.primary, height FROM lisbon_buildings WHERE names.primary IS NOT NULL ORDER BY height DESC LIMIT 1",
+    "skills": ["sorting", "filtering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "number of commercial buildings taller than 50 meters",
+    "sql": "SELECT COUNT(*) AS count FROM lisbon_buildings WHERE subtype = 'commercial' AND height > 50",
+    "skills": ["filtering", "counting"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "longest road segment in lisbon by class",
+    "sql": "SELECT class, MAX(ST_Length_Spheroid(geometry)) AS max_length FROM lisbon_roads GROUP BY class ORDER BY max_length DESC LIMIT 1",
+    "skills": ["grouping", "measurement"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "polygon of school buildings with more than 3 floors",
+    "sql": "SELECT ST_AsGeoJSON(geometry) AS geometry FROM lisbon_buildings WHERE class = 'school' AND num_floors > 3",
+    "skills": ["filtering", "geometry output"],
+    "difficulty": "easy"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "top 5 most common basic categories",
+    "sql": "SELECT basic_category, COUNT(*) AS count FROM lisbon_places GROUP BY basic_category ORDER BY count DESC LIMIT 5",
+    "skills": ["GROUP BY", "COUNT", "ORDER BY", "LIMIT"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "places with historic site taxonomy within 1km of (-9.14, 38.71)",
+    "sql": "SELECT id, names.primary, ST_AsGeoJSON(geometry) AS geom FROM lisbon_places WHERE taxonomy.primary = 'historic_site' AND ST_DWithin_Spheroid(geometry, ST_Point(-9.14, 38.71)::GEOMETRY, 1000.0)",
+    "skills": ["ST_DWithin_Spheroid", "ST_Point", "FILTER", "ST_AsGeoJSON"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "count of open vs closed places by category",
+    "sql": "SELECT basic_category, operating_status, COUNT(*) AS count FROM lisbon_places WHERE operating_status IN ('open', 'permanently_closed') GROUP BY basic_category, operating_status ORDER BY basic_category, operating_status",
+    "skills": ["GROUP BY", "FILTER", "CASE", "COUNT"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "brands with more than 3 locations",
+    "sql": "SELECT brand.names.primary, COUNT(*) AS loc_count FROM lisbon_places WHERE brand.names.primary IS NOT NULL GROUP BY brand.names.primary HAVING COUNT(*) > 3 ORDER BY loc_count DESC",
+    "skills": ["GROUP BY", "HAVING", "COUNT", "FILTER"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "bbox of all restaurants",
+    "sql": "SELECT ST_Extent_Agg(geometry) AS bbox FROM lisbon_places WHERE basic_category = 'restaurant'",
+    "skills": ["ST_Extent_Agg", "FILTER"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "places with names containing 'museum' (case-insensitive)",
+    "sql": "SELECT id, names.primary, basic_category FROM lisbon_places WHERE LOWER(names.primary) LIKE '%museum%' OR EXISTS(SELECT 1 FROM UNNEST(names.rules) r WHERE LOWER(r.value) LIKE '%museum%')",
+    "skills": ["FILTER", "LOWER", "LIKE", "UNNEST", "EXISTS"],
+    "difficulty": "medium"
+  }
+]

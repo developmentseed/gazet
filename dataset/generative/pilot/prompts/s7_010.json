@@ -1,0 +1,1 @@
+{"id": "s7_010", "tables": ["lisbon_places", "lisbon_roads"], "skill": "spatial predicates (ST_Intersects / ST_Within / ST_Contains / ST_Touches) for filtering", "difficulty": "medium", "style": "full natural sentences from a non-technical user who does not know column names", "k": 6}

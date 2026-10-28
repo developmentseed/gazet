@@ -1,0 +1,1 @@
+qwen/qwen3-coder: 12/12 ok, cost $0.0165, providers ['Venice'], avg completion 721 tok (reasoning 0)

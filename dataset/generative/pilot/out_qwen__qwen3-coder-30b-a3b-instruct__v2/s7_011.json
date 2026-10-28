@@ -1,0 +1,38 @@
+[
+  {
+    "question": "How many airports are located within 500 kilometers of any country's border, where the country has a population greater than 10 million?",
+    "sql": "SELECT COUNT(*) AS airport_count FROM airports a, countries c WHERE ST_DWithin_Spheroid(a.geometry, c.geometry, 500000) AND c.pop_est > 10000000",
+    "skills": ["spatial join with aggregation", "distance filtering", "population threshold"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the total GDP of all countries in the 'Europe' continent that contain at least one airport with a 'major' type?",
+    "sql": "SELECT SUM(c.gdp_md) AS total_gdp FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.continent = 'Europe' AND a.type = 'major' GROUP BY c.iso_a3 HAVING COUNT(a.iata_code) >= 1",
+    "skills": ["spatial join with aggregation", "gdp summation", "airport type filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Identify the countries in the 'Americas' region that have a total land area greater than 5 million square kilometers and contain more than 10 airports, returning their names and total airport counts.",
+    "sql": "SELECT c.name, COUNT(a.iata_code) AS airport_count FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.region_un = 'Americas' AND ST_Area_Spheroid(c.geometry) > 5000000000 GROUP BY c.iso_a3, c.name HAVING COUNT(a.iata_code) > 10",
+    "skills": ["spatial join with aggregation", "area filtering", "airport counting by country"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each continent, calculate the average distance in kilometers between airports and their nearest country border, considering only airports that are within 100km of a border and belong to a country with a GDP exceeding 100 billion USD.",
+    "sql": "SELECT c.continent, AVG(ST_Distance_Spheroid(a.geometry, ST_Boundary(c.geometry))) AS avg_distance_km FROM airports a JOIN countries c ON ST_Contains(c.geometry, a.geometry) WHERE ST_DWithin_Spheroid(a.geometry, ST_Boundary(c.geometry), 100000) AND c.gdp_md > 100000000000 GROUP BY c.continent",
+    "skills": ["spatial join with aggregation", "distance calculation", "GDP threshold filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Return the top 5 countries in terms of total population that have at least one airport of 'mid' type, ordered by the number of such airports, with their names and total populations.",
+    "sql": "SELECT c.name, c.pop_est FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE a.type = 'mid' GROUP BY c.iso_a3, c.name, c.pop_est ORDER BY COUNT(a.iata_code) DESC LIMIT 5",
+    "skills": ["spatial join with aggregation", "population ranking", "airport type filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Find the number of countries in the 'Africa' continent that have a coastline within 50 kilometers of any airport, where these airports are marked as 'major' and the countries also have a GDP below 50 billion USD.",
+    "sql": "SELECT COUNT(DISTINCT c.iso_a3) AS country_count FROM countries c JOIN airports a ON ST_DWithin_Spheroid(a.geometry, ST_Boundary(c.geometry), 50000) WHERE c.continent = 'Africa' AND a.type = 'major' AND c.gdp_md < 50000000000",
+    "skills": ["spatial join with aggregation", "coastline proximity", "GDP and airport type filtering"],
+    "difficulty": "hard"
+  }
+]

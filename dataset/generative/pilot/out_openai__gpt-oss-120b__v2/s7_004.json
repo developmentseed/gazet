@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which countries are intersected by a 50‑kilometre buffer around the capital city of France, and how large is the overlapping area for each?",
+    "sql": "WITH france_cap AS (SELECT geometry FROM populated_places WHERE country = 'France' AND is_capital), buffer AS (SELECT ST_Transform(ST_Buffer(ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), 50000), 'EPSG:3857', 'EPSG:4326', always_xy := true) AS geom FROM france_cap) SELECT c.name, (ST_Area_Spheroid(ST_Intersection(c.geometry, b.geom)) / 1e6) AS intersect_km2 FROM countries c, buffer b WHERE ST_Intersects(c.geometry, b.geom) ORDER BY intersect_km2 DESC;",
+    "skills": ["ST_Buffer", "ST_Intersection", "ST_Area_Spheroid"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the shape of the combined area of all countries in Western Africa, expressed as a GeoJSON polygon?",
+    "sql": "SELECT ST_AsGeoJSON(ST_ConvexHull(ST_Union_Agg(geometry))) AS western_africa_hull FROM countries WHERE subregion = 'Western Africa';",
+    "skills": ["ST_Union_Agg", "ST_ConvexHull", "ST_AsGeoJSON"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Give me the name of the most populous country and the geographic point that represents its centre, in GeoJSON format.",
+    "sql": "WITH most_pop AS (SELECT name, geometry FROM countries ORDER BY pop_est DESC LIMIT 1) SELECT name, ST_AsGeoJSON(ST_Centroid(geometry)) AS centroid_geojson FROM most_pop;",
+    "skills": ["ST_Centroid", "ordering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show the part of a 100‑kilometre buffer around New York City that lies outside the United States, as a GeoJSON shape.",
+    "sql": "WITH nyc AS (SELECT geometry FROM populated_places WHERE name = 'New York' AND country = 'United States of America'), usa AS (SELECT geometry FROM countries WHERE name = 'United States of America'), buffer AS (SELECT ST_Transform(ST_Buffer(ST_Transform(nyc.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), 100000), 'EPSG:3857', 'EPSG:4326', always_xy := true) AS geom FROM nyc) SELECT ST_AsGeoJSON(ST_Difference(buffer.geom, usa.geometry)) AS outside_buffer_geojson FROM buffer, usa;",
+    "skills": ["ST_Buffer", "ST_Difference", "ST_AsGeoJSON"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which towns and cities are located within 30 kilometres of Australia’s coastline?",
+    "sql": "WITH aus AS (SELECT geometry FROM countries WHERE name = 'Australia'), coast_line AS (SELECT ST_Boundary(geometry) AS line FROM aus), coast_buf AS (SELECT ST_Transform(ST_Buffer(ST_Transform(line, 'EPSG:4326', 'EPSG:3857', always_xy := true), 30000), 'EPSG:3857', 'EPSG:4326', always_xy := true) AS geom FROM coast_line) SELECT p.name, p.country FROM populated_places p, coast_buf cb WHERE ST_Intersects(p.geometry, cb.geom);",
+    "skills": ["ST_Boundary", "ST_Buffer", "ST_Intersection"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the total land area, in square kilometres, of all Asian countries whose GDP exceeds one trillion dollars?",
+    "sql": "WITH asian_big AS (SELECT geometry FROM countries WHERE continent = 'Asia' AND gdp_md > 1000000) SELECT (ST_Area_Spheroid(ST_Union_Agg(geometry)) / 1e6) AS total_km2 FROM asian_big;",
+    "skills": ["ST_Union_Agg", "ST_Area_Spheroid"],
+    "difficulty": "medium"
+  }
+]
