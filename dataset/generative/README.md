@@ -13,7 +13,9 @@ See [FINDINGS.md](FINDINGS.md) for the decisions, experiments and results so far
 ## Pipeline
 
 1. **Data lake** — `build_lake.py` downloads Natural Earth, NYC taxi zones/trips and Overture
-   Lisbon places/buildings/roads into `lake/*.parquet` (~34 MB).
+   Lisbon places/buildings/roads into `lake/*.parquet` (~34 MB). `build_lake_world.py` adds 20
+   tables from UK, European, South American, Asian, African and global publishers (~100 MB);
+   `harness.HELD_OUT` lists the tables reserved for the gold eval set (`harness.py prompts N SEED DIR eval`).
 2. **Schema cards + scenario prompts** — `harness.py prompts N SEED DIR` derives a compact card per
    table (types, struct fields, top values, ranges, geometry type, extent) and writes stratified
    scenarios (table bundle x skill x difficulty x question style).

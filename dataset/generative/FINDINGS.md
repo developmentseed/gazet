@@ -37,6 +37,39 @@ tables rather than DuckDB spatial.
 Each table gets an automatic schema card (types, struct fields, top values, ranges, geometry type, extent).
 The cards are what the small model will see.
 
+### Regional and publisher diversity (`build_lake_world.py`, added 2026-10-28)
+
+20 more tables, chosen to vary region, publisher type and schema style (non-English column names,
+time series, odd coordinate columns), not just location:
+
+| Region | Tables (publisher) |
+|---|---|
+| UK | uk_police_crimes (data.police.uk), uk_naptan_stops (DfT), uk_local_authorities (ONS) |
+| Europe | eu_nuts_regions (Eurostat GISCO), paris_trees + paris_velib_stations (Ville de Paris, French columns), nl_municipalities (CBS via PDOK, Dutch columns) |
+| South America | br_fire_hotspots (INPE, Portuguese), br_sp_municipalities (IBGE), bike_share_stations (GBFS: Buenos Aires, Mexico City) |
+| Asia | jp_prefectures (Japanese names), in_districts (Census 2011 via DataMeet), sg_parks (data.gov.sg), tokyo_places (Overture, Japanese script) |
+| Africa | zm_health_facilities (World Bank) |
+| Global | usgs_earthquakes (USGS), power_plants (WRI), ourairports + ourairports_runways, geonames_cities |
+
+**Held-out tables (gold eval only, never in training bundles; enforced by an assert in `harness.py`):**
+uk_police_crimes, nl_municipalities, br_fire_hotspots, br_sp_municipalities, sg_parks,
+zm_health_facilities, power_plants, tokyo_places. They test new schemas, regions and publishers;
+tokyo_places tests a known schema in a new place and script.
+
+**Source quirks, kept where realistic:**
+- nl_municipalities has 236 statistics columns (a ~6k-token card, a minute of prompt processing on
+  the laptop CPU), trimmed to 16. It also mixes land and water areas (`water = 'JA'`).
+- sg_parks carries SVY21 `X`/`Y` metres (EPSG:3414) next to the lon/lat geometry.
+- Some br_fire_hotspots numeric fields are stored as text.
+- Workarounds needed to download:
+  - the Zambia GeoJSON ends with a stray `System.IO.MemoryStream` line;
+  - PDOK's OGC API returns 502 for pages over 100 items;
+  - USGS epoch times are stored as naive UTC timestamps.
+- Bogotá's open data portal was unreachable from here; South America is covered by Brazil,
+  Buenos Aires and Mexico City.
+- Licences are recorded per table in `build_lake_world.LICENSES`. Paris data is ODbL;
+  INPE, GBFS and DataMeet terms still need checking before publishing derived data.
+
 Candidate sources for growing the lake: Overture (all themes, global), Natural Earth (all layers),
 geoBoundaries (CC-BY; avoid GADM, which is non-commercial), OSM extracts from Geofabrik, GHSL urban
 centres (already in gazet), city open data (Chicago, SF), US Census TIGER, Source Cooperative collections.

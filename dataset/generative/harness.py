@@ -31,9 +31,41 @@ TABLE_DOCS = {
     "lisbon_places": "Overture Maps places (POIs, points) in Lisbon. EPSG:4326.",
     "lisbon_buildings": "Overture Maps building footprints (polygons) in Lisbon. EPSG:4326. height in metres.",
     "lisbon_roads": "Overture Maps road segments (linestrings) in Lisbon. EPSG:4326.",
+    # Regionally and institutionally diverse sources (build_lake_world.py).
+    "uk_police_crimes": "UK street-level crimes within one mile of central London, Apr-Jun 2024 (data.police.uk). Points. month is 'YYYY-MM'.",
+    "uk_naptan_stops": "UK public transport access nodes (bus stops, stations) in London from NaPTAN. Points; easting/northing are British National Grid (EPSG:27700).",
+    "uk_local_authorities": "UK local authority district boundaries, December 2023 (ONS). Polygons; lad23cd is the official code.",
+    "eu_nuts_regions": "Eurostat NUTS 2021 statistical regions at levels 0-3 (levl_code), 1:20M. Polygons; nuts_id prefixes encode the hierarchy.",
+    "paris_trees": "Street and park trees managed by the City of Paris (column names in French). Points; hauteurenm = height in m, circonferenceencm = girth in cm.",
+    "paris_velib_stations": "Velib' bike-share station locations in Paris (French column names). Points.",
+    "nl_municipalities": "Dutch municipalities (gemeenten) 2023 with CBS statistics (Dutch column names). Polygons; water='JA' rows are water areas.",
+    "br_fire_hotspots": "Satellite-detected fire hotspots in Brazil over 7 days (INPE Queimadas, Portuguese column names). Points; frp = fire radiative power; some numeric fields are stored as text.",
+    "br_sp_municipalities": "Municipalities of Sao Paulo state, Brazil (IBGE 2022, Portuguese column names). Polygons; AREA_KM2 is official area.",
+    "bike_share_stations": "Bike-share stations from GBFS feeds of Buenos Aires and Mexico City (system_id). Points.",
+    "jp_prefectures": "The 47 prefectures of Japan with Japanese and English names. Polygons.",
+    "in_districts": "Districts of India, Census 2011 boundaries (DataMeet). Polygons.",
+    "sg_parks": "Parks and playgrounds in Singapore (data.gov.sg). Points; X/Y are SVY21 metres (EPSG:3414), geometry is lon/lat.",
+    "zm_health_facilities": "Geo-located health facilities in Zambia (World Bank). Points.",
+    "usgs_earthquakes": "Global earthquakes of the past 30 days (USGS feed). Points; depth_km below surface, event_time UTC.",
+    "power_plants": "Global Power Plant Database (WRI): ~35k plants with capacity_mw, primary_fuel and generation by year. Points.",
+    "ourairports": "Global airports, heliports and seaplane bases (OurAirports). Points; id joins ourairports_runways.airport_ref.",
+    "ourairports_runways": "Runways of OurAirports airports. No geometry; airport_ref references ourairports.id; lengths in feet.",
+    "geonames_cities": "Cities with population > 15000 (GeoNames). Points; alternatenames is a comma-separated list.",
+    "tokyo_places": "Overture Maps places (POIs, points) in central Tokyo, names often in Japanese. EPSG:4326.",
 }
 
-# Table bundles that make sense together (single-table and multi-table).
+# Never used for training data: reserved for the held-out gold eval set (new schemas, regions and publishers).
+HELD_OUT = {"uk_police_crimes", "nl_municipalities", "br_fire_hotspots", "br_sp_municipalities", "sg_parks",
+            "zm_health_facilities", "power_plants", "tokyo_places"}
+
+EVAL_BUNDLES = [
+    ["uk_police_crimes"], ["uk_police_crimes", "uk_local_authorities"], ["nl_municipalities"],
+    ["nl_municipalities", "eu_nuts_regions"], ["br_fire_hotspots"], ["br_fire_hotspots", "br_sp_municipalities"],
+    ["br_sp_municipalities"], ["sg_parks"], ["zm_health_facilities"], ["zm_health_facilities", "geonames_cities"],
+    ["power_plants"], ["power_plants", "countries"], ["power_plants", "eu_nuts_regions"], ["tokyo_places"],
+]
+
+# Table bundles that make sense together (single-table and multi-table); training tables only.
 BUNDLES = [
     ["countries"], ["populated_places"], ["airports"], ["lisbon_places"], ["lisbon_buildings"],
     ["lisbon_roads"], ["nyc_taxi_trips"],
@@ -42,7 +74,17 @@ BUNDLES = [
     ["nyc_taxi_zones", "nyc_taxi_trips"], ["lisbon_places", "lisbon_buildings"],
     ["lisbon_places", "lisbon_roads"], ["lisbon_buildings", "lisbon_roads"],
     ["countries", "rivers", "lakes"],
+    ["uk_naptan_stops"], ["uk_naptan_stops", "uk_local_authorities"], ["uk_local_authorities", "geonames_cities"],
+    ["eu_nuts_regions"], ["eu_nuts_regions", "geonames_cities"], ["eu_nuts_regions", "airports"],
+    ["paris_trees"], ["paris_trees", "paris_velib_stations"], ["paris_velib_stations", "eu_nuts_regions"],
+    ["bike_share_stations"], ["bike_share_stations", "geonames_cities"],
+    ["jp_prefectures"], ["jp_prefectures", "usgs_earthquakes"], ["jp_prefectures", "geonames_cities"],
+    ["in_districts"], ["in_districts", "geonames_cities"], ["in_districts", "ourairports"],
+    ["usgs_earthquakes"], ["usgs_earthquakes", "countries"], ["usgs_earthquakes", "populated_places"],
+    ["ourairports", "ourairports_runways"], ["ourairports", "countries"], ["ourairports", "geonames_cities"],
+    ["geonames_cities"], ["geonames_cities", "countries"],
 ]
+assert not any(t in HELD_OUT for b in BUNDLES for t in b), "held-out table in a training bundle"
 
 SKILLS = [
     "spatial predicates (ST_Intersects / ST_Within / ST_Contains / ST_Touches) for filtering",
@@ -185,14 +227,14 @@ Return ONLY a JSON array, no markdown fences:
 [{{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "{difficulty}"}}]"""
 
 
-def make_prompts(n, seed, out_dir="prompts"):
+def make_prompts(n, seed, out_dir="prompts", split="train"):
     rnd = random.Random(seed)
     c = con()
     cards = {t: schema_card(c, t) for t in TABLE_DOCS}
     out = HERE / out_dir
     out.mkdir(exist_ok=True)
     # Stratified: cycle skills/difficulties, walk a shuffled bundle list so coverage is even.
-    bundles = BUNDLES[:]
+    bundles = (EVAL_BUNDLES if split == "eval" else BUNDLES)[:]
     rnd.shuffle(bundles)
     for i in range(n):
         bundle = bundles[i % len(bundles)]
@@ -271,7 +313,7 @@ if __name__ == "__main__":
         for t in TABLE_DOCS:
             print(schema_card(c, t), "\n")
     elif cmd == "prompts":
-        make_prompts(int(sys.argv[2]), int(sys.argv[3]), *sys.argv[4:5])
+        make_prompts(int(sys.argv[2]), int(sys.argv[3]), *sys.argv[4:6])
     elif cmd == "validate":
         validate(sys.argv[2])
     elif cmd == "exec1":
