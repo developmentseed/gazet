@@ -186,6 +186,31 @@ pairs (175 correct, 20 minor, 20 wrong):
 - **The one wrong pair it missed:** a "southern hemisphere" envelope that covers only the western half.
 - **Cost:** generation plus judging is about $3 per 1k accepted pairs, so ~$60 for a 20k-pair training set.
 
+## Experiment 6: self-consistency check (`consistency.py`, `judge_calibration/consistency_*`)
+
+A second model writes SQL from the schema cards and question alone (the student's input), always from a
+different family than the generator. Both queries run in isolated processes and the full result sets are
+compared, ignoring row and column order ("lenient": numbers to 2 significant figures, extra columns allowed).
+Calibrated on the same 215 labelled pairs ($0.23):
+
+| Keep rule | Kept | Correct kept | Wrong kept | Kept set correct |
+|---|---|---|---|---|
+| judge correct | 169 | 158/175 | 1 | 93% |
+| both models agree | 73 | 69/175 | 1 | 95% |
+| judge correct AND agree | 68 | 65/175 | 0 | 96% |
+| judge correct OR agree | 174 | 162/175 | 2 | 93% |
+
+- **The two checks are complementary.** The judge missed the half-globe "southern hemisphere"
+  envelope, and the solver disagreed with it. The solver agreed on a buffer drawn in a distorted
+  projection, and the judge caught that.
+- **Agreement is too strict for training data:** only 39% of correct pairs are reproduced. Valid
+  alternative readings, extra columns, rounding and `LIMIT` choices all count as disagreement, and the
+  solver's SQL failed to run in 34/215 cases.
+- **Policy:**
+  - training data keeps pairs the judge calls correct;
+  - the gold evaluation set requires judge correct AND agreement, then a hand review. Agreement
+    selects unambiguous questions with reproducible answers, which is what execution-match scoring needs.
+
 ## Environment gotchas
 
 - DuckDB 2.0 spheroid functions need `SET geometry_always_xy = true`, or they refuse to run.
@@ -204,8 +229,7 @@ pairs (175 correct, 20 minor, 20 wrong):
 
 1. Done: v3 grounding improved correctness. The spheroid-cast and UTM-scope rules are added for the
    next round.
-2. Done: MiniMax-M3 judge, calibrated (Experiment 5). Still to add: the self-consistency check, where a
-   second model writes SQL from the question alone and the pair is kept only when the result sets match. Add a self-consistency check: a second model writes SQL from
+2. Done: MiniMax-M3 judge (Experiment 5) and the self-consistency check (Experiment 6). Add a self-consistency check: a second model writes SQL from
    the question alone, and the pair is kept only when the result sets match.
 3. **Gold evaluation set.** ~300-500 pairs on held-out datasets (never used in training), with
    deterministic ordering, reviewed by hand.
