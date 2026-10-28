@@ -24,5 +24,5 @@ for f in sorted(glob.glob(str(RUN_DIR / "out_*.validated.jsonl"))):
     cost = sum(u["cost"] or 0 for u in usage)
     calls = len(usage)
     reason = sum(u["reasoning_tokens"] or 0 for u in usage) / max(1, calls)
-    print(f"{model:42s} {tag:6s} {len(rs):>5d} {ok:>3d} ({ok/72:4.0%}) {pg:>7d} {cost/max(1,calls):>8.4f} "
+    print(f"{model:42s} {tag:6s} {len(rs):>5d} {ok:>3d} ({ok / (6 * max(1, calls)):4.0%}) {pg:>7d} {cost/max(1,calls):>8.4f} "
           f"{1000*cost/max(1,ok):>15.2f} {reason:>10.0f}")

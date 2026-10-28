@@ -112,11 +112,48 @@ def schema_card(c, table):
     return "\n".join(lines)
 
 
+def grounding(c, table, seed, n_rows=5, max_values=40):
+    """Real values for the generator only (not the student): random rows and full low-cardinality value lists."""
+    cols, name_col, values = [], None, []
+    for name, typ, *_ in c.execute(f"DESCRIBE {table}").fetchall():
+        if typ.startswith("GEOMETRY"):
+            cols.append("round(ST_X(ST_Centroid(geometry)), 4) AS lon, round(ST_Y(ST_Centroid(geometry)), 4) AS lat")
+        elif typ.startswith('STRUCT("primary"'):
+            cols.append(f'"{name}"."primary" AS "{name}.primary"')
+            name_col = name_col or f'"{name}"."primary"'
+        elif typ.startswith(("STRUCT", "MAP")) or typ.endswith("[]") or name == "id":
+            continue
+        else:
+            cols.append(f'"{name}"')
+            if name == "name":
+                name_col = '"name"'
+            if typ == "VARCHAR":
+                distinct = c.execute(f'SELECT count(DISTINCT "{name}") FROM {table}').fetchone()[0]
+                if distinct <= max_values:
+                    vals = c.execute(f'SELECT list(DISTINCT "{name}" ORDER BY "{name}") FROM {table} WHERE "{name}" IS NOT NULL').fetchone()[0]
+                    values.append(f"  {name}: {vals}")
+    where = f"WHERE {name_col} IS NOT NULL" if name_col else ""
+    rows = c.execute(
+        f"SELECT {', '.join(cols)} FROM (SELECT * FROM {table} {where}) USING SAMPLE reservoir({n_rows} ROWS) REPEATABLE ({seed})"
+    )
+    header = [d[0] for d in rows.description]
+    lines = [f"REAL ROWS from {table} (random sample; centroid lon/lat):"]
+    lines += ["  " + ", ".join(f"{h}={_short(v, 40)}" for h, v in zip(header, r, strict=True) if v is not None) for r in rows.fetchall()]
+    if values:
+        lines.append(f"ALL VALUES in {table}:")
+        lines += values
+    return "\n".join(lines)
+
+
 GEN_PROMPT = """You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
 
 Below are the tables available. Each is a DuckDB view with exactly the columns shown.
 
 {cards}
+
+Real data to ground the questions in (use these names, categories and coordinates as literals):
+
+{grounding}
 
 Write {k} diverse (question, sql) pairs for these tables.
 - Focus skill: {skill}
@@ -126,7 +163,11 @@ Write {k} diverse (question, sql) pairs for these tables.
 Rules:
 - SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
 - Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
-- Only reference values that plausibly exist in the data (use the top values / ranges shown). The query should return at least one row.
+- Only use literal values (names, categories, codes) that appear in the real rows, value lists or top values above. The query should return at least one row.
+- Do not name places, neighbourhoods or landmarks that are not in the data. If a question needs an area or point that is not a row in the data, give its coordinates explicitly in the question.
+- Never measure distances, buffers or areas in EPSG:3857 (Web Mercator) or EPSG:6933; their scale is wrong away from the equator. Use the spheroid functions or a local metric CRS (UTM zone or national grid).
+- Results must be deterministic: no current_date, now() or random(); whenever you use LIMIT, ORDER BY columns that make the order unique.
+- Watch join fan-out: do not SUM a per-country (or per-parent) value after joining to many child rows.
 - Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
 - Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
 - Make the {k} pairs differ in intent, not just in literal values.
@@ -154,7 +195,11 @@ def make_prompts(n, seed, out_dir="prompts"):
         bundle = bundles[i % len(bundles)]
         meta = dict(id=f"s{seed}_{i:03d}", tables=bundle, skill=SKILLS[i % len(SKILLS)],
                     difficulty=DIFFICULTIES[i % len(DIFFICULTIES)], style=rnd.choice(STYLES), k=6)
-        prompt = GEN_PROMPT.format(cards="\n\n".join(cards[t] for t in bundle), **{k: meta[k] for k in ("skill", "difficulty", "style", "k")})
+        prompt = GEN_PROMPT.format(
+            cards="\n\n".join(cards[t] for t in bundle),
+            grounding="\n\n".join(grounding(c, t, seed * 1000 + i) for t in bundle),
+            **{k: meta[k] for k in ("skill", "difficulty", "style", "k")},
+        )
         (out / f"{meta['id']}.txt").write_text(prompt)
         (out / f"{meta['id']}.json").write_text(json.dumps(meta))
     print(f"wrote {n} prompts to {out}")

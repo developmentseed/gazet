@@ -8,6 +8,8 @@ over arbitrary schemas, so the small model learns DuckDB spatial rather than two
 Goal: find the smallest model that writes good spatial SQL on a laptop CPU (llama.cpp / Ollama),
 for use as a tool in agentic geospatial workflows.
 
+See [FINDINGS.md](FINDINGS.md) for the decisions, experiments and results so far.
+
 ## Pipeline
 
 1. **Data lake** — `build_lake.py` downloads Natural Earth, NYC taxi zones/trips and Overture
