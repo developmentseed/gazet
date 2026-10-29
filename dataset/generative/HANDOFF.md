@@ -1,6 +1,6 @@
 # Handoff: generative spatial text-to-SQL data
 
-State as of 2026-10-28. Read this first, then `FINDINGS.md` for the full evidence.
+State as of 2026-10-29. Read this first, then `FINDINGS.md` for the full evidence.
 Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet, on purpose.
 
 ## Goal and decisions (made by Daniel)
@@ -23,44 +23,41 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | LLM judge | done | MiniMax-M3: catches 19/20 wrong pairs, keeps 90% of good ones (`judge.py`) |
 | Self-consistency | done | cross-family solver + result comparison (`consistency.py`) |
 | Held-out split | done | 8 eval-only tables in `harness.HELD_OUT`; training bundles assert they are excluded |
-| **Gold eval set** | **next** | proposed, awaiting go-ahead |
-| Training set + fine-tune sweep | later | |
+| Gold eval set | done | 342 pairs in `gold/gold_v1.jsonl` (held-out tables only, hand-reviewed) |
+| **Eval harness on gold set** | **next** | point `eval_small.py` at the gold set |
+| Training set + fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**
 - **training data:** keep pairs the judge calls `correct` (~93% clean);
 - **gold eval set:** judge `correct` AND solver agreement (96% clean, 0 wrong in calibration), then hand review.
 
-**Spend:** about $3.90 of the $50 OpenRouter key.
+**Spend:** about $5.80 of the $50 OpenRouter key (the gold set cost $1.92).
 **Cost estimate:** ~$3 per 1k accepted training pairs (generation + judge), so ~$60 for 20k pairs.
 
-## Next step: build the gold eval set
+## Gold set: how it was built (done 2026-10-29)
 
-Generate candidates from held-out bundles, filter, then hand-review down to ~300 pairs. About $2-4.
+`harness.py prompts` (eval split) -> `or_generate.py` -> `collect.py` -> `harness.py validate` ->
+`judge.py run` -> `consistency.py run` (solver agreement + `LIMIT` tie check) -> `gold.py sheet` ->
+blind review -> `gold.py write`. Numbers are in FINDINGS Experiment 7. The review was done by Claude,
+blind to judge and solver. Grades are in `gold/grading/grades.json` and reasons for every rejection
+in `notes.json`, so Daniel can audit or override and then rerun `gold.py write`.
 
-```bash
-cd ~/repos/gazet/dataset/generative
-# ~70 scenarios x 6 = ~420 candidates from EVAL_BUNDLES (held-out tables only)
-.venv/bin/python -I harness.py prompts 70 31 runs/prompts_gold eval
-.venv/bin/python -I or_generate.py deepseek/deepseek-v4.1-flash --prompts "runs/prompts_gold/*.txt" --tag gold
-.venv/bin/python -I collect.py runs/out_deepseek__deepseek-v4.1-flash__gold runs/prompts_gold
-.venv/bin/python -I harness.py validate runs/out_deepseek__deepseek-v4.1-flash__gold.jsonl
-.venv/bin/python -I judge.py run minimax/minimax-m3 runs/out_deepseek__deepseek-v4.1-flash__gold.validated.jsonl
-```
+Gold record: `id, question, tables, sql, difficulty, skill, n_rows, cols, source`. Score a model by
+executing `sql` and its prediction on the lake and comparing with `consistency.compare_results`
+(row/column-order-insensitive, numbers to 3 / 2 significant figures, and now nested lists too).
 
-Still to write:
-- `consistency.py` only has a `calibrate` mode. Add a `run` mode, mirroring `judge.py run`, that takes a
-  judged file and adds `solver_sql` / `lenient`. Note that `solver_for()` picks GLM for DeepSeek-generated pairs.
-- Keep `judge == "correct" and lenient`, then do a blind hand review (`blind_sample.py`) and record
-  grades the same way as in `round_v3/grading/`.
-- Before writing the gold set, add the not-yet-tested rules from round v3 (`::GEOMETRY` cast for
-  `ST_Distance_Spheroid` / `ST_DWithin_Spheroid`, UTM-zone scope); they are already in `GEN_PROMPT`.
-  Verify they work.
-- Gold queries need deterministic results (unique `ORDER BY` with `LIMIT`), because the small model is
-  scored by execution match.
+## Next step: eval harness on the gold set
 
-## After the gold set
+- `eval_small.py` still reads the pilot pairs. Switch it to `gold/gold_v1.jsonl`, reuse
+  `consistency.compare_results` (or `_compare_isolated`, for crash safety) instead of its own `match`, and
+  report exact / lenient execution match by difficulty and skill. Give the model the same prompt as
+  the solver (`consistency.SYSTEM` + schema cards of `tables` + question).
+- Run a strong open model through it first (DeepSeek or GLM) to get a reference ceiling before the small models.
 
-1. Training set: ~20k pairs from `BUNDLES` (training tables only). Mix agent-style and human-style
+## After that
+
+1. Training set: ~20k pairs from `BUNDLES` (training tables only). Generation now has the CRS
+   relabelling and the lambda rule, which pushed execution to 99% in the last gold round. Mix agent-style and human-style
    questions, and add repair examples (failed SQL + error -> fixed SQL) from the retry step.
 2. Fine-tune a size sweep with `finetune/` (Qwen2.5-Coder-0.5B, Qwen3-0.6B, Qwen2.5-Coder-1.5B). Plot
    execution match against laptop latency with `run_evals.sh` + `eval_small.py`. All are at 0% before
@@ -76,6 +73,9 @@ Still to write:
   districts. Paris data is ODbL. If Muse Spark Open were ever used, derived models must say
   "Built with Muse Spark Open".
 - Whether to report the DuckDB 2.0 segfault upstream (ordered aggregate + `ST_Extent_Agg` in one query).
+- CRS labels: the lake views now relabel all lon/lat to `EPSG:4326`. Real user files will mix
+  `OGC:CRS84` and `EPSG:4326`. Decide whether training should also include some mixed-label tables, so the
+  model learns the `::GEOMETRY` cast for cross-source joins.
 
 ## Local environment (Daniel's ChromeOS Linux container)
 
@@ -99,6 +99,9 @@ Still to write:
 - DuckDB 2.0 needs `SET geometry_always_xy = true` (done in `harness.con()`).
 - DuckDB 2.0: `ST_Distance_Spheroid` / `ST_DWithin_Spheroid` reject CRS-typed columns; cast with `::GEOMETRY`.
 - DuckDB 2.0: an ordered aggregate plus `ST_Extent_Agg` in one query segfaults. The per-process validator contains it.
+- DuckDB 2.0 rejects `x -> x + 1` lambdas; mixed CRS labels block joins (both handled now).
+- Generated pairs have no `source` field; `consistency.py run` takes the generator from the filename
+  (`out_<model>__<tag>...`) to pick a cross-family solver, so keep that naming.
 - Reasoning models use 5-15k reasoning tokens per call; keep `max_tokens` at 32k.
 - Background shell loops: don't `pgrep -f` a pattern that appears in your own command line (it loops forever).
 
@@ -110,7 +113,8 @@ Still to write:
 | `or_generate.py` | OpenRouter generation, fp8/bf16 providers only; records provider, tokens, cost |
 | `collect.py`, `summarize.py`, `blind_sample.py` | parse outputs, per-model table, blind grading sheets |
 | `judge.py` | MiniMax-M3 judge (`calibrate`, `run`) |
-| `consistency.py` | cross-family solver + result-set comparison (`calibrate`) |
+| `consistency.py` | cross-family solver + result comparison + `LIMIT` tie check (`calibrate`, `run`) |
+| `gold.py`, `gold/` | blind review sheet + export; `gold_v1.jsonl` and its grading files |
 | `eval_small.py`, `run_evals.sh` | small-model CPU eval; also holds the Haiku pilot hand labels |
 | `build_lake.py`, `build_lake_world.py` | data lake builders (licences in `LICENSES`) |
 | `pilot/`, `round_v3/`, `judge_calibration/` | committed snapshots, including all hand grades |

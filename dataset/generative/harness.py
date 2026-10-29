@@ -113,7 +113,10 @@ def con():
     c.execute("SET geometry_always_xy = true")  # DuckDB 2.0: lon/lat axis order for spheroid fns
     for p in sorted(LAKE.glob("*.parquet")):
         if p.stem in TABLE_DOCS:
-            c.execute(f"CREATE VIEW {p.stem} AS SELECT * FROM '{p}'")
+            # Sources label lon/lat as EPSG:4326, OGC:CRS84 or EPSG:4979; DuckDB 2.0 refuses to join across labels.
+            cols = {r[0] for r in c.execute(f"DESCRIBE SELECT * FROM '{p}'").fetchall()}
+            star = "* REPLACE (geometry::GEOMETRY::GEOMETRY('EPSG:4326') AS geometry)" if "geometry" in cols else "*"
+            c.execute(f"CREATE VIEW {p.stem} AS SELECT {star} FROM '{p}'")
     return c
 
 
@@ -222,6 +225,7 @@ DuckDB spatial is NOT PostGIS. `SET geometry_always_xy = true` is active (lon/la
 - ST_Collect takes a list: ST_Collect(list(geom)). Aggregates are ST_Union_Agg(geom) and ST_Extent_Agg(geom).
 - Table geometry columns carry a CRS type. ST_Distance_Spheroid and ST_DWithin_Spheroid reject it, so cast both arguments: ST_Distance_Spheroid(a.geometry::GEOMETRY, ST_Point(lon, lat)).
 - A UTM zone is only valid for data inside that zone; for continental or global extents use the spheroid functions instead.
+- List lambdas use the Python-style syntax: list_transform(l, lambda x: x + 1). The arrow form x -> x + 1 is rejected.
 
 Return ONLY a JSON array, no markdown fences:
 [{{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "{difficulty}"}}]"""

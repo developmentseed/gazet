@@ -2,7 +2,9 @@
 
 Usage:
     python consistency.py calibrate     # on all hand-labelled pairs, combined with the judge calibration
+    python consistency.py run JUDGED    # solve + compare the judge-`correct` pairs of a judged file, plus a tie check
     python consistency.py compare       # worker: stdin {"gold": sql, "pred": sql} -> stdout match flags
+    python consistency.py ties          # worker: stdin sql -> stdout {"tie": true|false|null}
 
 The solver sees exactly what the student model will see (schema cards + question), never the generated SQL.
 Pairs from DeepSeek are solved by GLM and everything else by DeepSeek, so agreement is always cross-family.
@@ -16,6 +18,9 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import sqlglot
+from sqlglot import exp
+
 sys.path.insert(0, str(Path(__file__).parent))
 import harness
 import judge
@@ -28,7 +33,7 @@ SYSTEM = """You write DuckDB SQL. The spatial extension is loaded and `SET geome
 Geometries are EPSG:4326 lon/lat degrees. DuckDB spatial is not PostGIS: no SRID arguments, ST_Transform takes CRS strings
 (ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true)), no GEOGRAPHY type, ST_Collect takes a list.
 For metres use ST_Distance_Sphere, ST_Area_Spheroid, ST_Length_Spheroid, or a local metric CRS; ST_Distance_Spheroid and
-ST_DWithin_Spheroid need geometry::GEOMETRY casts. Return geometries with ST_AsGeoJSON only when the user wants shapes.
+ST_DWithin_Spheroid need geometry::GEOMETRY casts. List lambdas are written lambda x: x + 1, not x -> x + 1. Return geometries with ST_AsGeoJSON only when the user wants shapes.
 Answer with a single read-only SELECT statement and nothing else."""
 
 
@@ -55,6 +60,10 @@ def solve(pairs):
 
 
 def _norm(v, sig):
+    if isinstance(v, (list, tuple)):  # lists/structs: normalise inside, or float summation noise breaks matches
+        return "[" + ", ".join(_norm(x, sig) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{" + ", ".join(f"{k}: {_norm(x, sig)}" for k, x in v.items()) + "}"
     if isinstance(v, bool) or v is None:
         return str(v)
     if isinstance(v, (int, float)):
@@ -101,6 +110,79 @@ def _compare_isolated(pair):
     return dict(pair, **out)
 
 
+def limit_tie(sql):
+    """True if an outer ORDER BY ... LIMIT k cuts through tied rows (result depends on execution order).
+
+    Rewrites the outer SELECT to also project its ORDER BY keys, fetches k+1 rows and compares rows k and k+1.
+    None when the query shape is not checked (set operations, DISTINCT, OFFSET, non-literal LIMIT).
+    """
+    try:
+        tree = sqlglot.parse_one(sql, read="duckdb")
+    except Exception:
+        return None
+    if not isinstance(tree, exp.Select) or not tree.args.get("limit"):
+        return None if not isinstance(tree, exp.Select) else False
+    if tree.args.get("distinct") or tree.args.get("offset"):
+        return None
+    try:
+        k = int(tree.args["limit"].expression.name)
+    except (ValueError, AttributeError):
+        return None
+    c = harness.con()
+    c.execute("SET threads=2")
+    order = tree.args.get("order")
+    if not order:  # LIMIT without ORDER BY is only deterministic if it does not cut anything
+        q = tree.copy()
+        q.set("limit", None)
+        return len(c.execute(f"SELECT * FROM ({q.sql('duckdb')}) LIMIT {k + 1}").fetchall()) > k
+    q = tree.copy()
+    projections = q.expressions[:]
+    keys = []
+    for i, o in enumerate(order.expressions):
+        e = o.this
+        if isinstance(e, exp.Literal) and e.is_int:
+            e = projections[int(e.name) - 1]
+            e = exp.column(e.alias) if e.alias else e
+        keys.append(exp.alias_(e.copy(), f"__k{i}"))
+    q = q.select(*keys).limit(k + 1)
+    rows = c.execute(q.sql("duckdb")).fetchall()
+    if len(rows) <= k:
+        return False
+    nk = len(keys)
+    return [_norm(v, 9) for v in rows[k - 1][-nk:]] == [_norm(v, 9) for v in rows[k][-nk:]]
+
+
+def _isolated(mode, payload, timeout=90):
+    try:
+        proc = subprocess.run([sys.executable, "-I", __file__, mode], capture_output=True, text=True, timeout=timeout, input=payload)
+        return json.loads(proc.stdout) if proc.returncode == 0 and proc.stdout.strip() else None
+    except subprocess.TimeoutExpired:
+        return None
+
+
+def _tie_isolated(pair):
+    out = _isolated("ties", pair["sql"].strip().rstrip(";"))
+    return dict(pair, tie=out["tie"] if out else None, tie_checked=out is not None)
+
+
+def run(path):
+    """Solver agreement and tie check for the judge-`correct` pairs of a judged file (gold-set filter)."""
+    path = Path(path)
+    judged = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    # Generated files carry the generator only in their name (out_<model>__<tag>); the solver must be another family.
+    cands = [dict(r, source=r.get("source") or path.name) for r in judged if r["judge"] == "correct"]
+    with ThreadPoolExecutor(4) as ex:
+        compared = list(ex.map(_compare_isolated, solve(cands)))
+        compared = list(ex.map(_tie_isolated, compared))
+    outp = path.with_suffix(".consistency.jsonl")
+    outp.write_text("\n".join(json.dumps(r, default=str) for r in compared))
+    kept = [r for r in compared if r["lenient"] and r["tie"] is not True]
+    print(f"{len(cands)}/{len(judged)} judge-correct; solver cost ${sum(r['solver_cost'] for r in compared):.3f}")
+    print(f"agree lenient {sum(r['lenient'] for r in compared)}, exact {sum(r['exact'] for r in compared)}; "
+          f"ties {sum(r['tie'] is True for r in compared)}, unchecked {sum(r['tie'] is None for r in compared)}")
+    print(f"gold candidates (correct AND agree AND no tie): {len(kept)} -> {outp}")
+
+
 def calibrate():
     # Reuse the judge calibration file: same 215 labelled pairs, already re-executed, with MiniMax verdicts.
     judged = [json.loads(line) for line in (HERE / "runs" / "judge_calibration_minimax__minimax-m3.jsonl").read_text().splitlines()]
@@ -133,5 +215,9 @@ if __name__ == "__main__":
     if sys.argv[1] == "compare":
         args = json.loads(sys.stdin.read())
         print(json.dumps(compare_results(args["gold"], args["pred"]), default=str))
+    elif sys.argv[1] == "ties":
+        print(json.dumps({"tie": limit_tie(sys.stdin.read())}))
+    elif sys.argv[1] == "run":
+        run(sys.argv[2])
     elif sys.argv[1] == "calibrate":
         calibrate()
