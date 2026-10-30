@@ -24,14 +24,16 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | Self-consistency | done | cross-family solver + result comparison (`consistency.py`) |
 | Held-out split | done | 8 eval-only tables in `harness.HELD_OUT`; training bundles assert they are excluded |
 | Gold eval set | done | 342 pairs in `gold/gold_v1.jsonl` (held-out tables only, hand-reviewed) |
-| **Eval harness on gold set** | **next** | point `eval_small.py` at the gold set |
-| Training set + fine-tune sweep | after that | |
+| Training set v1 | done | 21,218 judge-correct pairs in `runs/train/` (local only, see FINDINGS Exp. 8) |
+| **Storage + export** | **next** | archive on Modal, cleaned Parquet on HF (private), ChatML export to `/mnt/gazet/data/<run>` |
+| Eval harness on gold set | next | point `eval_small.py` at the gold set |
+| Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**
 - **training data:** keep pairs the judge calls `correct` (~93% clean);
 - **gold eval set:** judge `correct` AND solver agreement (96% clean, 0 wrong in calibration), then hand review.
 
-**Spend:** about $5.80 of the $50 OpenRouter key (the gold set cost $1.92).
+**Spend:** $57.83 of the $90 OpenRouter key (gold set $1.92, training set v1 ~$52).
 **Cost estimate:** ~$3 per 1k accepted training pairs (generation + judge), so ~$60 for 20k pairs.
 
 ## Gold set: how it was built (done 2026-10-29)

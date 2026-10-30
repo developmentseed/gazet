@@ -1,4 +1,5 @@
 # Generation loop (network-bound): chunks 0-9, marks each finished chunk; stops at the budget.
+# Usage: nohup bash train_gen.sh > runs/train_gen.log &   (run train_proc.sh alongside; outputs in runs/train/)
 set -u
 cd ~/repos/gazet/dataset/generative
 P=.venv/bin/python

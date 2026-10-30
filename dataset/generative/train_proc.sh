@@ -1,4 +1,5 @@
 # Processing loop (CPU + judge): collect -> validate -> judge each chunk once its generation is marked done.
+# Usage: nohup bash train_proc.sh > runs/train_proc.log &
 set -u
 cd ~/repos/gazet/dataset/generative
 P=.venv/bin/python
