@@ -48,6 +48,7 @@ def main():
     ap.add_argument("--tag", default="", help="suffix for the output dir, e.g. v2")
     ap.add_argument("--prompts", required=True, help="glob of prompt .txt files")
     ap.add_argument("--root", default="runs", help="directory (under this folder) for outputs")
+    ap.add_argument("--workers", type=int, default=6)
     a = ap.parse_args()
     key = api_key()
     quant = [q for q in a.quant.split(",") if q]
@@ -82,7 +83,7 @@ def main():
                     reasoning_tokens=(u.get("completion_tokens_details") or {}).get("reasoning_tokens"),
                     cost=u.get("cost"))
 
-    with ThreadPoolExecutor(6) as ex:
+    with ThreadPoolExecutor(a.workers) as ex:
         usage = [u for u in ex.map(run, files) if u]
     prev = json.loads((out / "_usage.json").read_text()) if (out / "_usage.json").exists() else []
     redone = {u["scenario"] for u in usage}

@@ -74,7 +74,7 @@ def parse_verdict(text):
     return (v if v in VERDICTS else None), out.get("reason")
 
 
-def judge_pairs(model, pairs):
+def judge_pairs(model, pairs, workers=8):
     key, cards = api_key(), _cards()
 
     def one(pair):
@@ -84,7 +84,7 @@ def judge_pairs(model, pairs):
         verdict, reason = parse_verdict(resp["choices"][0]["message"].get("content"))
         return dict(pair, judge=verdict, judge_reason=reason, judge_cost=(resp.get("usage") or {}).get("cost") or 0)
 
-    with ThreadPoolExecutor(8) as ex:
+    with ThreadPoolExecutor(workers) as ex:
         return list(ex.map(one, pairs))
 
 
@@ -139,7 +139,8 @@ def main():
     elif cmd == "run":
         path = Path(sys.argv[3])
         pairs = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
-        judged = judge_pairs(model, [p for p in pairs if p["ok"]])
+        workers = int(sys.argv[4]) if len(sys.argv) > 4 else 8
+        judged = judge_pairs(model, [p for p in pairs if p["ok"]], workers)
         path.with_suffix(f".judged_{slug}.jsonl").write_text("\n".join(json.dumps(r, default=str) for r in judged))
         print(Counter(r["judge"] for r in judged))
 

@@ -104,6 +104,9 @@ STYLES = [
     "full natural sentences from a non-technical user who does not know column names",
     "precise analyst questions that mention units and thresholds",
     "questions phrased as tasks ('give me', 'list', 'map', 'compare')",
+    # Agent callers: the model is also a tool for LLM agents, which write explicit, schema-aware requests.
+    "requests from an LLM agent calling this model as a tool: explicit and unambiguous, may name tables and columns and the exact output columns wanted",
+    "one-line sub-task instructions from an agent's plan, stating filters, units, ordering and row limit explicitly",
 ]
 
 

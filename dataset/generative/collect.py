@@ -23,7 +23,7 @@ for f in sorted((HERE / run).glob("s*.json")):
         pairs = []
     sizes.append(dict(scenario=sid, prompt_tok=len(enc.encode(prompt)), output_tok=len(enc.encode(raw)), n_pairs=len(pairs)))
     for i, p in enumerate(pairs):
-        rows.append(dict(scenario=sid, idx=i, tables=meta["tables"], target_skill=meta["skill"], **p))
+        rows.append(dict(scenario=sid, idx=i, tables=meta["tables"], target_skill=meta["skill"], style=meta["style"], **p))
 (HERE / f"{run}.jsonl").write_text("\n".join(json.dumps(r) for r in rows))
 (HERE / f"{run}.sizes.json").write_text(json.dumps(sizes, indent=1))
 print(f"{len(rows)} pairs from {len(sizes)} scenarios")
