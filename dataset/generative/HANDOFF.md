@@ -1,6 +1,6 @@
 # Handoff: generative spatial text-to-SQL data
 
-State as of 2026-10-29. Read this first, then `FINDINGS.md` for the full evidence.
+State as of 2026-11-10. Read this first, then `REVIEW.md` (critique and the current plan) and `FINDINGS.md` for the full evidence.
 Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet, on purpose.
 
 ## Goal and decisions (made by Daniel)
@@ -25,7 +25,9 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | Held-out split | done | 8 eval-only tables in `harness.HELD_OUT`; training bundles assert they are excluded |
 | Gold eval set | done | 342 pairs in `gold/gold_v1.jsonl` (held-out tables only, hand-reviewed) |
 | Training set v1 | done | 21,218 judge-correct pairs in `runs/train/` (local only, see FINDINGS Exp. 8) |
-| **Storage + export** | **next** | archive on Modal, cleaned Parquet on HF (private), ChatML export to `/mnt/gazet/data/<run>` |
+| Storage | done | private HF dataset `developmentseed/gazet-generative-sql`: training set v1, gold v1, lake snapshot, raw run archive |
+| Review | done | `REVIEW.md`: critique and an 8-step plan that replaces the order below |
+| **ChatML export** | **next** | to `/mnt/gazet/data/<run>`, with a dev split on training tables |
 | Eval harness on gold set | next | point `eval_small.py` at the gold set |
 | Fine-tune sweep | after that | |
 
