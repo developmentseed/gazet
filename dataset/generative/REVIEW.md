@@ -70,8 +70,8 @@ in `dev/dev_v1.jsonl`. No hand review. The training export must exclude every pa
 | gpt-oss-120b | 71.9 | 40.9 | 56.4 [51-61] | 55.6 [51-61] |
 | Qwen3 Coder Next | 66.7 | 37.4 | 47.1 [42-52] | 44.2 [39-49] |
 
-Qwen3 Coder Next scores 47.2 [43-51] on dev, the same as on gold: before training, the two sets are equally hard,
-so a dev-gold gap after fine-tuning can be read as schema generalisation.
+On dev, Qwen3 Coder Next scores 47.2 [43-51] and gpt-oss-120b 59.1 [56-63], against 47.1 and 56.4 on gold. Before
+training the two sets are about equally hard, so a dev-gold gap after fine-tuning can be read as schema generalisation.
 
 What this says:
 
