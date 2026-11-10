@@ -9,3 +9,5 @@ runs/
 # The gold eval set and its candidates are versioned despite the repo-wide *.jsonl rule
 !gold/**/*.jsonl
 !gold/*.jsonl
+!dev/*.jsonl
+!eval/**/*.jsonl

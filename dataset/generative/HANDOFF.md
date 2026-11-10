@@ -27,8 +27,8 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | Training set v1 | done | 21,218 judge-correct pairs in `runs/train/` (local only, see FINDINGS Exp. 8) |
 | Storage | done | private HF dataset `developmentseed/gazet-generative-sql`: training set v1, gold v1, lake snapshot, raw run archive |
 | Review | done | `REVIEW.md`: critique and an 8-step plan that replaces the order below |
-| **ChatML export** | **next** | to `/mnt/gazet/data/<run>`, with a dev split on training tables |
-| Eval harness on gold set | next | point `eval_small.py` at the gold set |
+| Eval harness, dev split, value hints | done | `evaluate.py`, `dev/dev_v1.jsonl` (755 pairs), `hints.py`; best outside model 83% lenient on gold (`REVIEW.md`, step 2 results) |
+| **ChatML export** | **next** | to `/mnt/gazet/data/<run>` with `student.user_prompt`; exclude `dev/dev_scenarios.json`; hints in part of the examples |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**
@@ -120,6 +120,9 @@ executing `sql` and its prediction on the lake and comparing with `consistency.c
 | `consistency.py` | cross-family solver + result comparison + `LIMIT` tie check (`calibrate`, `run`) |
 | `gold.py`, `gold/` | blind review sheet + export; `gold_v1.jsonl` and its grading files |
 | `eval_small.py`, `run_evals.sh` | small-model CPU eval; also holds the Haiku pilot hand labels |
+| `student.py`, `hints.py` | student prompt format; value-hint lookup (`show`, `coverage`) |
+| `evaluate.py`, `eval/` | execution-match eval on gold or dev (`run`, `report`); committed reference runs |
+| `dev_split.py`, `dev/` | dev split on training tables: scenario list and `dev_v1.jsonl` |
 | `build_lake.py`, `build_lake_world.py` | data lake builders (licences in `LICENSES`) |
 | `pilot/`, `round_v3/`, `judge_calibration/` | committed snapshots, including all hand grades |
 | `FINDINGS.md` | full experiment log with numbers |

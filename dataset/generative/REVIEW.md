@@ -43,7 +43,7 @@ The data is now on Hugging Face (private): `developmentseed/gazet-generative-sql
 | # | Step | Cost |
 |---|---|---|
 | 1 | Back up the data (done: private HF dataset, including the lake snapshot) | free |
-| 2 | Eval harness on gold; ceiling from a third model family; a 500-pair dev split on training tables, so the dev-gold gap measures schema generalisation | <$1 |
+| 2 | (done, see below) Eval harness on gold; ceiling from a third model family; a 500-pair dev split on training tables, so the dev-gold gap measures schema generalisation | <$1 |
 | 3 | Fine-tune on the data as it is at 1k / 5k / 21k pairs, full fine-tune and LoRA, to get a learning curve | GPU time |
 | 4 | Clean for free: drop the pairs in point 4, normalise SQL formatting, re-judge the 123 API errors | free |
 | 5 | Execution-verified schema perturbation: rename tables, columns and the geometry column, drop unused columns, add distractor tables, vary the card format, drop descriptions | free |
@@ -52,6 +52,40 @@ The data is now on Hugging Face (private): `developmentseed/gazet-generative-sql
 | 8 | Set a latency budget and target laptop; test a stats-free card and a minimal system prompt | free |
 
 Steps 2-4 need no new generation and come before any further spend.
+
+## Step 2 results (2026-11-10)
+
+Code: `student.py` (the one prompt format), `hints.py` (value hints), `evaluate.py` (execution match with bootstrap
+intervals, OpenRouter or local llama-server), `dev_split.py`. Reference runs are in `eval/reference_v1/`.
+
+**Dev split.** 215 whole scenarios, 5 per training bundle (`dev/dev_scenarios.json`), are held back from training.
+They pass the gold filter (judge correct, GLM solver agrees, no `LIMIT` tie): 755 of 1,187 judge-correct pairs remain
+in `dev/dev_v1.jsonl`. No hand review. The training export must exclude every pair of these scenarios.
+
+**Reference models on gold** (342 pairs, lenient match, 95% bootstrap interval; rules system prompt, temperature 0):
+
+| Model | executes | exact | lenient | lenient with hints |
+|---|---|---|---|---|
+| Mistral Large 4.0 (reasoning) | 92.4 | 58.8 | 83.3 [79-87] | 83.0 [79-87] |
+| gpt-oss-120b | 71.9 | 40.9 | 56.4 [51-61] | 55.6 [51-61] |
+| Qwen3 Coder Next | 66.7 | 37.4 | 47.1 [42-52] | 44.2 [39-49] |
+
+Qwen3 Coder Next scores 47.2 [43-51] on dev, the same as on gold: before training, the two sets are equally hard,
+so a dev-gold gap after fine-tuning can be read as schema generalisation.
+
+What this says:
+
+- The ceiling for a model that did not help build gold is about 83% lenient, not 100%. Of Mistral's 57 misses, 26 do
+  not execute and 29 return the right number of rows with other values or columns. The ones read by hand were
+  choices the question leaves open: an extra count column, sphere or spheroid distance, another tie-break column.
+  The metric under-credits these. Gold v2 questions should name the expected output columns.
+- Hints show no gain on gold, and gold cannot show one: it kept only pairs the solver answered without hints, so 7 of
+  342 need a value that is in neither the question nor the card. Run-to-run noise is also large (about 25 answers
+  flip between two Mistral runs on identical prompts). Measuring hints needs questions that name things loosely
+  (gold v2). The Mistral hinted run used a slightly noisier version of the lookup than the committed one.
+- In the training data, values that are in neither the question nor the card are mostly codes (`'TR51'`, `'PRT'`,
+  airport idents) where the question gives a name. Hints supply the name, not the code. Drop these pairs in step 4.
+- Cost: $5.4, mostly Mistral reasoning tokens ($4.4). Use it sparingly; the two cheap models cost $0.06 per run.
 
 ## Open question
 
