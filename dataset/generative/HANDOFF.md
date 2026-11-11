@@ -29,7 +29,9 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | Review | done | `REVIEW.md`: critique and an 8-step plan that replaces the order below |
 | Eval harness, dev split, value hints | done | `evaluate.py`, `dev/dev_v1.jsonl` (755 pairs), `hints.py`; best outside model 83% lenient on gold (`REVIEW.md`, step 2 results) |
 | ChatML export | done | `export.py`: 19,419 train + 755 val (dev) pairs, a third with value hints; 612 pairs dropped that need unseen info. On HF at `chatml/v1/` (train, val and the test prompts in `eval/`) |
-| **First fine-tune** | **next** | HF Jobs on the personal account (`finetune/train_hf_jobs_qwen35.py`), results to private `developmentseed/gazet-sql-qwen35`; eval with `evaluate.py --system minimal`, hinted and plain |
+| First fine-tune | done | 0.8B LoRA, 20 min on HF Jobs: dev 69%, gold 44% (48% with hints) lenient; GGUF in `developmentseed/gazet-sql-qwen35/sql-v1-r16/gguf` (`REVIEW.md`) |
+| Demo app | done, not hosted | `demo/` (Gradio + llama-server + DuckDB, runs locally); Docker Spaces need a paid HF plan |
+| **Schema variety** | **next** | base-model baseline on gold, then plan steps 4-6: perturbed schemas and new tables to close the dev-gold gap |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**
@@ -124,6 +126,8 @@ executing `sql` and its prediction on the lake and comparing with `consistency.c
 | `student.py`, `hints.py` | student prompt format; value-hint lookup (`show`, `coverage`) |
 | `evaluate.py`, `eval/` | execution-match eval on gold or dev (`run`, `report`); committed reference runs |
 | `dev_split.py`, `dev/` | dev split on training tables: scenario list and `dev_v1.jsonl` |
+| `export.py`, `to_gguf.sh` | ChatML training export with test prompts; GGUF conversion and upload of a training run |
+| `demo/` | Gradio demo: question -> SQL -> result table and map; `deploy.sh` for a Space |
 | `build_lake.py`, `build_lake_world.py` | data lake builders (licences in `LICENSES`) |
 | `pilot/`, `round_v3/`, `judge_calibration/` | committed snapshots, including all hand grades |
 | `FINDINGS.md` | full experiment log with numbers |

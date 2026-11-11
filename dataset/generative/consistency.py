@@ -24,17 +24,13 @@ from sqlglot import exp
 sys.path.insert(0, str(Path(__file__).parent))
 import harness
 import judge
+import student
 from or_generate import api_key, call
 
 HERE = Path(__file__).parent
 SOLVERS = {"deepseek": "z-ai/glm-5.3-flash", "default": "deepseek/deepseek-v4.1-flash"}
 
-SYSTEM = """You write DuckDB SQL. The spatial extension is loaded and `SET geometry_always_xy = true` is active (lon/lat order).
-Geometries are EPSG:4326 lon/lat degrees. DuckDB spatial is not PostGIS: no SRID arguments, ST_Transform takes CRS strings
-(ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true)), no GEOGRAPHY type, ST_Collect takes a list.
-For metres use ST_Distance_Sphere, ST_Area_Spheroid, ST_Length_Spheroid, or a local metric CRS; ST_Distance_Spheroid and
-ST_DWithin_Spheroid need geometry::GEOMETRY casts. List lambdas are written lambda x: x + 1, not x -> x + 1. Return geometries with ST_AsGeoJSON only when the user wants shapes.
-Answer with a single read-only SELECT statement and nothing else."""
+SYSTEM = student.SYSTEM_RULES
 
 
 def solver_for(source):

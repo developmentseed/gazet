@@ -47,7 +47,8 @@ def ask(model, system, user, port, key):
     body = dict(model=model, temperature=0, messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])
     if port:
         url, headers = f"http://127.0.0.1:{port}/v1/chat/completions", {}
-        body["max_tokens"] = 512
+        # llama-server turns Qwen3.5 thinking on by default; the student was trained without it
+        body.update(max_tokens=512, chat_template_kwargs={"enable_thinking": False})
     else:
         url, headers = URL, {"Authorization": f"Bearer {key}"}
         body.update(max_tokens=24000, usage={"include": True})

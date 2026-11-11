@@ -44,7 +44,7 @@ The data is now on Hugging Face (private): `developmentseed/gazet-generative-sql
 |---|---|---|
 | 1 | Back up the data (done: private HF dataset, including the lake snapshot) | free |
 | 2 | (done, see below) Eval harness on gold; ceiling from a third model family; a 500-pair dev split on training tables, so the dev-gold gap measures schema generalisation | <$1 |
-| 3 | Fine-tune on the data as it is at 1k / 5k / 21k pairs, full fine-tune and LoRA, to get a learning curve | GPU time |
+| 3 | (first run done, see below) Fine-tune on the data as it is at 1k / 5k / 21k pairs, full fine-tune and LoRA, to get a learning curve | GPU time |
 | 4 | Clean for free: drop the pairs in point 4, normalise SQL formatting, re-judge the 123 API errors | free |
 | 5 | Execution-verified schema perturbation: rename tables, columns and the geometry column, drop unused columns, add distractor tables, vary the card format, drop descriptions | free |
 | 6 | Spend the remaining ~$32 on new tables rather than more pairs per table: GLM as second generator, real joins, the missing patterns in point 3, repair examples from the 761 failures | ~$30 |
@@ -86,6 +86,31 @@ What this says:
 - In the training data, values that are in neither the question nor the card are mostly codes (`'TR51'`, `'PRT'`,
   airport idents) where the question gives a name. Hints supply the name, not the code. Drop these pairs in step 4.
 - Cost: $5.4, mostly Mistral reasoning tokens ($4.4). Use it sparingly; the two cheap models cost $0.06 per run.
+
+## First fine-tune (2026-11-11)
+
+Qwen3.5-0.8B, LoRA r=16, 2 epochs over the 19,419 training pairs of `chatml/v1` (export.py), on one A100 with
+HF Jobs (`finetune/train_hf_jobs_qwen35.py`): 20 minutes of training, about $2 in total. Weights, GGUF and answers
+are in the private model repo `developmentseed/gazet-sql-qwen35` under `sql-v1-r16/`.
+
+| Set | executes | exact | lenient | lenient with hints |
+|---|---|---|---|---|
+| dev (755, known tables) | 91.3 | 62.0 | 69.3 [66-73] | 70.3 [67-74] |
+| gold (342, new tables) | 83.3 | 36.3 | 44.2 [39-49] | 48.5 [43-54] |
+
+For comparison on gold: Mistral Large 4.0 83.3, gpt-oss-120b 56.4, Qwen3 Coder Next 47.1 (lenient, no hints).
+
+- On known tables the 0.8B student beats both mid-size reference models (dev: gpt-oss-120b 59.1, Qwen3 Coder
+  Next 47.2). On new tables it falls to about Qwen3 Coder Next's level. The 25-point dev-gold gap is the schema
+  memorisation that criticism point 2 predicted. Of the 57 gold answers that fail to run, most refer to columns
+  or tables that do not exist.
+- Hints help on new tables: 22 gold answers gained, 7 lost (paired; p about 0.01). On dev they are close to neutral.
+- Eval loss was still falling slowly at the end (0.175 after one epoch, 0.160 after two). More epochs on the same
+  23 tables would most likely widen the gap; the next gains should come from schema variety (steps 5 and 6).
+- The q8_0 GGUF on CPU (llama.cpp, 6 threads on this 8-core VM) scores the same as the GPU model on 60 gold pairs
+  (25 vs 25) at a median of 6 s per question: prompt about 200 tok/s, answer 25-40 tok/s. llama-server turns
+  Qwen3.5 thinking on by default, so requests must pass `enable_thinking: false`.
+- Not yet measured: the untrained base model on gold, so the gain from fine-tuning is not isolated.
 
 ## Open question
 
