@@ -2,7 +2,7 @@
 
 Usage:
     python harness.py cards                 # print schema cards
-    python harness.py prompts N SEED [DIR] [train|new|eval]   # write N scenario prompts (new = second-expansion bundles)
+    python harness.py prompts N SEED [DIR] [train|new|eval|evalnew]   # write N scenario prompts (new/evalnew = second expansion)
     python harness.py validate OUT.jsonl    # execute generated pairs, write results
 """
 import json
@@ -81,6 +81,9 @@ EVAL_BUNDLES = [
     ["nl_municipalities", "eu_nuts_regions"], ["br_fire_hotspots"], ["br_fire_hotspots", "br_sp_municipalities"],
     ["br_sp_municipalities"], ["sg_parks"], ["zm_health_facilities"], ["zm_health_facilities", "geonames_cities"],
     ["power_plants"], ["power_plants", "countries"], ["power_plants", "eu_nuts_regions"], ["tokyo_places"],
+]
+# Held-out tables of the second expansion (gold v2): new storage styles on unseen tables.
+EVAL_NEW_BUNDLES = [
     ["ghcn_stations"], ["ghcn_stations", "countries"], ["ghcn_stations", "us_counties"],
     ["fr_departements"], ["fr_departements", "geonames_cities"], ["fr_departements", "eu_nuts_regions"],
 ]
@@ -284,7 +287,7 @@ def make_prompts(n, seed, out_dir="prompts", split="train"):
     out = HERE / out_dir
     out.mkdir(exist_ok=True)
     # Stratified: cycle skills/difficulties, walk a shuffled bundle list so coverage is even.
-    bundles = {"eval": EVAL_BUNDLES, "new": NEW_BUNDLES}.get(split, BUNDLES)[:]
+    bundles = {"eval": EVAL_BUNDLES, "evalnew": EVAL_NEW_BUNDLES, "new": NEW_BUNDLES}.get(split, BUNDLES)[:]
     rnd.shuffle(bundles)
     for i in range(n):
         bundle = bundles[i % len(bundles)]

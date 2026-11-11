@@ -12,3 +12,4 @@ runs/
 !dev/*.jsonl
 !eval/**/*.jsonl
 .tmp/
+!gold2/**/*.jsonl

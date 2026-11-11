@@ -33,7 +33,7 @@ from or_generate import URL, api_key
 
 HERE = Path(__file__).parent
 DATA = {"gold": HERE / "gold" / "gold_v1.jsonl", "dev": HERE / "dev" / "dev_v1.jsonl",
-        "devnew": HERE / "dev" / "dev_new_v1.jsonl"}
+        "devnew": HERE / "dev" / "dev_new_v1.jsonl", "gold2": HERE / "gold" / "gold_v2.jsonl"}
 OUT = HERE / "runs" / "eval"
 
 

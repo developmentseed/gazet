@@ -12,7 +12,7 @@ in the student format of student.py (minimal system prompt, schema cards, option
 - dropped: pairs that read a table missing from the prompt, and pairs that filter on a string value that is in
   neither the question, the cards nor (when hinted) the hints. The student cannot know those values.
 
-Also writes OUT_DIR/eval/{gold,dev[,devnew]}_{plain,hints}.jsonl: the test prompts ({"id", "messages": [system, user]}), so a
+Also writes OUT_DIR/eval/{gold,dev[,devnew,gold2]}_{plain,hints}.jsonl: the test prompts ({"id", "messages": [system, user]}), so a
 training job without the data lake can answer them. Score the answers with `evaluate.py run NAME --preds FILE`.
 
 Usage: python export.py OUT_DIR [--hint-share 0.5] [--v2] [--cap N]
@@ -114,7 +114,7 @@ def main():
     ev = Path(a.out_dir) / "eval"
     ev.mkdir(parents=True, exist_ok=True)
     for data, path in [("gold", HERE / "gold" / "gold_v1.jsonl"), ("dev", HERE / "dev" / "dev_v1.jsonl")] + (
-            [("devnew", HERE / "dev" / "dev_new_v1.jsonl")] if a.v2 else []):
+            [("devnew", HERE / "dev" / "dev_new_v1.jsonl"), ("gold2", HERE / "gold" / "gold_v2.jsonl")] if a.v2 else []):
         pairs = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
         for mode in ("plain", "hints"):
             rows = []

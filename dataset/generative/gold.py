@@ -7,7 +7,8 @@ Usage:
 `sheet` snapshots the candidate files into OUT_DIR/candidates/ so `write` works from the committed folder.
 
 The sheet hides the judge verdict and the solver SQL so the review is independent of both filters.
-Grades follow round_v3: C correct, M minor issue, W wrong.
+Grades follow round_v3: C correct, M minor issue, W wrong. Gold v2 (gold2/) adds D: dropped because the query does not touch a
+held-out table.
 """
 import json
 import random
