@@ -2,7 +2,7 @@
 
 Usage:
     python harness.py cards                 # print schema cards
-    python harness.py prompts N SEED        # write N scenario prompts to prompts/
+    python harness.py prompts N SEED [DIR] [train|new|eval]   # write N scenario prompts (new = second-expansion bundles)
     python harness.py validate OUT.jsonl    # execute generated pairs, write results
 """
 import json
@@ -52,17 +52,37 @@ TABLE_DOCS = {
     "ourairports_runways": "Runways of OurAirports airports. No geometry; airport_ref references ourairports.id; lengths in feet.",
     "geonames_cities": "Cities with population > 15000 (GeoNames). Points; alternatenames is a comma-separated list.",
     "tokyo_places": "Overture Maps places (POIs, points) in central Tokyo, names often in Japanese. EPSG:4326.",
+    # Second expansion: other schema styles (build_lake_more.py).
+    "states_provinces": "Natural Earth 1:10m first-level administrative divisions (states, provinces, regions) of all countries. Polygons; adm0_a3 is the ISO3 country code, iso_3166_2 the subdivision code, area_sqkm the area.",
+    "time_zones": "Natural Earth time zones. No geometry column: wkt holds the polygon as WKT text (use ST_GeomFromText(wkt)); zone is the UTC offset in hours.",
+    "railroads": "Natural Earth 1:10m railroads (linestrings) worldwide. EPSG:4326.",
+    "marine_areas": "Natural Earth named marine areas: oceans, seas, gulfs, bays, straits (polygons). EPSG:4326.",
+    "us_counties": "US counties, 2023 (Census Bureau, 1:20M). Geometry column geom is in EPSG:5070 (CONUS Albers, metres), not lon/lat; geoid is the 5-digit FIPS code, aland/awater in square metres.",
+    "world_bank_indicators": "World Bank development indicators by country and year, 2010-2023, long format (one row per country, indicator, year). No geometry; country_iso3 matches countries.iso_a3.",
+    "openflights_routes": "Airline routes (OpenFlights, 2014). No geometry; source_airport/destination_airport are IATA codes (match ourairports.iata_code), airline_id references openflights_airlines.",
+    "openflights_airlines": "Airlines (OpenFlights). No geometry; active is 'Y' or 'N'.",
+    "nairobi_places": "Overture Maps places (POIs, points) in central Nairobi. EPSG:4326.",
+    "nairobi_roads": "Overture Maps road segments (linestrings) in central Nairobi. EPSG:4326.",
+    "cdmx_buildings": "Overture Maps building footprints (polygons) in central Mexico City. EPSG:4326; height in metres.",
+    "tsunami_events": "NOAA historical tsunami events since 2000 BC. No geometry: latitude/longitude columns in degrees; year is negative BC; camelCase column names.",
+    "volcano_eruptions": "NOAA significant volcanic eruptions. No geometry: latitude/longitude columns in degrees; vei is the volcanic explosivity index; camelCase column names.",
+    "ghcn_stations": "NOAA GHCN-Daily weather stations. No geometry: latitude/longitude columns in degrees; country_code is the FIPS 10-4 code (not ISO), state is set for US and Canadian stations.",
+    "fr_departements": "French departements (IGN/INSEE). Geometry column geom is in EPSG:2154 (Lambert-93, metres), not lon/lat; code is the departement number.",
 }
 
 # Never used for training data: reserved for the held-out gold eval set (new schemas, regions and publishers).
 HELD_OUT = {"uk_police_crimes", "nl_municipalities", "br_fire_hotspots", "br_sp_municipalities", "sg_parks",
-            "zm_health_facilities", "power_plants", "tokyo_places"}
+            "zm_health_facilities", "power_plants", "tokyo_places",
+            # second expansion, for gold v2: lon/lat columns only, and a projected CRS under another column name
+            "ghcn_stations", "fr_departements"}
 
 EVAL_BUNDLES = [
     ["uk_police_crimes"], ["uk_police_crimes", "uk_local_authorities"], ["nl_municipalities"],
     ["nl_municipalities", "eu_nuts_regions"], ["br_fire_hotspots"], ["br_fire_hotspots", "br_sp_municipalities"],
     ["br_sp_municipalities"], ["sg_parks"], ["zm_health_facilities"], ["zm_health_facilities", "geonames_cities"],
     ["power_plants"], ["power_plants", "countries"], ["power_plants", "eu_nuts_regions"], ["tokyo_places"],
+    ["ghcn_stations"], ["ghcn_stations", "countries"], ["ghcn_stations", "us_counties"],
+    ["fr_departements"], ["fr_departements", "geonames_cities"], ["fr_departements", "eu_nuts_regions"],
 ]
 
 # Table bundles that make sense together (single-table and multi-table); training tables only.
@@ -84,7 +104,22 @@ BUNDLES = [
     ["ourairports", "ourairports_runways"], ["ourairports", "countries"], ["ourairports", "geonames_cities"],
     ["geonames_cities"], ["geonames_cities", "countries"],
 ]
-assert not any(t in HELD_OUT for b in BUNDLES for t in b), "held-out table in a training bundle"
+# Second expansion (training set v2): the new tables alone and with the tables they join to.
+NEW_BUNDLES = [
+    ["states_provinces"], ["states_provinces", "geonames_cities"], ["states_provinces", "airports"],
+    ["states_provinces", "usgs_earthquakes"], ["states_provinces", "countries"],
+    ["time_zones"], ["time_zones", "geonames_cities"], ["time_zones", "airports"],
+    ["railroads"], ["railroads", "countries"], ["railroads", "populated_places"],
+    ["marine_areas"], ["marine_areas", "ports"], ["marine_areas", "tsunami_events"],
+    ["us_counties"], ["us_counties", "geonames_cities"], ["us_counties", "usgs_earthquakes"], ["us_counties", "ourairports"],
+    ["world_bank_indicators"], ["world_bank_indicators", "countries"], ["world_bank_indicators", "geonames_cities"],
+    ["openflights_routes", "openflights_airlines"], ["openflights_routes", "ourairports"],
+    ["nairobi_places"], ["nairobi_roads"], ["nairobi_places", "nairobi_roads"],
+    ["cdmx_buildings"], ["cdmx_buildings", "bike_share_stations"],
+    ["tsunami_events"], ["tsunami_events", "countries"], ["tsunami_events", "usgs_earthquakes"],
+    ["volcano_eruptions"], ["volcano_eruptions", "populated_places"], ["volcano_eruptions", "tsunami_events"],
+]
+assert not any(t in HELD_OUT for b in BUNDLES + NEW_BUNDLES for t in b), "held-out table in a training bundle"
 
 SKILLS = [
     "spatial predicates (ST_Intersects / ST_Within / ST_Contains / ST_Touches) for filtering",
@@ -117,8 +152,10 @@ def con():
     for p in sorted(LAKE.glob("*.parquet")):
         if p.stem in TABLE_DOCS:
             # Sources label lon/lat as EPSG:4326, OGC:CRS84 or EPSG:4979; DuckDB 2.0 refuses to join across labels.
-            cols = {r[0] for r in c.execute(f"DESCRIBE SELECT * FROM '{p}'").fetchall()}
-            star = "* REPLACE (geometry::GEOMETRY::GEOMETRY('EPSG:4326') AS geometry)" if "geometry" in cols else "*"
+            # Projected columns (us_counties, fr_departements) keep their CRS.
+            lonlat = [n for n, t, *_ in c.execute(f"DESCRIBE SELECT * FROM '{p}'").fetchall()
+                      if t.startswith("GEOMETRY") and not any(crs in t for crs in ("EPSG:5070", "EPSG:2154"))]
+            star = "* REPLACE (" + ", ".join(f'"{n}"::GEOMETRY::GEOMETRY(\'EPSG:4326\') AS "{n}"' for n in lonlat) + ")" if lonlat else "*"
             c.execute(f"CREATE VIEW {p.stem} AS SELECT {star} FROM '{p}'")
     return c
 
@@ -135,8 +172,8 @@ def schema_card(c, table):
     for name, typ, *_ in c.execute(f"DESCRIBE {table}").fetchall():
         hint = ""
         if typ.startswith("GEOMETRY"):
-            gt = c.execute(f"SELECT list(DISTINCT ST_GeometryType(geometry)::VARCHAR ORDER BY ST_GeometryType(geometry)::VARCHAR) FROM {table}").fetchone()[0]
-            ext = c.execute(f"SELECT [round(ST_XMin(e),3), round(ST_YMin(e),3), round(ST_XMax(e),3), round(ST_YMax(e),3)] FROM (SELECT ST_Extent_Agg(geometry) e FROM {table})").fetchone()[0]
+            gt = c.execute(f'SELECT list(DISTINCT ST_GeometryType("{name}")::VARCHAR ORDER BY ST_GeometryType("{name}")::VARCHAR) FROM {table}').fetchone()[0]
+            ext = c.execute(f'SELECT [round(ST_XMin(e),3), round(ST_YMin(e),3), round(ST_XMax(e),3), round(ST_YMax(e),3)] FROM (SELECT ST_Extent_Agg("{name}") e FROM {table})').fetchone()[0]
             hint = f"types={gt} extent={_short(ext, 90)}"
         elif typ.startswith(("STRUCT", "MAP")) or typ.endswith("[]"):
             ex = c.execute(f'SELECT "{name}" FROM {table} WHERE "{name}" IS NOT NULL LIMIT 1').fetchone()
@@ -166,7 +203,13 @@ def grounding(c, table, seed, n_rows=5, max_values=40):
     cols, name_col, values = [], None, []
     for name, typ, *_ in c.execute(f"DESCRIBE {table}").fetchall():
         if typ.startswith("GEOMETRY"):
-            cols.append("round(ST_X(ST_Centroid(geometry)), 4) AS lon, round(ST_Y(ST_Centroid(geometry)), 4) AS lat")
+            crs = re.search(r"'(EPSG:\d+)'", typ)
+            centroid = f'ST_Centroid("{name}")'
+            if crs and crs.group(1) != "EPSG:4326":  # projected: show lon/lat to the generator anyway
+                centroid = f"ST_Transform({centroid}, '{crs.group(1)}', 'EPSG:4326', always_xy := true)"
+            cols.append(f"round(ST_X({centroid}), 4) AS lon, round(ST_Y({centroid}), 4) AS lat")
+        elif name == "wkt":
+            cols.append("round(ST_X(ST_Centroid(ST_GeomFromText(wkt))), 4) AS lon, round(ST_Y(ST_Centroid(ST_GeomFromText(wkt))), 4) AS lat")
         elif typ.startswith('STRUCT("primary"'):
             cols.append(f'"{name}"."primary" AS "{name}.primary"')
             name_col = name_col or f'"{name}"."primary"'
@@ -211,7 +254,7 @@ Write {k} diverse (question, sql) pairs for these tables.
 
 Rules:
 - SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
-- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Geometry columns are EPSG:4326 lon/lat degrees unless their type in the card names another CRS (then coordinates are metres in that CRS; ST_Transform to 'EPSG:4326' for lon/lat). Some tables have no geometry column: build points with ST_Point(longitude, latitude), or parse a WKT text column with ST_GeomFromText. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
 - Only use literal values (names, categories, codes) that appear in the real rows, value lists or top values above. The query should return at least one row.
 - Do not name places, neighbourhoods or landmarks that are not in the data. If a question needs an area or point that is not a row in the data, give its coordinates explicitly in the question.
 - Never measure distances, buffers or areas in EPSG:3857 (Web Mercator) or EPSG:6933; their scale is wrong away from the equator. Use the spheroid functions or a local metric CRS (UTM zone or national grid).
@@ -241,7 +284,7 @@ def make_prompts(n, seed, out_dir="prompts", split="train"):
     out = HERE / out_dir
     out.mkdir(exist_ok=True)
     # Stratified: cycle skills/difficulties, walk a shuffled bundle list so coverage is even.
-    bundles = (EVAL_BUNDLES if split == "eval" else BUNDLES)[:]
+    bundles = {"eval": EVAL_BUNDLES, "new": NEW_BUNDLES}.get(split, BUNDLES)[:]
     rnd.shuffle(bundles)
     for i in range(n):
         bundle = bundles[i % len(bundles)]

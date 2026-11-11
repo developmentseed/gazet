@@ -3,16 +3,19 @@
 Writes OUT_DIR/sql/train.jsonl and OUT_DIR/sql/val.jsonl, one {"messages": [system, user, assistant]} per line,
 in the student format of student.py (minimal system prompt, schema cards, optional value hints, question).
 
-- train: judge-correct pairs from runs/train, minus every scenario in dev/dev_scenarios.json;
-- val: dev/dev_v1.jsonl, so the eval loss is measured on unseen questions about known tables;
+- train: judge-correct pairs from runs/train (v1) and, with --v2, runs/v2 (second lake expansion, pilot included),
+  minus every scenario in dev/dev_scenarios.json and dev/dev_new_scenarios.json;
+- --cap N keeps at most N training pairs per table bundle (seeded), so no schema card repeats too often;
+- val: dev/dev_v1.jsonl (+ dev/dev_new_v1.jsonl with --v2), so the eval loss is measured on unseen questions
+  about known tables;
 - half of the pairs (seeded per pair) get the value-hint block, so the student works with and without it;
 - dropped: pairs that read a table missing from the prompt, and pairs that filter on a string value that is in
   neither the question, the cards nor (when hinted) the hints. The student cannot know those values.
 
-Also writes OUT_DIR/eval/{gold,dev}_{plain,hints}.jsonl: the test prompts ({"id", "messages": [system, user]}), so a
+Also writes OUT_DIR/eval/{gold,dev[,devnew]}_{plain,hints}.jsonl: the test prompts ({"id", "messages": [system, user]}), so a
 training job without the data lake can answer them. Score the answers with `evaluate.py run NAME --preds FILE`.
 
-Usage: python export.py OUT_DIR [--hint-share 0.5]
+Usage: python export.py OUT_DIR [--hint-share 0.5] [--v2] [--cap N]
 """
 import argparse
 import hashlib
@@ -46,14 +49,24 @@ def _hinted(key, share):
     return int(hashlib.sha1(key.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF < share
 
 
-def train_pairs():
+def train_pairs(v2=False, cap=None):
     dev = set(json.loads((HERE / "dev" / "dev_scenarios.json").read_text()))
-    for f in sorted((HERE / "runs" / "train").glob("*train_c*.judged.jsonl")):
+    files = sorted((HERE / "runs" / "train").glob("*train_c*.judged.jsonl"))
+    if v2:
+        dev |= set(json.loads((HERE / "dev" / "dev_new_scenarios.json").read_text()))
+        files += sorted((HERE / "runs" / "v2").glob("out_*.judged.jsonl"))
+    by_bundle = {}
+    for f in files:
         for line in f.read_text().splitlines():
             if line.strip():
                 r = json.loads(line)
                 if r["judge"] == "correct" and r["scenario"] not in dev:
-                    yield r
+                    r["key"] = f"{f.name.split('__')[0]}:{r['scenario']}.{r['idx']}"
+                    by_bundle.setdefault(tuple(r["tables"]), []).append(r)
+    for rows in by_bundle.values():
+        if cap and len(rows) > cap:
+            rows = sorted(rows, key=lambda r: hashlib.sha1(r["key"].encode()).hexdigest())[:cap]
+        yield from rows
 
 
 def messages(user, sql):
@@ -66,12 +79,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("out_dir")
     ap.add_argument("--hint-share", type=float, default=0.5)
+    ap.add_argument("--v2", action="store_true")
+    ap.add_argument("--cap", type=int)
     a = ap.parse_args()
     c = harness.con()
     cards = {t: harness.schema_card(c, t) for t in harness.TABLE_DOCS}
     known = {t.lower() for t in harness.TABLE_DOCS}
     drops, train, n_hinted = Counter(), [], 0
-    for r in train_pairs():
+    for r in train_pairs(a.v2, a.cap):
         sql = r["sql"].strip().rstrip(";").strip()
         used = read_tables(sql)
         if used is None:
@@ -80,7 +95,7 @@ def main():
         if (used & known) - {t.lower() for t in r["tables"]}:
             drops["reads a table not in the prompt"] += 1
             continue
-        h = hints_mod.value_hints(c, r["tables"], r["question"]) if _hinted(f"{r['scenario']}.{r['idx']}", a.hint_share) else None
+        h = hints_mod.value_hints(c, r["tables"], r["question"]) if _hinted(r["key"].split(":")[-1] if not a.v2 else r["key"], a.hint_share) else None
         seen = hints_mod.norm("\n".join([r["question"], *(cards[t] for t in r["tables"]), *(h or [])]))
         if any(hints_mod.norm(v) not in seen for v in hints_mod._filter_literals(sql)):
             drops["filter value the student cannot see"] += 1
@@ -88,15 +103,19 @@ def main():
         n_hinted += bool(h)
         train.append(messages(student.user_prompt(cards, r["tables"], r["question"], h), sql))
     val = []
-    for line in (HERE / "dev" / "dev_v1.jsonl").read_text().splitlines():
+    dev_files = [HERE / "dev" / "dev_v1.jsonl"] + ([HERE / "dev" / "dev_new_v1.jsonl"] if a.v2 else [])
+    for line in "\n".join(f.read_text() for f in dev_files).splitlines():
+        if not line.strip():
+            continue
         d = json.loads(line)
         h = hints_mod.value_hints(c, d["tables"], d["question"]) if _hinted(d["id"], a.hint_share) else None
         val.append(messages(student.user_prompt(cards, d["tables"], d["question"], h), d["sql"]))
 
     ev = Path(a.out_dir) / "eval"
     ev.mkdir(parents=True, exist_ok=True)
-    for data in ("gold", "dev"):
-        pairs = [json.loads(line) for line in (HERE / data / f"{data}_v1.jsonl").read_text().splitlines() if line.strip()]
+    for data, path in [("gold", HERE / "gold" / "gold_v1.jsonl"), ("dev", HERE / "dev" / "dev_v1.jsonl")] + (
+            [("devnew", HERE / "dev" / "dev_new_v1.jsonl")] if a.v2 else []):
+        pairs = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
         for mode in ("plain", "hints"):
             rows = []
             for p in pairs:

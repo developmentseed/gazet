@@ -22,7 +22,7 @@ HERE = Path(__file__).parent
 VERDICTS = ("correct", "minor", "wrong")
 
 PROMPT = """You review training data for a small text-to-SQL model. The SQL runs in DuckDB with the spatial extension
-(`SET geometry_always_xy = true`, geometries in EPSG:4326 lon/lat). Decide whether the SQL correctly answers the question.
+(`SET geometry_always_xy = true`, geometries in EPSG:4326 lon/lat unless the column type names another CRS). Decide whether the SQL correctly answers the question.
 
 {cards}
 

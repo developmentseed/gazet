@@ -7,7 +7,7 @@ Order is schema cards -> value hints (optional) -> question, so llama.cpp can re
 # For models that were not fine-tuned on this data (reference ceilings, zero-shot baselines): rules spelled out.
 # Also the solver prompt of consistency.py.
 SYSTEM_RULES = """You write DuckDB SQL. The spatial extension is loaded and `SET geometry_always_xy = true` is active (lon/lat order).
-Geometries are EPSG:4326 lon/lat degrees. DuckDB spatial is not PostGIS: no SRID arguments, ST_Transform takes CRS strings
+Geometries are EPSG:4326 lon/lat degrees unless the column type names another CRS. DuckDB spatial is not PostGIS: no SRID arguments, ST_Transform takes CRS strings
 (ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true)), no GEOGRAPHY type, ST_Collect takes a list.
 For metres use ST_Distance_Sphere, ST_Area_Spheroid, ST_Length_Spheroid, or a local metric CRS; ST_Distance_Spheroid and
 ST_DWithin_Spheroid need geometry::GEOMETRY casts. List lambdas are written lambda x: x + 1, not x -> x + 1. Return geometries with ST_AsGeoJSON only when the user wants shapes.
