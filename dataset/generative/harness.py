@@ -135,7 +135,7 @@ def schema_card(c, table):
     for name, typ, *_ in c.execute(f"DESCRIBE {table}").fetchall():
         hint = ""
         if typ.startswith("GEOMETRY"):
-            gt = c.execute(f"SELECT list(DISTINCT ST_GeometryType(geometry)::VARCHAR) FROM {table}").fetchone()[0]
+            gt = c.execute(f"SELECT list(DISTINCT ST_GeometryType(geometry)::VARCHAR ORDER BY ST_GeometryType(geometry)::VARCHAR) FROM {table}").fetchone()[0]
             ext = c.execute(f"SELECT [round(ST_XMin(e),3), round(ST_YMin(e),3), round(ST_XMax(e),3), round(ST_YMax(e),3)] FROM (SELECT ST_Extent_Agg(geometry) e FROM {table})").fetchone()[0]
             hint = f"types={gt} extent={_short(ext, 90)}"
         elif typ.startswith(("STRUCT", "MAP")) or typ.endswith("[]"):
@@ -145,7 +145,7 @@ def schema_card(c, table):
         elif typ in ("VARCHAR",):
             top = c.execute(
                 f'SELECT "{name}", count(*) k FROM {table} WHERE "{name}" IS NOT NULL '
-                f"GROUP BY 1 ORDER BY k DESC LIMIT 6"
+                f"GROUP BY 1 ORDER BY k DESC, 1 LIMIT 6"  # tie-break so the card is the same on every run
             ).fetchall()
             distinct = c.execute(f'SELECT approx_count_distinct("{name}") FROM {table}').fetchone()[0]
             if distinct > 0.5 * n:  # id-like / free text: a couple of examples is enough

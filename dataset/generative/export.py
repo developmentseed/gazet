@@ -9,6 +9,9 @@ in the student format of student.py (minimal system prompt, schema cards, option
 - dropped: pairs that read a table missing from the prompt, and pairs that filter on a string value that is in
   neither the question, the cards nor (when hinted) the hints. The student cannot know those values.
 
+Also writes OUT_DIR/eval/{gold,dev}_{plain,hints}.jsonl: the test prompts ({"id", "messages": [system, user]}), so a
+training job without the data lake can answer them. Score the answers with `evaluate.py run NAME --preds FILE`.
+
 Usage: python export.py OUT_DIR [--hint-share 0.5]
 """
 import argparse
@@ -90,6 +93,17 @@ def main():
         h = hints_mod.value_hints(c, d["tables"], d["question"]) if _hinted(d["id"], a.hint_share) else None
         val.append(messages(student.user_prompt(cards, d["tables"], d["question"], h), d["sql"]))
 
+    ev = Path(a.out_dir) / "eval"
+    ev.mkdir(parents=True, exist_ok=True)
+    for data in ("gold", "dev"):
+        pairs = [json.loads(line) for line in (HERE / data / f"{data}_v1.jsonl").read_text().splitlines() if line.strip()]
+        for mode in ("plain", "hints"):
+            rows = []
+            for p in pairs:
+                h = hints_mod.value_hints(c, p["tables"], p["question"]) if mode == "hints" else None
+                m = messages(student.user_prompt(cards, p["tables"], p["question"], h), "")["messages"][:2]
+                rows.append({"id": p["id"], "messages": m})
+            (ev / f"{data}_{mode}.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
     out = Path(a.out_dir) / "sql"
     out.mkdir(parents=True, exist_ok=True)
     for name, rows in (("train", train), ("val", val)):

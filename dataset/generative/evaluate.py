@@ -5,9 +5,11 @@ order (exact: 3 significant figures; lenient: every reference column appears in 
 
 Usage:
     python evaluate.py run MODEL [--data gold|dev|FILE] [--hints] [--system rules|minimal] [--port N] [--limit N]
+    python evaluate.py run NAME --preds PREDS.jsonl [--data ...] [--hints] --system minimal   # score saved answers
     python evaluate.py report [FILE...]        # table over runs/eval/*.jsonl
 
 MODEL is an OpenRouter id, or with --port the name of a model served by a local llama-server on that port.
+With --preds, answers come from a file of {"id", "text"[, "secs"]} lines (e.g. written by a training job).
 Results go to runs/eval/<model>__<data>__<hints|plain>.jsonl; a rerun only asks for the pairs still missing.
 """
 import argparse
@@ -82,9 +84,15 @@ def run(args):
             continue
         h = hints_mod.value_hints(c, p["tables"], p["question"]) if args.hints else None
         todo.append(dict(p, hints=h, prompt=student.user_prompt(cards, p["tables"], p["question"], h)))
-    key = None if args.port else api_key()
+    key = None if args.port or args.preds else api_key()
+    preds = {r["id"]: r for r in map(json.loads, Path(args.preds).read_text().splitlines())} if args.preds else None
 
     def one(p):
+        if preds is not None:
+            got = preds.get(p["id"])
+            p.pop("prompt")
+            return dict(p, solver_sql=extract_sql(got["text"]) if got else None, secs=(got or {}).get("secs", 0), cost=0,
+                        out_tokens=(got or {}).get("out_tokens"), in_tokens=None, api_error=None if got else "no prediction")
         sql, secs, usage = ask(args.model, student.SYSTEMS[args.system], p.pop("prompt"), args.port, key)
         return dict(p, solver_sql=sql, secs=round(secs, 2), cost=usage.get("cost") or 0,
                     out_tokens=usage.get("completion_tokens"), in_tokens=usage.get("prompt_tokens"), api_error=usage.get("error"))
@@ -151,6 +159,7 @@ if __name__ == "__main__":
     r.add_argument("--hints", action="store_true")
     r.add_argument("--system", default="rules", choices=list(student.SYSTEMS))
     r.add_argument("--port", type=int)
+    r.add_argument("--preds")
     r.add_argument("--limit", type=int)
     rep = sub.add_parser("report")
     rep.add_argument("files", nargs="*")

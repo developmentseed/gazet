@@ -48,7 +48,7 @@ class TableIndex:
                 continue
             vals = [r[0] for r in c.execute(
                 f"SELECT DISTINCT {expr} FROM {table} WHERE {expr} IS NOT NULL AND length({expr}) <= {MAX_VALUE_LEN} "
-                f"LIMIT {MAX_DISTINCT + 1}").fetchall()]
+                f"ORDER BY 1 LIMIT {MAX_DISTINCT + 1}").fetchall()]
             if not vals or len(vals) > MAX_DISTINCT or sum(v.startswith("http") for v in vals[:200]) > 20:
                 continue
             exact, by_token = defaultdict(list), defaultdict(set)
@@ -81,7 +81,7 @@ class TableIndex:
                     if all(sets):
                         hits = [n for n in set.intersection(*sets) if f" {g} " in f" {n} "]
                         if 0 < len(hits) <= MAX_PARTIAL:
-                            cands = [(len(toks), n) for n in sorted(hits, key=len)[:PER_GRAM]]
+                            cands = [(len(toks), n) for n in sorted(hits, key=lambda n: (len(n), n))[:PER_GRAM]]
                 if cands:
                     used |= span
                     for score, n in cands:
