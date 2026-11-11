@@ -1,12 +1,13 @@
 # /// script
 # requires-python = ">=3.11,<3.13"
 # dependencies = [
-#     "unsloth[cu129-torch280]",
+#     "unsloth==2026.11.4",
 #     "unsloth_zoo",
-#     "transformers~=5.2.0",
+#     "torch==2.14.1",
+#     "transformers==5.2.0",
+#     "flash-linear-attention",
 #     "datasets",
 #     "huggingface_hub",
-#     "hf-transfer==0.1.9",
 # ]
 # ///
 """Hugging Face Jobs training script for the generative SQL student: Qwen3.5 LoRA with Unsloth.
@@ -39,10 +40,13 @@ import os
 import pathlib
 import time
 
-os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "1")
+os.environ.setdefault("HF_XET_HIGH_PERFORMANCE", "1")
 
 DATASET = "developmentseed/gazet-generative-sql"
 MODEL_REPO = "developmentseed/gazet-sql-qwen35"
+
+# flash-linear-attention gives the fast kernels for Qwen3.5's linear-attention layers; without it transformers
+# falls back to a slow torch implementation (about 2 s per generated answer on an A100).
 
 # Qwen3.5 renders an empty think block before non-thinking answers; train only on tokens after it.
 INSTRUCTION_PART = "<|im_start|>user\n"
@@ -154,7 +158,7 @@ def main():
     for f in sorted((data / "eval").glob("*.jsonl")):
         rows = load_jsonl(f)[:a.max_eval_prompts]
         t0 = time.time()
-        preds = generate(model, tokenizer, rows, batch_size=32, max_new_tokens=512)
+        preds = generate(model, tokenizer, rows, batch_size=64, max_new_tokens=512)
         (out / "predictions" / f.name).write_text("".join(json.dumps(p, ensure_ascii=False) + "\n" for p in preds))
         print(f"{f.name}: {len(preds)} answers in {time.time() - t0:.0f} s; first: {preds[0]['text'][:200]!r}")
 
