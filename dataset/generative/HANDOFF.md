@@ -28,7 +28,8 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | Storage | done | private HF dataset `developmentseed/gazet-generative-sql`: training set v1, gold v1, lake snapshot, raw run archive |
 | Review | done | `REVIEW.md`: critique and an 8-step plan that replaces the order below |
 | Eval harness, dev split, value hints | done | `evaluate.py`, `dev/dev_v1.jsonl` (755 pairs), `hints.py`; best outside model 83% lenient on gold (`REVIEW.md`, step 2 results) |
-| **ChatML export** | **next** | to `/mnt/gazet/data/<run>` with `student.user_prompt`; exclude `dev/dev_scenarios.json`; hints in part of the examples |
+| ChatML export | done | `export.py`: 19,420 train + 755 val (dev) pairs, a third with value hints; 611 pairs dropped that need unseen info. On HF at `chatml/v1/sql/{train,val}.jsonl` |
+| **First fine-tune** | **next** | HF Jobs (org has credit); port `finetune/train_modal_qwen35.py`; eval with `evaluate.py --system minimal`, hinted and plain |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**
