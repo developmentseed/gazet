@@ -31,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import harness
 import hints as hints_mod
 import student
+import dev_split
 
 HERE = Path(__file__).parent
 
@@ -54,12 +55,13 @@ def train_pairs(v2=False, cap=None):
     files = sorted((HERE / "runs" / "train").glob("*train_c*.judged.jsonl"))
     if v2:
         dev |= set(json.loads((HERE / "dev" / "dev_new_scenarios.json").read_text()))
-        files += sorted((HERE / "runs" / "v2").glob("out_*.judged.jsonl"))
+        files += dev_split.v2_files()  # chunks and pilot only, never the gold v2 candidates
     by_bundle = {}
     for f in files:
         for line in f.read_text().splitlines():
             if line.strip():
                 r = json.loads(line)
+                assert not set(r["tables"]) & harness.HELD_OUT, f"held-out table in training file {f.name}"
                 if r["judge"] == "correct" and r["scenario"] not in dev:
                     r["key"] = f"{f.name.split('__')[0]}:{r['scenario']}.{r['idx']}"
                     by_bundle.setdefault(tuple(r["tables"]), []).append(r)

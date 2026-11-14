@@ -21,6 +21,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+import harness
+
 HERE = Path(__file__).parent
 PER_BUNDLE, SEED = 5, 11
 JUDGED = HERE / "runs" / "dev" / "out_deepseek__deepseek-v4.1-flash__dev.judged.jsonl"
@@ -30,8 +33,18 @@ NEW_SCENARIOS = HERE / "dev" / "dev_new_scenarios.json"
 
 
 def v2_files():
-    """Judged v2 files, including the pilot; the generator is the file-name prefix out_<generator>__."""
-    return sorted((HERE / "runs" / "v2").glob("out_*.judged.jsonl"))
+    """Judged v2 training files (chunks and pilot); the generator is the file-name prefix out_<generator>__.
+
+    Only these two patterns: runs/v2 also holds the gold v2 candidates (held-out tables), which must never reach
+    dev or training.
+    """
+    v2 = HERE / "runs" / "v2"
+    files = sorted(v2.glob("out_*__v2_c*.judged.jsonl")) + sorted(v2.glob("out_*__pilot.judged.jsonl"))
+    for f in files:
+        for line in f.read_text().splitlines():
+            if line.strip():
+                assert not set(json.loads(line)["tables"]) & harness.HELD_OUT, f"held-out table in {f.name}"
+    return files
 
 
 def train_rows():

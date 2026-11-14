@@ -6,10 +6,12 @@ Usage:
     python harness.py validate OUT.jsonl    # execute generated pairs, write results
 """
 import json
+import os
 import random
 import re
 import sys
 import subprocess
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -304,6 +306,12 @@ def make_prompts(n, seed, out_dir="prompts", split="train"):
 
 
 QUERY_TIMEOUT_S = 30
+# Hard cap on a query process's resident memory. DuckDB's memory_limit does not cover allocations made by the
+# spatial extension (GEOS), so one generated query once grew to 13.5 GB and the kernel OOM-killed the session.
+# The parent polls the child's RSS and kills it past this cap; 4 workers x 1.2 GB fits the ~6 GB free on the laptop VM.
+QUERY_RSS_CAP_MB = int(os.environ.get("GAZET_QUERY_RSS_MB", "1200"))
+# Comparison children run two queries (2x cap each), so fewer of them run at once: 2 x 2.4 GB worst case.
+COMPARE_WORKERS = 2
 FORBIDDEN = re.compile(r"\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|COPY|ATTACH|INSTALL|LOAD|PRAGMA|SET)\b", re.IGNORECASE)
 
 
@@ -311,7 +319,7 @@ def exec_one(sql):
     """Run one query on a fresh connection and summarise the result (used inside a worker process)."""
     c = con()
     c.execute("SET threads=2")
-    c.execute("SET memory_limit='2GB'")
+    c.execute("SET memory_limit='1GB'")
     t = time.time()
     try:
         cur = c.execute(sql)
@@ -333,17 +341,54 @@ def _validate_row(r):
         res["error"] = "forbidden statement"
         return res
     # Each query runs in its own process, so a crash, memory blow-up or hang only fails that query.
-    try:
-        p = subprocess.run([sys.executable, "-I", __file__, "exec1"], input=sql, capture_output=True,
-                           text=True, timeout=QUERY_TIMEOUT_S + 10)
-    except subprocess.TimeoutExpired:
-        res["error"] = f"timeout >{QUERY_TIMEOUT_S}s"
+    rc, out, err, killed = run_capped([sys.executable, "-I", __file__, "exec1"], sql, QUERY_TIMEOUT_S + 10)
+    if killed:
+        res["error"] = f"timeout >{QUERY_TIMEOUT_S}s" if killed == "timeout" else killed
         return res
-    if p.returncode != 0 or not p.stdout.strip():
-        res["error"] = f"crash (exit {p.returncode}): {p.stderr.strip().splitlines()[-1][:150] if p.stderr.strip() else ''}"
+    if rc != 0 or not out.strip():
+        res["error"] = f"crash (exit {rc}): {err.strip().splitlines()[-1][:150] if err.strip() else ''}"
         return res
-    res.update(json.loads(p.stdout))
+    res.update(json.loads(out))
     return res
+
+
+def run_capped(cmd, stdin_text, timeout, rss_cap_mb=None):
+    """Run a query subprocess, killing it past `timeout` seconds or the RSS cap.
+
+    Returns (returncode, stdout, stderr, killed) with killed None, "timeout" or "memory >N MB".
+    """
+    cap = rss_cap_mb or QUERY_RSS_CAP_MB
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    killed = None
+
+    def watch():
+        nonlocal killed
+        t0 = time.time()
+        while p.poll() is None:
+            if time.time() - t0 > timeout:
+                killed = "timeout"
+            elif _rss_mb(p.pid) > cap:
+                killed = f"memory >{cap} MB"
+            if killed:
+                p.kill()
+                return
+            time.sleep(0.05)
+
+    w = threading.Thread(target=watch, daemon=True)
+    w.start()
+    out, err = p.communicate(stdin_text)
+    w.join()
+    return p.returncode, out, err, killed
+
+
+def _rss_mb(pid):
+    try:
+        for line in open(f"/proc/{pid}/status"):
+            if line.startswith("VmRSS:"):
+                return int(line.split()[1]) / 1024
+    except OSError:
+        pass
+    return 0
 
 
 def validate(path):

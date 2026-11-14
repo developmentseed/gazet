@@ -73,7 +73,7 @@ def compare_results(gold_sql, pred_sql, limit=2000):
     """Run both queries (in this process) and compare result sets, ignoring row and column order."""
     c = harness.con()
     c.execute("SET threads=2")
-    c.execute("SET memory_limit='2GB'")
+    c.execute("SET memory_limit='1GB'")
     g = c.execute(gold_sql).fetchmany(limit)
     try:
         cur = c.execute(pred_sql)
@@ -97,12 +97,16 @@ def compare_results(gold_sql, pred_sql, limit=2000):
 def _compare_isolated(pair):
     if not pair.get("solver_sql"):
         return dict(pair, exact=False, lenient=False, pred_error="no solver sql")
-    try:
-        proc = subprocess.run([sys.executable, "-I", __file__, "compare"], capture_output=True, text=True, timeout=90,
-                              input=json.dumps({"gold": pair["sql"].strip().rstrip(";"), "pred": pair["solver_sql"]}))
-        out = json.loads(proc.stdout) if proc.returncode == 0 and proc.stdout.strip() else dict(exact=False, lenient=False, pred_error=f"crash (exit {proc.returncode})")
-    except subprocess.TimeoutExpired:
-        out = dict(exact=False, lenient=False, pred_error="timeout")
+    # Two queries run in this child, so it gets twice the single-query memory cap.
+    rc, so, _, killed = harness.run_capped([sys.executable, "-I", __file__, "compare"],
+                                           json.dumps({"gold": pair["sql"].strip().rstrip(";"), "pred": pair["solver_sql"]}),
+                                           90, 2 * harness.QUERY_RSS_CAP_MB)
+    if killed:
+        out = dict(exact=False, lenient=False, pred_error=killed)
+    elif rc == 0 and so.strip():
+        out = json.loads(so)
+    else:
+        out = dict(exact=False, lenient=False, pred_error=f"crash (exit {rc})")
     return dict(pair, **out)
 
 
@@ -149,11 +153,9 @@ def limit_tie(sql):
 
 
 def _isolated(mode, payload, timeout=90):
-    try:
-        proc = subprocess.run([sys.executable, "-I", __file__, mode], capture_output=True, text=True, timeout=timeout, input=payload)
-        return json.loads(proc.stdout) if proc.returncode == 0 and proc.stdout.strip() else None
-    except subprocess.TimeoutExpired:
-        return None
+    rc, out, _, killed = harness.run_capped([sys.executable, "-I", __file__, mode], payload, timeout,
+                                            2 * harness.QUERY_RSS_CAP_MB)
+    return json.loads(out) if not killed and rc == 0 and out.strip() else None
 
 
 def _tie_isolated(pair):
@@ -167,7 +169,7 @@ def run(path):
     judged = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
     # Generated files carry the generator only in their name (out_<model>__<tag>); the solver must be another family.
     cands = [dict(r, source=r.get("source") or path.name) for r in judged if r["judge"] == "correct"]
-    with ThreadPoolExecutor(4) as ex:
+    with ThreadPoolExecutor(harness.COMPARE_WORKERS) as ex:
         compared = list(ex.map(_compare_isolated, solve(cands)))
         compared = list(ex.map(_tie_isolated, compared))
     outp = path.with_suffix(".consistency.jsonl")
@@ -183,7 +185,7 @@ def calibrate():
     # Reuse the judge calibration file: same 215 labelled pairs, already re-executed, with MiniMax verdicts.
     judged = [json.loads(line) for line in (HERE / "runs" / "judge_calibration_minimax__minimax-m3.jsonl").read_text().splitlines()]
     solved = solve(judged)
-    with ThreadPoolExecutor(4) as ex:
+    with ThreadPoolExecutor(harness.COMPARE_WORKERS) as ex:
         compared = list(ex.map(_compare_isolated, solved))
     (HERE / "runs" / "consistency_calibration.jsonl").write_text("\n".join(json.dumps(r, default=str) for r in compared))
     print(f"solver cost ${sum(r['solver_cost'] for r in compared):.3f}; solver SQL failed to run: "

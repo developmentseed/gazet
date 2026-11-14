@@ -101,7 +101,7 @@ def run(args):
 
     with ThreadPoolExecutor(1 if args.port else 8) as ex:
         answered = list(ex.map(one, todo))
-    with ThreadPoolExecutor(4) as ex:
+    with ThreadPoolExecutor(harness.COMPARE_WORKERS) as ex:
         compared = list(ex.map(consistency._compare_isolated, answered))
     rows = list(done.values()) + [dict(r, pred_sql=r.pop("solver_sql")) for r in compared]
     order = {p["id"]: i for i, p in enumerate(pairs)}

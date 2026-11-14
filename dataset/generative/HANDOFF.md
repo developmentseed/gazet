@@ -111,6 +111,9 @@ executing `sql` and its prediction on the lake and comparing with `consistency.c
   (`out_<model>__<tag>...`) to pick a cross-family solver, so keep that naming.
 - Reasoning models use 5-15k reasoning tokens per call; keep `max_tokens` at 32k.
 - Background shell loops: don't `pgrep -f` a pattern that appears in your own command line (it loops forever).
+- The VM has ~6 GB free and no swap. DuckDB's `memory_limit` does not cap GEOS allocations: one generated query reached
+  13.5 GB and the OOM killer took the whole session down (twice, 2026-11-12/13). `harness.validate` now kills any
+  query process above `GAZET_QUERY_RSS_MB` (default 1200). Launch long jobs with `setsid nohup ... < /dev/null &`.
 
 ## Repo map (`dataset/generative/`)
 
