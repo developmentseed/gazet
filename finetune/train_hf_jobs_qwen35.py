@@ -10,7 +10,10 @@
 #     "huggingface_hub",
 # ]
 # ///
-"""Hugging Face Jobs training script for the generative SQL student: Qwen3.5 LoRA with Unsloth.
+"""Hugging Face Jobs training script for the generative SQL student: LoRA (or full, --full) with Unsloth.
+
+Any ChatML or Gemma chat model works as --base-model (Qwen3.5, Qwen3, Qwen2.5-Coder, LFM2, Gemma 3, SmolLM2);
+the response markers and the inference prompt are read from the model's own chat template.
 
 Same recipe as train_modal_qwen35.py, but the data comes from the private dataset
 developmentseed/gazet-generative-sql (built by dataset/generative/export.py) and everything the run
@@ -48,9 +51,31 @@ MODEL_REPO = "developmentseed/gazet-sql-qwen35"
 # flash-linear-attention gives the fast kernels for Qwen3.5's linear-attention layers; without it transformers
 # falls back to a slow torch implementation (about 2 s per generated answer on an A100).
 
-# Qwen3.5 renders an empty think block before non-thinking answers; train only on tokens after it.
-INSTRUCTION_PART = "<|im_start|>user\n"
-RESPONSE_PART = "<|im_start|>assistant\n<think>\n\n</think>\n\n"
+_ANS = "\x00ANSWER\x00"
+
+
+def chat_markers(tokenizer):
+    """(instruction_part, response_part) for train_on_responses_only, read from the model's own chat template.
+
+    Supports ChatML (Qwen, LFM2, SmolLM) and Gemma. The response part is everything the template puts between the
+    assistant header and the answer, so Qwen3.5/Qwen3's empty think block is included.
+    """
+    full = tokenizer.apply_chat_template([{"role": "user", "content": "Q"}, {"role": "assistant", "content": _ANS}],
+                                         tokenize=False)
+    pre = full[:full.index(_ANS)]
+    for user, assistant in (("<|im_start|>user\n", "<|im_start|>assistant\n"), ("<start_of_turn>user\n", "<start_of_turn>model\n")):
+        if user in pre and assistant in pre:
+            return user, pre[pre.rindex(assistant):]
+    raise SystemExit(f"unknown chat template: {full!r}")
+
+
+def prompt_text(tokenizer, messages):
+    """The exact training-format text up to the answer, so inference and training never differ.
+
+    (add_generation_prompt is not enough: Qwen3 omits the empty think block it renders in training text.)
+    """
+    full = tokenizer.apply_chat_template(messages + [{"role": "assistant", "content": _ANS}], tokenize=False)
+    return full[:full.index(_ANS)]
 
 
 def load_jsonl(path):
@@ -62,12 +87,13 @@ def generate(model, tokenizer, rows, batch_size, max_new_tokens):
     import torch
 
     tokenizer.padding_side = "left"
-    texts = [tokenizer.apply_chat_template(r["messages"], tokenize=False, add_generation_prompt=True) for r in rows]
+    texts = [prompt_text(tokenizer, r["messages"]) for r in rows]
     order = sorted(range(len(rows)), key=lambda i: len(texts[i]))
     out = [None] * len(rows)
     for start in range(0, len(order), batch_size):
         idx = order[start:start + batch_size]
-        enc = tokenizer([texts[i] for i in idx], return_tensors="pt", padding=True).to(model.device)
+        # The template text already holds any BOS token; do not add a second one.
+        enc = tokenizer([texts[i] for i in idx], return_tensors="pt", padding=True, add_special_tokens=False).to(model.device)
         t0 = time.time()
         with torch.no_grad():
             gen = model.generate(**enc, max_new_tokens=max_new_tokens, do_sample=False,
@@ -94,6 +120,7 @@ def main():
     ap.add_argument("--max-train-samples", type=int)
     ap.add_argument("--max-eval-prompts", type=int)
     ap.add_argument("--seed", type=int, default=108)
+    ap.add_argument("--full", action="store_true", help="full fine-tuning instead of LoRA (for sub-1B models)")
     a = ap.parse_args()
 
     from huggingface_hub import HfApi, snapshot_download
@@ -109,16 +136,31 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     model, processor = FastLanguageModel.from_pretrained(
-        a.base_model, max_seq_length=a.max_seq_length, load_in_4bit=False,
+        a.base_model, max_seq_length=a.max_seq_length, load_in_4bit=False, full_finetuning=a.full,
         use_gradient_checkpointing="unsloth", fast_inference=False,
     )
     tokenizer = getattr(processor, "tokenizer", processor)
-    model = FastLanguageModel.get_peft_model(
-        model, r=a.lora_r, lora_alpha=2 * a.lora_r, lora_dropout=0.0,
-        finetune_vision_layers=False, finetune_language_layers=True,
-        finetune_attention_modules=True, finetune_mlp_modules=True,
-        bias="none", random_state=a.seed, use_gradient_checkpointing=False,
-    )
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    instruction_part, response_part = chat_markers(tokenizer)
+    print(f"markers: {instruction_part!r} -> {response_part!r}")
+    if a.full:
+        pass
+    elif "qwen3.5" in a.base_model.lower():  # multimodal checkpoint: pick the language layers by group
+        model = FastLanguageModel.get_peft_model(
+            model, r=a.lora_r, lora_alpha=2 * a.lora_r, lora_dropout=0.0,
+            finetune_vision_layers=False, finetune_language_layers=True,
+            finetune_attention_modules=True, finetune_mlp_modules=True,
+            bias="none", random_state=a.seed, use_gradient_checkpointing=False,
+        )
+    else:  # text-only models: every linear layer except the output head (names differ per family, e.g. LFM2)
+        import torch
+        names = sorted({n.split(".")[-1] for n, m in model.named_modules() if isinstance(m, torch.nn.Linear)} - {"lm_head"})
+        print(f"LoRA target modules: {names}")
+        model = FastLanguageModel.get_peft_model(
+            model, r=a.lora_r, lora_alpha=2 * a.lora_r, lora_dropout=0.0, target_modules=names,
+            bias="none", random_state=a.seed, use_gradient_checkpointing=False,
+        )
 
     def as_text(rows):
         return Dataset.from_list([{"text": tokenizer.apply_chat_template(r["messages"], tokenize=False)} for r in rows])
@@ -143,14 +185,15 @@ def main():
             dataset_num_proc=8, seed=a.seed,
         ),
     )
-    trainer = train_on_responses_only(trainer, instruction_part=INSTRUCTION_PART, response_part=RESPONSE_PART)
+    trainer = train_on_responses_only(trainer, instruction_part=instruction_part, response_part=response_part)
     t0 = time.time()
     trainer.train()
     train_minutes = (time.time() - t0) / 60
     print(f"training took {train_minutes:.1f} min")
 
-    model.save_pretrained(str(out / "adapter"))
-    tokenizer.save_pretrained(str(out / "adapter"))
+    if not a.full:
+        model.save_pretrained(str(out / "adapter"))
+        tokenizer.save_pretrained(str(out / "adapter"))
     (out / "log_history.json").write_text(json.dumps(trainer.state.log_history, indent=1))
 
     FastLanguageModel.for_inference(model)
@@ -162,7 +205,11 @@ def main():
         (out / "predictions" / f.name).write_text("".join(json.dumps(p, ensure_ascii=False) + "\n" for p in preds))
         print(f"{f.name}: {len(preds)} answers in {time.time() - t0:.0f} s; first: {preds[0]['text'][:200]!r}")
 
-    model.save_pretrained_merged(str(out / "merged"), tokenizer, save_method="merged_16bit")
+    if a.full:
+        model.save_pretrained(str(out / "merged"))
+        tokenizer.save_pretrained(str(out / "merged"))
+    else:
+        model.save_pretrained_merged(str(out / "merged"), tokenizer, save_method="merged_16bit")
     (out / "config.json").write_text(json.dumps(dict(vars(a), train_rows=len(train), train_minutes=round(train_minutes, 1)), indent=1))
 
     api = HfApi()
