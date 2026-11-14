@@ -31,7 +31,8 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | ChatML export | done | `export.py`: 19,419 train + 755 val (dev) pairs, a third with value hints; 612 pairs dropped that need unseen info. On HF at `chatml/v1/` (train, val and the test prompts in `eval/`) |
 | First fine-tune | done | 0.8B LoRA, 20 min on HF Jobs: dev 69%, gold 44% (48% with hints) lenient; GGUF in `developmentseed/gazet-sql-qwen35/sql-v1-r16/gguf` (`REVIEW.md`) |
 | Demo app | done, not hosted | `demo/` (Gradio + llama-server + DuckDB, runs locally); Docker Spaces need a paid HF plan |
-| **Schema variety** | **next** | base-model baseline on gold, then plan steps 4-6: perturbed schemas and new tables to close the dev-gold gap |
+| Schema variety (v2) | done | 15 new tables (`build_lake_more.py`), 8 chunks via `train_v2.sh` (~$92 key total); gold v2 (158 pairs, 2 held-out tables), dev v2 (`dev/dev_new_v1.jsonl`, 313 pairs); export `chatml/v2` 30,660 train + 1,068 val, `chatml/v2_cap250` 18,528 |
+| **Size sweep (v2)** | **running** | 9 HF Jobs in `runs/v2/train_jobs.txt` (status: `runs/v2/jobs_status.sh`): Qwen3.5 2B, 0.8B x3 (full/half/cap250), Qwen3-0.6B, Qwen2.5-Coder-0.5B, LFM2.5-350M, Gemma 3 270M, SmolLM2-135M; LoRA (r64 below 0.8B), seq 3072. Daniel's goal: the smallest useful "system 1" model, pushing down not up. Full fine-tuning was 6-15x slower than LoRA on the tiny models, so it is not used. Next: score all on dev/gold/gold2, GGUF + laptop latency, error analysis, then RL; diffusion side test (dLLM Qwen3-0.6B) later |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**
