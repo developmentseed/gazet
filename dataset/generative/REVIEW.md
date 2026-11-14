@@ -116,3 +116,34 @@ For comparison on gold: Mistral Large 4.0 83.3, gpt-oss-120b 56.4, Qwen3 Coder N
 
 Should the student input carry value hints (matched rows from a lookup, as gazet's candidates do)?
 If yes, the ~750 hidden-value pairs become trainable instead of being dropped.
+
+## Size sweep v2 (2026-11-14)
+
+Training set v2 (`chatml/v2`, 30,660 pairs, 15 new tables) on nine base models, HF Jobs A100, 2 epochs, seq 3072,
+LoRA (r16 for Qwen3.5, r64 below 0.8B; full fine-tuning was 6-15x slower on the tiny models). Scores are lenient
+execution match, plain prompts, all pairs; laptop columns are q8_0 GGUF via llama-server, 6 threads, on 60 gold v1
+questions (wide intervals, about +-12 points). Full tables: `eval/sweep_v2/report.txt`; per-pair scores in the HF dataset under `eval/sweep_v2/`.
+
+| Model | Params | Dev v1 | Dev v2 | Gold v1 | Gold v2 | Laptop s/query | RAM |
+|---|---|---|---|---|---|---|---|
+| v1 0.8B (reference) | 0.8B | 69 | - | 44 | 13 | - | - |
+| Qwen3.5-2B | 2B | 79 | 73 | 59 | 63 | 12.4 | 4.2 GB |
+| Qwen3.5-0.8B | 0.8B | 72 | 63 | 48 | 41 | 6.8 | 1.8 GB |
+| Qwen3.5-0.8B, half data | 0.8B | 65 | 55 | 47 | 37 | 7.1 | 1.8 GB |
+| Qwen3.5-0.8B, cap 250 | 0.8B | 66 | 59 | 47 | 40 | 7.2 | 1.8 GB |
+| Qwen3-0.6B | 0.6B | 75 | 68 | 48 | 46 | 4.1 | 1.8 GB |
+| Qwen2.5-Coder-0.5B | 0.5B | 72 | 64 | 48 | 35 | 2.5 | 1.1 GB |
+| LFM2.5-350M | 350M | 67 | 59 | 33 | 32 | 2.8 | 0.8 GB |
+| Gemma 3 270M | 270M | 54 | 41 | 19 | 18 | 4.1 | 0.7 GB |
+| SmolLM2-135M | 135M | 36 | 26 | 12 | 11 | 1.3 | 0.4 GB |
+
+Findings:
+- The new tables close most of the gold v2 gap (0.8B: 13% -> 41%). Half the data is worse on every test, so more
+  data still helps; capping at 250 per bundle does not help.
+- Qwen3-0.6B matches the 0.8B; Qwen2.5-Coder-0.5B matches it on gold v1 and is 2.7x faster on the laptop, the best
+  "system 1" candidate. Below 0.5B, unseen-table accuracy falls off a cliff (LFM2.5 keeps dev but not gold).
+- Parameter count misleads on speed: Qwen3.5's linear-attention layers are slow on this ARM CPU, Gemma's 262k
+  vocabulary costs time. q4_k_m is not faster than q8_0 here and loses accuracy; ship q8_0.
+
+Next: pass@8 on Coder-0.5B and Qwen3-0.6B to size the RL headroom; distillation from the 2B as the cheap alternative;
+2B as the fallback ("system 2") when the small model's SQL fails; diffusion side test on Qwen3-0.6B.

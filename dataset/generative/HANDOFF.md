@@ -32,7 +32,8 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | First fine-tune | done | 0.8B LoRA, 20 min on HF Jobs: dev 69%, gold 44% (48% with hints) lenient; GGUF in `developmentseed/gazet-sql-qwen35/sql-v1-r16/gguf` (`REVIEW.md`) |
 | Demo app | done, not hosted | `demo/` (Gradio + llama-server + DuckDB, runs locally); Docker Spaces need a paid HF plan |
 | Schema variety (v2) | done | 15 new tables (`build_lake_more.py`), 8 chunks via `train_v2.sh` (~$92 key total); gold v2 (158 pairs, 2 held-out tables), dev v2 (`dev/dev_new_v1.jsonl`, 313 pairs); export `chatml/v2` 30,660 train + 1,068 val, `chatml/v2_cap250` 18,528 |
-| **Size sweep (v2)** | **running** | 9 HF Jobs in `runs/v2/train_jobs.txt` (status: `runs/v2/jobs_status.sh`): Qwen3.5 2B, 0.8B x3 (full/half/cap250), Qwen3-0.6B, Qwen2.5-Coder-0.5B, LFM2.5-350M, Gemma 3 270M, SmolLM2-135M; LoRA (r64 below 0.8B), seq 3072. Daniel's goal: the smallest useful "system 1" model, pushing down not up. Full fine-tuning was 6-15x slower than LoRA on the tiny models, so it is not used. Next: score all on dev/gold/gold2, GGUF + laptop latency, error analysis, then RL; diffusion side test (dLLM Qwen3-0.6B) later |
+| Size sweep (v2) | done | 9 models, results in `REVIEW.md` ("Size sweep v2") and `eval/sweep_v2/`: Qwen2.5-Coder-0.5B best speed/quality (gold v1 48%, 2.5 s/query on the laptop), Qwen3-0.6B best small on gold v2 (46%), 2B best overall (59/63%); below 0.5B unusable |
+| **RL headroom** | **next** | pass@8 on Coder-0.5B and Qwen3-0.6B, then RL or distillation from the 2B |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**
