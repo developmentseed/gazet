@@ -1,0 +1,38 @@
+[
+  {
+    "question": "top 10 most common place categories in Lisbon",
+    "sql": "SELECT basic_category, COUNT(*) AS count FROM lisbon_places GROUP BY basic_category ORDER BY count DESC LIMIT 10",
+    "skills": ["GROUP BY", "COUNT", "ORDER BY", "LIMIT"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "places within 500 meters of Belém Tower",
+    "sql": "WITH belem_tower AS (SELECT geometry FROM lisbon_places WHERE names.primary = 'Belém Tower' OR names.primary = 'Torre de Belém') SELECT p.names.primary, ST_Distance(ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3857'), ST_Transform(bt.geometry, 'EPSG:4326', 'EPSG:3857')) AS distance_m FROM lisbon_places p, belem_tower bt WHERE ST_Distance(ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3857'), ST_Transform(bt.geometry, 'EPSG:4326', 'EPSG:3857')) <= 500 AND p.names.primary IS NOT NULL",
+    "skills": ["CTE", "ST_Transform", "ST_Distance", "WHERE", "DISTINCT"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "number of open restaurants per district-like locality",
+    "sql": "SELECT TRIM(SPLIT_PART(addresses[1].locality, ',', 1)) AS locality, COUNT(*) AS restaurant_count FROM lisbon_places WHERE operating_status = 'open' AND basic_category = 'restaurant' AND addresses[1].locality IS NOT NULL GROUP BY locality ORDER BY restaurant_count DESC",
+    "skills": ["GROUP BY", "COUNT", "TRIM", "SPLIT_PART", "WHERE"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "major cultural landmarks with website but no phone",
+    "sql": "SELECT names.primary, websites FROM lisbon_places WHERE taxonomy.primary IN ('historic_site', 'cultural_and_historic') AND CARDINALITY(websites) > 0 AND (phones IS NULL OR CARDINALITY(phones) = 0)",
+    "skills": ["WHERE", "CARDINALITY", "IN"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "find clusters of cafes using spatial grouping",
+    "sql": "SELECT ST_AsText(ST_Centroid(ST_Collect(geometry))) AS cluster_center, COUNT(*) AS cafe_count FROM lisbon_places WHERE basic_category = 'cafe' OR basic_category = 'coffee_shop' GROUP BY ROUND(ST_X(geometry)::DOUBLE/0.001), ROUND(ST_Y(geometry)::DOUBLE/0.001) HAVING COUNT(*) >= 3",
+    "skills": ["ST_Centroid", "ST_Collect", "ROUND", "GROUP BY", "HAVING"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "operational status distribution by category for tourism-related points",
+    "sql": "SELECT basic_category, operating_status, COUNT(*) AS count FROM lisbon_places WHERE taxonomy.hierarchy[1] = 'cultural_and_historic' OR basic_category IN ('hotel', 'tourist_attraction', 'museum') GROUP BY basic_category, operating_status QUALIFY COUNT(*) > 5 ORDER BY basic_category, count DESC",
+    "skills": ["GROUP BY", "COUNT", "WHERE", "QUALIFY", "ORDER BY"],
+    "difficulty": "medium"
+  }
+]

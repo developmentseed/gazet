@@ -1,0 +1,1 @@
+{"id": "s23_003", "tables": ["populated_places"], "skill": "measurement in real units (area/length via ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS)", "difficulty": "easy", "style": "questions phrased as tasks ('give me', 'list', 'map', 'compare')", "k": 6}

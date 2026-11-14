@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Among places with operating_status 'open' within 2 kilometres of the point at longitude -9.141 and latitude 38.7134, how many places are in each basic_category? Return only categories with at least 5 places, ordered by place count descending and then category name.",
+    "sql": "SELECT basic_category,\n       count(*) AS place_count\nFROM lisbon_places\nWHERE operating_status = 'open'\n  AND ST_DWithin_Spheroid(geometry, ST_Point(-9.141, 38.7134), 2000)\nGROUP BY basic_category\nHAVING count(*) >= 5\nORDER BY place_count DESC, basic_category;",
+    "skills": ["spatial_filter", "group_by", "having"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each basic_category with at least 3 open places within 3 kilometres of the point at longitude -9.1532 and latitude 38.7246, identify the closest open place to that point. Return the category, the place name, and its distance in metres, rounded to one decimal, ordered by distance then category.",
+    "sql": "WITH nearby AS (\n  SELECT basic_category,\n         names.\"primary\" AS place_name,\n         ST_Distance_Sphere(geometry, ST_Point(-9.1532, 38.7246)) AS distance_m\n  FROM lisbon_places\n  WHERE operating_status = 'open'\n    AND ST_DWithin_Spheroid(geometry, ST_Point(-9.1532, 38.7246), 3000)\n),\ncategory_counts AS (\n  SELECT basic_category,\n         count(*) AS place_count\n  FROM nearby\n  GROUP BY basic_category\n  HAVING count(*) >= 3\n)\nSELECT n.basic_category,\n       n.place_name,\n       round(n.distance_m, 1) AS distance_m\nFROM nearby n\nJOIN category_counts c USING (basic_category)\nQUALIFY row_number() OVER (PARTITION BY n.basic_category ORDER BY n.distance_m, n.place_name) = 1\nORDER BY distance_m, n.basic_category;",
+    "skills": ["cte", "spatial_distance", "qualify", "window_function"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each basic_category with at least 10 open places, what is the average confidence and the percentage of those open places with confidence at least 0.8? Return the category, open place count, average confidence rounded to 3 decimals, and high-confidence percentage rounded to 1 decimal, ordered by high-confidence percentage descending then category.",
+    "sql": "SELECT basic_category,\n       count(*) AS open_place_count,\n       round(avg(confidence), 3) AS avg_confidence,\n       round(100.0 * sum(CASE WHEN confidence >= 0.8 THEN 1 ELSE 0 END) / count(*), 1) AS pct_high_confidence\nFROM lisbon_places\nWHERE operating_status = 'open'\nGROUP BY basic_category\nHAVING count(*) >= 10\nORDER BY pct_high_confidence DESC, basic_category;",
+    "skills": ["group_by", "having", "case", "aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For the five basic categories with the most places overall, show the total number of places, the counts for each operating_status value, and the percentage of places that are permanently closed. Order by total places descending and then category.",
+    "sql": "WITH top_categories AS (\n  SELECT basic_category,\n         count(*) AS total_places\n  FROM lisbon_places\n  GROUP BY basic_category\n  ORDER BY total_places DESC, basic_category\n  LIMIT 5\n)\nSELECT p.basic_category,\n       count(*) AS total_places,\n       sum(CASE WHEN p.operating_status = 'open' THEN 1 ELSE 0 END) AS open_count,\n       sum(CASE WHEN p.operating_status = 'permanently_closed' THEN 1 ELSE 0 END) AS permanently_closed_count,\n       sum(CASE WHEN p.operating_status = 'temporarily_closed' THEN 1 ELSE 0 END) AS temporarily_closed_count,\n       round(100.0 * sum(CASE WHEN p.operating_status = 'permanently_closed' THEN 1 ELSE 0 END) / count(*), 1) AS pct_permanently_closed\nFROM lisbon_places p\nJOIN top_categories t USING (basic_category)\nGROUP BY p.basic_category\nORDER BY total_places DESC, p.basic_category;",
+    "skills": ["cte", "case", "group_by", "join"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For open places within 2 kilometres of the point at longitude -9.1246 and latitude 38.718, count how many fall into each 500-metre distance band from that point. Return the distance band label and count, ordered by band starting distance.",
+    "sql": "WITH distances AS (\n  SELECT ST_Distance_Sphere(geometry, ST_Point(-9.1246, 38.718)) AS distance_m\n  FROM lisbon_places\n  WHERE operating_status = 'open'\n    AND ST_DWithin_Spheroid(geometry, ST_Point(-9.1246, 38.718), 2000)\n)\nSELECT CASE\n         WHEN distance_m < 500 THEN '0-500 m'\n         WHEN distance_m < 1000 THEN '500-1000 m'\n         WHEN distance_m < 1500 THEN '1000-1500 m'\n         ELSE '1500-2000 m'\n       END AS distance_band,\n       count(*) AS place_count\nFROM distances\nGROUP BY distance_band\nORDER BY min(distance_m);",
+    "skills": ["cte", "spatial_distance", "case", "group_by"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Among open places whose taxonomy primary type is 'historic_site', how many are there per basic_category, and what is their average confidence? Return only categories with at least 2 such places, ordered by count descending then category.",
+    "sql": "SELECT basic_category,\n       count(*) AS historic_site_count,\n       round(avg(confidence), 3) AS avg_confidence\nFROM lisbon_places\nWHERE operating_status = 'open'\n  AND taxonomy.\"primary\" = 'historic_site'\nGROUP BY basic_category\nHAVING count(*) >= 2\nORDER BY historic_site_count DESC, basic_category;",
+    "skills": ["taxonomy", "group_by", "having", "aggregation"],
+    "difficulty": "medium"
+  }
+]

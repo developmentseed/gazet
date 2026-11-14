@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "SiliconFlow",
+  "wall_s": 192.6,
+  "prompt_tokens": 1359,
+  "completion_tokens": 8704,
+  "reasoning_tokens": 8142,
+  "cost": 0.02864604
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "Alibaba",
+  "wall_s": 67.9,
+  "prompt_tokens": 905,
+  "completion_tokens": 4631,
+  "reasoning_tokens": 3916,
+  "cost": 0.01586052
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "StreamLake",
+  "wall_s": 49.1,
+  "prompt_tokens": 1238,
+  "completion_tokens": 2245,
+  "reasoning_tokens": 1704,
+  "cost": 0.004365119382
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "Alibaba",
+  "wall_s": 75.3,
+  "prompt_tokens": 1058,
+  "completion_tokens": 5444,
+  "reasoning_tokens": 4601,
+  "cost": 0.01863576
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "Alibaba",
+  "wall_s": 79.3,
+  "prompt_tokens": 855,
+  "completion_tokens": 6179,
+  "reasoning_tokens": 4817,
+  "cost": 0.02061228
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "SiliconFlow",
+  "wall_s": 118.1,
+  "prompt_tokens": 891,
+  "completion_tokens": 4883,
+  "reasoning_tokens": 4129,
+  "cost": 0.016199205
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "Novita",
+  "wall_s": 75.3,
+  "prompt_tokens": 913,
+  "completion_tokens": 4134,
+  "reasoning_tokens": 3306,
+  "cost": 0.0146896
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "Alibaba",
+  "wall_s": 43.2,
+  "prompt_tokens": 844,
+  "completion_tokens": 3245,
+  "reasoning_tokens": 2726,
+  "cost": 0.01144104
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "SiliconFlow",
+  "wall_s": 507.6,
+  "prompt_tokens": 1465,
+  "completion_tokens": 22173,
+  "reasoning_tokens": 21119,
+  "cost": 0.070977355
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "Alibaba",
+  "wall_s": 74.4,
+  "prompt_tokens": 966,
+  "completion_tokens": 5921,
+  "reasoning_tokens": 4662,
+  "cost": 0.01998048
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "GMICloud",
+  "wall_s": 320.4,
+  "prompt_tokens": 643,
+  "completion_tokens": 19602,
+  "reasoning_tokens": 17886,
+  "cost": 0.038133579
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "Novita",
+  "wall_s": 151.1,
+  "prompt_tokens": 832,
+  "completion_tokens": 12403,
+  "reasoning_tokens": 11221,
+  "cost": 0.03989568
+ }
+]

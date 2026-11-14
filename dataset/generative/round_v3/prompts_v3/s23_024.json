@@ -1,0 +1,1 @@
+{"id": "s23_024", "tables": ["countries", "lakes"], "skill": "geometry construction and overlay (ST_Buffer, ST_Union_Agg, ST_Intersection, ST_Difference, ST_ConvexHull, ST_Centroid)", "difficulty": "easy", "style": "full natural sentences from a non-technical user who does not know column names", "k": 6}

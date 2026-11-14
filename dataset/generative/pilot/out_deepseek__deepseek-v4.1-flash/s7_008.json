@@ -1,0 +1,38 @@
+[
+  {
+    "question": "I’m looking at yellow taxi activity in January 2024 and want to know how many pickups started inside the rectangle roughly covering Midtown Manhattan, between 74.00W and 73.95W longitude and 40.74N and 40.77N latitude. Can you count those trips?",
+    "sql": "WITH area AS (SELECT ST_MakeEnvelope(-74.00, 40.74, -73.95, 40.77) AS geom) SELECT COUNT(*) AS pickup_count FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id CROSS JOIN area a WHERE t.tpep_pickup_datetime >= TIMESTAMP '2024-01-01 00:00:00' AND t.tpep_pickup_datetime < TIMESTAMP '2024-02-01 00:00:00' AND ST_Intersects(z.geometry, a.geom);",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "join", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For yellow taxi trips in January 2024 that ended near JFK Airport, how much was the average fare and what was the average trip distance? Use a box from 73.80W to 73.75W and 40.62N to 40.66N.",
+    "sql": "WITH area AS (SELECT ST_MakeEnvelope(-73.80, 40.62, -73.75, 40.66) AS geom) SELECT AVG(t.fare_amount) AS avg_fare, AVG(t.trip_distance) AS avg_distance FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.DOLocationID = z.location_id CROSS JOIN area a WHERE t.tpep_dropoff_datetime >= TIMESTAMP '2024-01-01 00:00:00' AND t.tpep_dropoff_datetime < TIMESTAMP '2024-02-01 00:00:00' AND ST_Intersects(z.geometry, a.geom);",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "aggregation", "join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Can you show me the shapes and names of taxi zones that at least partly fall inside the rectangle around Central Park from 73.98W to 73.95W and 40.76N to 40.80N? I want the output as map-ready GeoJSON.",
+    "sql": "WITH area AS (SELECT ST_MakeEnvelope(-73.98, 40.76, -73.95, 40.80) AS geom) SELECT z.zone, z.borough, ST_AsGeoJSON(z.geometry) AS geom_geojson FROM nyc_taxi_zones z CROSS JOIN area a WHERE ST_Intersects(z.geometry, a.geom) ORDER BY z.borough, z.zone;",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "ST_AsGeoJSON"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the overall bounding box — west, south, east, and north — of all taxi zones where at least one yellow taxi pickup happened in January 2024?",
+    "sql": "WITH pickup_zones AS (SELECT DISTINCT z.geometry FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE t.tpep_pickup_datetime >= TIMESTAMP '2024-01-01 00:00:00' AND t.tpep_pickup_datetime < TIMESTAMP '2024-02-01 00:00:00'), extent AS (SELECT ST_Extent(geometry) AS geom FROM pickup_zones) SELECT ST_XMin(geom) AS west, ST_YMin(geom) AS south, ST_XMax(geom) AS east, ST_YMax(geom) AS north FROM extent;",
+    "skills": ["ST_Extent", "ST_XMin", "ST_YMin", "ST_XMax", "ST_YMax", "join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How many yellow taxi trips in January 2024 both started and ended inside the rectangle around downtown Brooklyn, from 74.00W to 73.95W and 40.68N to 40.70N?",
+    "sql": "WITH area AS (SELECT ST_MakeEnvelope(-74.00, 40.68, -73.95, 40.70) AS geom) SELECT COUNT(*) AS trip_count FROM nyc_taxi_trips t JOIN nyc_taxi_zones pz ON t.PULocationID = pz.location_id JOIN nyc_taxi_zones dz ON t.DOLocationID = dz.location_id CROSS JOIN area a WHERE t.tpep_pickup_datetime >= TIMESTAMP '2024-01-01 00:00:00' AND t.tpep_pickup_datetime < TIMESTAMP '2024-02-01 00:00:00' AND ST_Intersects(pz.geometry, a.geom) AND ST_Intersects(dz.geometry, a.geom);",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "multiple joins", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which taxi zones have a bounding box that overlaps the rectangle from 74.02W to 73.97W and 40.70N to 40.72N, and how many yellow taxi pickups started in those zones during January 2024? Show the zone name, borough, and pickup count.",
+    "sql": "WITH rect AS (SELECT -74.02 AS xmin, 40.70 AS ymin, -73.97 AS xmax, 40.72 AS ymax), zones_in_bbox AS (SELECT z.location_id, z.zone, z.borough FROM nyc_taxi_zones z CROSS JOIN rect r WHERE ST_XMax(z.geometry) >= r.xmin AND ST_XMin(z.geometry) <= r.xmax AND ST_YMax(z.geometry) >= r.ymin AND ST_YMin(z.geometry) <= r.ymax) SELECT zb.zone, zb.borough, COUNT(*) AS pickup_count FROM zones_in_bbox zb JOIN nyc_taxi_trips t ON t.PULocationID = zb.location_id AND t.tpep_pickup_datetime >= TIMESTAMP '2024-01-01 00:00:00' AND t.tpep_pickup_datetime < TIMESTAMP '2024-02-01 00:00:00' GROUP BY zb.zone, zb.borough ORDER BY pickup_count DESC, zb.zone;",
+    "skills": ["bbox comparisons", "ST_XMin", "ST_YMin", "ST_XMax", "ST_YMax", "join", "aggregation"],
+    "difficulty": "hard"
+  }
+]

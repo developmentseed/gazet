@@ -1,0 +1,1 @@
+{"id": "s23_017", "tables": ["countries", "rivers"], "skill": "analytical SQL: GROUP BY / HAVING / CTEs / CASE / date-time functions / QUALIFY", "difficulty": "hard", "style": "precise analyst questions that mention units and thresholds", "k": 6}

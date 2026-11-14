@@ -1,0 +1,74 @@
+[
+ {
+  "scenario": "s7_000",
+  "prompt_tok": 1475,
+  "output_tok": 755,
+  "n_pairs": 6
+ },
+ {
+  "scenario": "s7_001",
+  "prompt_tok": 781,
+  "output_tok": 1465,
+  "n_pairs": 6
+ },
+ {
+  "scenario": "s7_002",
+  "prompt_tok": 1109,
+  "output_tok": 1238,
+  "n_pairs": 6
+ },
+ {
+  "scenario": "s7_003",
+  "prompt_tok": 1416,
+  "output_tok": 507,
+  "n_pairs": 6
+ },
+ {
+  "scenario": "s7_004",
+  "prompt_tok": 1254,
+  "output_tok": 1165,
+  "n_pairs": 6
+ },
+ {
+  "scenario": "s7_005",
+  "prompt_tok": 965,
+  "output_tok": 1933,
+  "n_pairs": 6
+ },
+ {
+  "scenario": "s7_006",
+  "prompt_tok": 1058,
+  "output_tok": 672,
+  "n_pairs": 6
+ },
+ {
+  "scenario": "s7_007",
+  "prompt_tok": 1102,
+  "output_tok": 860,
+  "n_pairs": 6
+ },
+ {
+  "scenario": "s7_008",
+  "prompt_tok": 1114,
+  "output_tok": 1392,
+  "n_pairs": 6
+ },
+ {
+  "scenario": "s7_009",
+  "prompt_tok": 1037,
+  "output_tok": 464,
+  "n_pairs": 6
+ },
+ {
+  "scenario": "s7_010",
+  "prompt_tok": 1572,
+  "output_tok": 950,
+  "n_pairs": 6
+ },
+ {
+  "scenario": "s7_011",
+  "prompt_tok": 1172,
+  "output_tok": 1356,
+  "n_pairs": 6
+ }
+]

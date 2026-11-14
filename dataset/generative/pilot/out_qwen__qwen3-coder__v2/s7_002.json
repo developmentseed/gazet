@@ -1,0 +1,38 @@
+[
+  {
+    "question": "nearest country to rio de janeiro",
+    "sql": "SELECT c.name FROM countries c JOIN (SELECT ST_Point(-43.1729, -22.9068) AS pt) AS ref ON TRUE ORDER BY ST_Distance_Sphere(c.geometry, ref.pt) LIMIT 1",
+    "skills": ["nearest-neighbour", "ST_Distance_Sphere", "ORDER BY distance"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "countries within 500km of syria",
+    "sql": "WITH syria AS (SELECT geometry FROM countries WHERE iso_a3 = 'SYR') SELECT DISTINCT c.name FROM countries c, syria s WHERE ST_DWithin_Spheroid(c.geometry, s.geometry, 500000)",
+    "skills": ["ST_DWithin", "buffer", "spatial join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "closest river to zurich and its length in km",
+    "sql": "WITH zurich AS (SELECT ST_Point(8.5417, 47.3769) AS geom), nearest_river AS (SELECT r.name, r.geometry FROM rivers r, zurich z ORDER BY ST_Distance_Sphere(r.geometry, z.geom) LIMIT 1) SELECT nr.name, ROUND(ST_Length_Spheroid(nr.geometry) / 1000) AS length_km FROM nearest_river nr",
+    "skills": ["nearest-neighbour", "ST_Length_Spheroid", "ST_Distance_Sphere"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "top 3 largest african countries by area, show as geojson",
+    "sql": "SELECT name, ST_AsGeoJSON(geometry) AS geom FROM countries WHERE continent = 'Africa' ORDER BY ST_Area_Spheroid(geometry) DESC LIMIT 3",
+    "skills": ["area calculation", "ST_Area_Spheroid", "ORDER BY attribute"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "distance between brazil and argentina borders in meters",
+    "sql": "WITH brazil AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom FROM countries WHERE iso_a3 = 'BRA'), argentina AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom FROM countries WHERE iso_a3 = 'ARG') SELECT ROUND(ST_Distance(brazil.geom, argentina.geom)) AS border_distance_meters FROM brazil, argentina",
+    "skills": ["ST_Transform", "ST_Distance", "metric projection"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "find rivers crossing the equator with their names",
+    "sql": "WITH equator AS (SELECT ST_GeomFromText('LINESTRING(-180 0, 180 0)') AS geom) SELECT DISTINCT r.name FROM rivers r, equator e WHERE ST_Intersects(r.geometry, e.geom) AND r.name IS NOT NULL",
+    "skills": ["ST_Intersects", "spatial predicate", "line intersection"],
+    "difficulty": "hard"
+  }
+]

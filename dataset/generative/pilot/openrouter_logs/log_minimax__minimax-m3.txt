@@ -1,0 +1,1 @@
+minimax/minimax-m3: 12/12 ok, cost $0.0857, providers ['ModelRun', 'Novita', 'Parasail', 'Venice'], avg completion 5543 tok (reasoning 5072)

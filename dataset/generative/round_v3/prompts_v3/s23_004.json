@@ -1,0 +1,1 @@
+{"id": "s23_004", "tables": ["lisbon_places", "lisbon_roads"], "skill": "geometry construction and overlay (ST_Buffer, ST_Union_Agg, ST_Intersection, ST_Difference, ST_ConvexHull, ST_Centroid)", "difficulty": "medium", "style": "questions phrased as tasks ('give me', 'list', 'map', 'compare')", "k": 6}

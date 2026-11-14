@@ -1,0 +1,38 @@
+[
+  {
+    "question": "For each continent, return the alphabetically sorted list of country names whose estimated population exceeds 100 million people, as a comma-separated string.",
+    "sql": "SELECT continent, array_to_string(list_sort(list(name)), ', ') AS countries FROM countries WHERE pop_est > 100000000 GROUP BY continent ORDER BY continent;",
+    "skills": ["list aggregation", "list_sort", "array_to_string"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each continent, return a list of structs with the country name and land area in square kilometers for countries whose population exceeds 50 million people.",
+    "sql": "SELECT continent, list(struct_pack(name := name, area_km2 := ST_Area_Spheroid(geometry) / 1000000.0)) AS countries FROM countries WHERE pop_est > 50000000 GROUP BY continent ORDER BY continent;",
+    "skills": ["struct_pack", "list aggregation", "ST_Area_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each continent, return a list of structs with the country name and estimated GDP per capita for countries where GDP per capita exceeds 20,000 USD.",
+    "sql": "SELECT continent, list_filter(list(struct_pack(name := name, gdp_per_capita := gdp_md * 1000000.0 / pop_est)), x -> x.gdp_per_capita > 20000) AS rich_countries FROM countries WHERE pop_est > 0 GROUP BY continent ORDER BY continent;",
+    "skills": ["list_filter", "struct_pack", "list aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each continent, return a JSON object mapping country name to estimated population for countries whose population exceeds 100 million people.",
+    "sql": "SELECT continent, json_group_object(name, pop_est) AS populations FROM countries WHERE pop_est > 100000000 GROUP BY continent ORDER BY continent;",
+    "skills": ["json_group_object"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each country in Oceania with an estimated population over 100,000 people, return two rows: one with attribute 'population' and its estimated population in people, and one with attribute 'GDP' and its GDP in millions of USD.",
+    "sql": "SELECT name, attr.attribute, attr.value FROM (SELECT name, UNNEST([struct_pack(attribute := 'population', value := pop_est), struct_pack(attribute := 'GDP', value := gdp_md)]) AS attr FROM countries WHERE continent = 'Oceania' AND pop_est > 100000) ORDER BY name, attr.attribute;",
+    "skills": ["UNNEST", "struct_pack"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each continent with more than 5 countries, return the number of countries and a comma-separated alphabetically sorted list of its distinct subregion names.",
+    "sql": "SELECT continent, count(*) AS country_count, array_to_string(list_sort(list(DISTINCT subregion)), ', ') AS subregions FROM countries GROUP BY continent HAVING count(*) > 5 ORDER BY continent;",
+    "skills": ["list aggregation", "list_sort", "array_to_string", "HAVING"],
+    "difficulty": "easy"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Compare the straight-line distance in kilometers between Barranquilla and Mérida and between Cusco and Ufa.",
+    "sql": "SELECT 'Barranquilla–Mérida' AS pair, ST_Distance_Spheroid(a.geometry, b.geometry)/1000 AS distance_km\nFROM populated_places a, populated_places b\nWHERE a.name='Barranquilla' AND a.country='Colombia' AND b.name='Mérida' AND b.country='Mexico'\nUNION ALL\nSELECT 'Cusco–Ufa', ST_Distance_Spheroid(a.geometry, b.geometry)/1000\nFROM populated_places a, populated_places b\nWHERE a.name='Cusco' AND a.country='Peru' AND b.name='Ufa' AND b.country='Russia'\nORDER BY pair;",
+    "skills": ["ST_Distance_Spheroid", "measurement in km"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List populated places within 1000 km of Cusco, with their distance in kilometers, ordered by distance.",
+    "sql": "WITH cusco AS (\n  SELECT geometry FROM populated_places WHERE name='Cusco' AND country='Peru'\n)\nSELECT p.name, p.country, ST_Distance_Spheroid(p.geometry, c.geometry)/1000 AS distance_km\nFROM populated_places p, cusco c\nWHERE NOT (p.name = 'Cusco' AND p.country = 'Peru')\n  AND ST_Distance_Spheroid(p.geometry, c.geometry) <= 1000000\nORDER BY distance_km, p.name, p.country\nLIMIT 20;",
+    "skills": ["ST_Distance_Spheroid", "measurement in km", "filtering by distance"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Give me the area in square kilometers of the convex hull of all populated places in Colombia.",
+    "sql": "WITH pts AS (\n  SELECT ST_ConvexHull(ST_Union_Agg(geometry)) AS geom\n  FROM populated_places\n  WHERE country='Colombia'\n)\nSELECT ST_Area_Spheroid(geom)/1e6 AS area_km2\nFROM pts;",
+    "skills": ["ST_Area_Spheroid", "ST_ConvexHull", "ST_Union_Agg", "area in km²"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "What is the length in kilometers of a straight line between Bobo Dioulasso and Barranquilla?",
+    "sql": "SELECT ST_Length_Spheroid(ST_MakeLine(a.geometry, b.geometry))/1000 AS length_km\nFROM populated_places a, populated_places b\nWHERE a.name='Bobo Dioulasso' AND a.country='Burkina Faso'\n  AND b.name='Barranquilla' AND b.country='Colombia';",
+    "skills": ["ST_Length_Spheroid", "ST_MakeLine", "length in km"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Give me the area in square kilometers of the bounding box of all populated places in Mexico.",
+    "sql": "WITH bbox AS (\n  SELECT ST_Extent_Agg(geometry) AS geom\n  FROM populated_places\n  WHERE country='Mexico'\n)\nSELECT ST_Area_Spheroid(geom)/1e6 AS area_km2\nFROM bbox;",
+    "skills": ["ST_Area_Spheroid", "ST_Extent_Agg", "area in km²"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Using a local metric CRS, give me the distance in meters between Barranquilla and the point at longitude -74.8, latitude 10.96.",
+    "sql": "SELECT ST_Distance(\n  ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:32618', always_xy := true),\n  ST_Transform(ST_Point(-74.8, 10.96), 'EPSG:4326', 'EPSG:32618', always_xy := true)\n) AS distance_m\nFROM populated_places a\nWHERE a.name='Barranquilla' AND a.country='Colombia';",
+    "skills": ["ST_Transform", "ST_Distance", "metric CRS", "distance in meters"],
+    "difficulty": "easy"
+  }
+]

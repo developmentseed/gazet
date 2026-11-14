@@ -1,0 +1,2 @@
+12 scenarios to (re)generate
+openai/gpt-oss-120b: 12/12 ok, cost $0.0080, providers ['AkashML', 'Crusoe', 'DeepInfra', 'DekaLLM', 'Mancer 2'], avg completion 3127 tok (reasoning 2028)

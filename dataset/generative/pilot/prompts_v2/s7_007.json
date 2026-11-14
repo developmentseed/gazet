@@ -1,0 +1,1 @@
+{"id": "s7_007", "tables": ["lisbon_places"], "skill": "analytical SQL: GROUP BY / HAVING / CTEs / CASE / date-time functions / QUALIFY", "difficulty": "medium", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}

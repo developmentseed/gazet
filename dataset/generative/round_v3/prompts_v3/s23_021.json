@@ -1,0 +1,1 @@
+{"id": "s23_021", "tables": ["populated_places"], "skill": "spatial join with aggregation (e.g. count/sum points per polygon)", "difficulty": "easy", "style": "questions phrased as tasks ('give me', 'list', 'map', 'compare')", "k": 6}

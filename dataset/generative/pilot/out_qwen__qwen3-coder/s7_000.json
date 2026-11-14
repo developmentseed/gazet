@@ -1,0 +1,38 @@
+[
+  {
+    "question": "restaurants within 500 meters of Belém Tower",
+    "sql": "SELECT p.names.primary, p.basic_category, ST_AsGeoJSON(p.geometry) FROM lisbon_places p WHERE p.basic_category = 'restaurant' AND ST_Distance_Sphere(p.geometry, (SELECT geometry FROM lisbon_places WHERE names.primary = 'Belém Tower')) <= 500",
+    "skills": ["spatial distance filtering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings intersecting the Tagus river",
+    "sql": "SELECT b.names.primary, b.subtype, ST_AsGeoJSON(b.geometry) FROM lisbon_buildings b WHERE ST_Intersects(b.geometry, (SELECT geometry FROM lisbon_places WHERE names.primary = 'Tagus River'))",
+    "skills": ["spatial intersection"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "historic sites inside Alfama district polygon",
+    "sql": "SELECT p.names.primary, p.taxonomy.primary FROM lisbon_places p WHERE p.taxonomy.primary = 'historic_site' AND ST_Within(p.geometry, (SELECT geometry FROM lisbon_buildings WHERE names.primary = 'Alfama District Boundary'))",
+    "skills": ["spatial containment"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "commercial buildings taller than 50m near Chiado metro station",
+    "sql": "SELECT b.names.primary, b.height, b.subtype FROM lisbon_buildings b WHERE b.subtype = 'commercial' AND b.height > 50 AND ST_Distance_Sphere(b.geometry, (SELECT geometry FROM lisbon_places WHERE names.primary = 'Chiado Metro Station')) < 300",
+    "skills": ["attribute and spatial filtering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "parks touching residential areas",
+    "sql": "SELECT DISTINCT p.names.primary AS park_name, r.names.primary AS residential_area FROM lisbon_places p JOIN lisbon_buildings r ON ST_Touches(p.geometry, r.geometry) WHERE p.taxonomy.primary = 'park' AND r.subtype = 'residential'",
+    "skills": ["spatial adjacency"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "show footprints of buildings containing cafes",
+    "sql": "SELECT ST_AsGeoJSON(b.geometry) FROM lisbon_buildings b JOIN lisbon_places c ON ST_Contains(b.geometry, c.geometry) WHERE c.basic_category = 'cafe' GROUP BY b.id, b.geometry",
+    "skills": ["spatial containment with join"],
+    "difficulty": "easy"
+  }
+]

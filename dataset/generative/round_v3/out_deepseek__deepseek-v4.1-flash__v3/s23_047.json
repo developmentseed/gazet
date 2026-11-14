@@ -1,0 +1,38 @@
+[
+  {
+    "question": "For each subregion that has at least three countries with ports, list the countries that contain more ports than the average for that subregion. Show the subregion, country, number of ports, and the subregion average.",
+    "sql": "WITH country_ports AS (SELECT c.subregion, c.name AS country_name, COUNT(*) AS port_count FROM countries c JOIN ports p ON ST_Intersects(p.geometry, c.geometry) GROUP BY c.subregion, c.name), subregion_stats AS (SELECT subregion, AVG(port_count) AS avg_ports, COUNT(*) AS countries_with_ports FROM country_ports GROUP BY subregion HAVING COUNT(*) >= 3) SELECT cp.subregion, cp.country_name, cp.port_count, ROUND(sa.avg_ports, 2) AS subregion_avg FROM country_ports cp JOIN subregion_stats sa ON cp.subregion = sa.subregion WHERE cp.port_count > sa.avg_ports ORDER BY cp.subregion, cp.port_count DESC, cp.country_name;",
+    "skills": ["CTE", "GROUP BY", "HAVING", "spatial join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each income group, compare the average GDP per person of countries that contain at least one port with those that contain none. Only include groups where at least two countries fall in each category, ordered by income group and then port presence.",
+    "sql": "WITH country_port AS (SELECT c.iso_a3, c.income_grp, c.pop_est, c.gdp_md, EXISTS (SELECT 1 FROM ports p WHERE ST_Intersects(p.geometry, c.geometry)) AS has_port FROM countries c) SELECT income_grp, CASE WHEN has_port THEN 'Has port' ELSE 'No port' END AS port_presence, COUNT(*) AS country_count, ROUND(AVG(CASE WHEN pop_est > 0 THEN gdp_md * 1000000.0 / pop_est END), 2) AS avg_gdp_per_person FROM country_port GROUP BY income_grp, has_port HAVING COUNT(*) >= 2 ORDER BY income_grp, has_port;",
+    "skills": ["CTE", "CASE", "EXISTS", "GROUP BY", "HAVING"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each continent, find the port that is farthest from the centre of the country it belongs to, among countries that contain at least three ports. Show the continent, port name, country name, and distance in kilometres.",
+    "sql": "WITH country_stats AS (SELECT c.iso_a3, c.continent, c.name AS country_name, COUNT(*) AS port_count FROM countries c JOIN ports p ON ST_Intersects(p.geometry, c.geometry) GROUP BY c.iso_a3, c.continent, c.name HAVING COUNT(*) >= 3), port_distances AS (SELECT cs.continent, p.name AS port_name, cs.country_name, ST_Distance_Spheroid(p.geometry, ST_Centroid(c.geometry)) AS dist_m FROM country_stats cs JOIN countries c ON cs.iso_a3 = c.iso_a3 JOIN ports p ON ST_Intersects(p.geometry, c.geometry)) SELECT continent, port_name, country_name, ROUND(dist_m / 1000, 1) AS distance_km FROM port_distances QUALIFY ROW_NUMBER() OVER (PARTITION BY continent ORDER BY dist_m DESC, port_name) = 1 ORDER BY continent;",
+    "skills": ["CTE", "QUALIFY", "window function", "spatial distance"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Among Asian countries that contain at least two ports, list the country name, number of ports, and the percentage of those ports that do not have a website listed. Order by the percentage missing descending, then by country name.",
+    "sql": "SELECT c.name AS country_name, COUNT(*) AS port_count, ROUND(100.0 * SUM(CASE WHEN p.website IS NULL OR p.website = '' THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_missing_website FROM countries c JOIN ports p ON ST_Intersects(p.geometry, c.geometry) WHERE c.continent = 'Asia' GROUP BY c.name HAVING COUNT(*) >= 2 ORDER BY pct_missing_website DESC, c.name;",
+    "skills": ["GROUP BY", "HAVING", "CASE", "spatial join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which countries have the most ports per million residents, considering only countries with at least two ports? Show the top five countries with their population, port count, and ports per million people.",
+    "sql": "SELECT c.name AS country_name, c.pop_est, COUNT(*) AS port_count, ROUND(COUNT(*) / (c.pop_est / 1000000.0), 3) AS ports_per_million FROM countries c JOIN ports p ON ST_Intersects(p.geometry, c.geometry) WHERE c.pop_est > 0 GROUP BY c.name, c.pop_est HAVING COUNT(*) >= 2 ORDER BY ports_per_million DESC, c.name LIMIT 5;",
+    "skills": ["GROUP BY", "HAVING", "ORDER BY", "LIMIT", "spatial join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each continent, calculate the average size rank of ports that are ranked 6 or better (lower numbers are better), considering only continents with at least ten such ports. Show the top three continents by best average rank, along with their port count.",
+    "sql": "SELECT c.continent, COUNT(*) AS port_count, ROUND(AVG(p.scalerank), 2) AS avg_scalerank FROM countries c JOIN ports p ON ST_Intersects(p.geometry, c.geometry) WHERE p.scalerank <= 6 GROUP BY c.continent HAVING COUNT(*) >= 10 ORDER BY avg_scalerank ASC, c.continent LIMIT 3;",
+    "skills": ["GROUP BY", "HAVING", "ORDER BY", "LIMIT", "spatial join"],
+    "difficulty": "hard"
+  }
+]

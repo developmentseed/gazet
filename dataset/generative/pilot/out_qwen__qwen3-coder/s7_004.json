@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Show the combined land area of all countries in Western Europe as a single polygon.",
+    "sql": "SELECT ST_AsGeoJSON(ST_Union_Agg(geometry)) AS geojson FROM countries WHERE subregion = 'Western Europe';",
+    "skills": ["ST_Union_Agg"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the total population of cities located within 500 kilometers of Paris?",
+    "sql": "WITH paris_geom AS (SELECT geometry FROM populated_places WHERE name = 'Paris' AND country = 'France'), buffer_paris AS (SELECT ST_Buffer(geometry, 500000) AS buffered_geom FROM paris_geom) SELECT SUM(pp.pop_max) AS total_population FROM populated_places pp, buffer_paris bp WHERE ST_Intersects(pp.geometry, bp.buffered_geom);",
+    "skills": ["ST_Buffer", "ST_Intersects"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find the centroid of the convex hull formed by all capital cities in South America.",
+    "sql": "SELECT ST_AsGeoJSON(ST_Centroid(ST_ConvexHull(ST_Union_Agg(geometry)))) AS geojson FROM populated_places WHERE is_capital = true AND country IN (SELECT name FROM countries WHERE continent = 'South America');",
+    "skills": ["ST_ConvexHull", "ST_Centroid", "ST_Union_Agg"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which African countries have land that lies within 1000 km of the Nile River? Assume the river can be approximated by a line string connecting major Egyptian cities.",
+    "sql": "WITH nile_approximation AS (SELECT ST_MakeLine(ARRAY_AGG(geometry ORDER BY name)) AS nile_line FROM populated_places WHERE country = 'Egypt' AND feature_class LIKE '%capital%' OR name IN ('Cairo', 'Luxor', 'Aswan')), buffered_nile AS (SELECT ST_Buffer(nile_line, 1000000) AS nile_buffer FROM nile_approximation) SELECT DISTINCT c.name FROM countries c, buffered_nile bn WHERE ST_Intersects(c.geometry, bn.nile_buffer) AND c.continent = 'Africa';",
+    "skills": ["ST_MakeLine", "ST_Buffer", "ST_Intersects"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Create a map showing the difference between the territory of Australia and a 200km buffer around its most populous city.",
+    "sql": "WITH australia_geom AS (SELECT geometry FROM countries WHERE name = 'Australia'), sydney_buffer AS (SELECT ST_Buffer(geometry, 200000) AS sydney_buf FROM populated_places WHERE country = 'Australia' ORDER BY pop_max DESC LIMIT 1) SELECT ST_AsGeoJSON(ST_Difference(ag.geometry, sb.sydney_buf)) AS geojson FROM australia_geom ag, sydney_buffer sb;",
+    "skills": ["ST_Buffer", "ST_Difference"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Identify the intersection area between the United States and Canada, assuming both are represented as single polygons.",
+    "sql": "WITH us_geom AS (SELECT ST_Union_Agg(geometry) AS geom FROM countries WHERE iso_a3 = 'USA'), ca_geom AS (SELECT ST_Union_Agg(geometry) AS geom FROM countries WHERE iso_a3 = 'CAN') SELECT ST_AsGeoJSON(ST_Intersection(ug.geom, cg.geom)) AS geojson FROM us_geom ug, ca_geom cg;",
+    "skills": ["ST_Union_Agg", "ST_Intersection"],
+    "difficulty": "medium"
+  }
+]

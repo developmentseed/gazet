@@ -1,0 +1,1 @@
+{"id": "s23_010", "tables": ["countries", "airports"], "skill": "spatial predicates (ST_Intersects / ST_Within / ST_Contains / ST_Touches) for filtering", "difficulty": "medium", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}

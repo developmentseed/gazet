@@ -1,0 +1,140 @@
+"""Training export: judge-correct pairs -> ChatML for finetune/train_modal_qwen35.py.
+
+Writes OUT_DIR/sql/train.jsonl and OUT_DIR/sql/val.jsonl, one {"messages": [system, user, assistant]} per line,
+in the student format of student.py (minimal system prompt, schema cards, optional value hints, question).
+
+- train: judge-correct pairs from runs/train (v1) and, with --v2, runs/v2 (second lake expansion, pilot included),
+  minus every scenario in dev/dev_scenarios.json and dev/dev_new_scenarios.json;
+- --cap N keeps at most N training pairs per table bundle (seeded), so no schema card repeats too often;
+- val: dev/dev_v1.jsonl (+ dev/dev_new_v1.jsonl with --v2), so the eval loss is measured on unseen questions
+  about known tables;
+- half of the pairs (seeded per pair) get the value-hint block, so the student works with and without it;
+- dropped: pairs that read a table missing from the prompt, and pairs that filter on a string value that is in
+  neither the question, the cards nor (when hinted) the hints. The student cannot know those values.
+
+Also writes OUT_DIR/eval/{gold,dev[,devnew,gold2]}_{plain,hints}.jsonl: the test prompts ({"id", "messages": [system, user]}), so a
+training job without the data lake can answer them. Score the answers with `evaluate.py run NAME --preds FILE`.
+
+Usage: python export.py OUT_DIR [--hint-share 0.5] [--v2] [--cap N]
+"""
+import argparse
+import hashlib
+import json
+import sys
+from collections import Counter
+from pathlib import Path
+
+import sqlglot
+from sqlglot import exp
+
+sys.path.insert(0, str(Path(__file__).parent))
+import harness
+import hints as hints_mod
+import student
+import dev_split
+
+HERE = Path(__file__).parent
+
+
+def read_tables(sql):
+    """Base tables a query reads (CTE names excluded); None if sqlglot cannot parse it."""
+    try:
+        tree = sqlglot.parse_one(sql, read="duckdb")
+    except Exception:
+        return None
+    ctes = {c.alias_or_name.lower() for c in tree.find_all(exp.CTE)}
+    return {t.name.lower() for t in tree.find_all(exp.Table) if t.name and t.name.lower() not in ctes}
+
+
+def _hinted(key, share):
+    return int(hashlib.sha1(key.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF < share
+
+
+def train_pairs(v2=False, cap=None):
+    dev = set(json.loads((HERE / "dev" / "dev_scenarios.json").read_text()))
+    files = sorted((HERE / "runs" / "train").glob("*train_c*.judged.jsonl"))
+    if v2:
+        dev |= set(json.loads((HERE / "dev" / "dev_new_scenarios.json").read_text()))
+        files += dev_split.v2_files()  # chunks and pilot only, never the gold v2 candidates
+    by_bundle = {}
+    for f in files:
+        for line in f.read_text().splitlines():
+            if line.strip():
+                r = json.loads(line)
+                assert not set(r["tables"]) & harness.HELD_OUT, f"held-out table in training file {f.name}"
+                if r["judge"] == "correct" and r["scenario"] not in dev:
+                    r["key"] = f"{f.name.split('__')[0]}:{r['scenario']}.{r['idx']}"
+                    by_bundle.setdefault(tuple(r["tables"]), []).append(r)
+    for rows in by_bundle.values():
+        if cap and len(rows) > cap:
+            rows = sorted(rows, key=lambda r: hashlib.sha1(r["key"].encode()).hexdigest())[:cap]
+        yield from rows
+
+
+def messages(user, sql):
+    return {"messages": [{"role": "system", "content": student.SYSTEM_MINIMAL},
+                         {"role": "user", "content": user},
+                         {"role": "assistant", "content": sql}]}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("out_dir")
+    ap.add_argument("--hint-share", type=float, default=0.5)
+    ap.add_argument("--v2", action="store_true")
+    ap.add_argument("--cap", type=int)
+    a = ap.parse_args()
+    c = harness.con()
+    cards = {t: harness.schema_card(c, t) for t in harness.TABLE_DOCS}
+    known = {t.lower() for t in harness.TABLE_DOCS}
+    drops, train, n_hinted = Counter(), [], 0
+    for r in train_pairs(a.v2, a.cap):
+        sql = r["sql"].strip().rstrip(";").strip()
+        used = read_tables(sql)
+        if used is None:
+            drops["sqlglot cannot parse"] += 1
+            continue
+        if (used & known) - {t.lower() for t in r["tables"]}:
+            drops["reads a table not in the prompt"] += 1
+            continue
+        h = hints_mod.value_hints(c, r["tables"], r["question"]) if _hinted(r["key"].split(":")[-1] if not a.v2 else r["key"], a.hint_share) else None
+        seen = hints_mod.norm("\n".join([r["question"], *(cards[t] for t in r["tables"]), *(h or [])]))
+        if any(hints_mod.norm(v) not in seen for v in hints_mod._filter_literals(sql)):
+            drops["filter value the student cannot see"] += 1
+            continue
+        n_hinted += bool(h)
+        train.append(messages(student.user_prompt(cards, r["tables"], r["question"], h), sql))
+    val = []
+    dev_files = [HERE / "dev" / "dev_v1.jsonl"] + ([HERE / "dev" / "dev_new_v1.jsonl"] if a.v2 else [])
+    for line in "\n".join(f.read_text() for f in dev_files).splitlines():
+        if not line.strip():
+            continue
+        d = json.loads(line)
+        h = hints_mod.value_hints(c, d["tables"], d["question"]) if _hinted(d["id"], a.hint_share) else None
+        val.append(messages(student.user_prompt(cards, d["tables"], d["question"], h), d["sql"]))
+
+    ev = Path(a.out_dir) / "eval"
+    ev.mkdir(parents=True, exist_ok=True)
+    for data, path in [("gold", HERE / "gold" / "gold_v1.jsonl"), ("dev", HERE / "dev" / "dev_v1.jsonl")] + (
+            [("devnew", HERE / "dev" / "dev_new_v1.jsonl"), ("gold2", HERE / "gold" / "gold_v2.jsonl")] if a.v2 else []):
+        pairs = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+        for mode in ("plain", "hints"):
+            rows = []
+            for p in pairs:
+                h = hints_mod.value_hints(c, p["tables"], p["question"]) if mode == "hints" else None
+                m = messages(student.user_prompt(cards, p["tables"], p["question"], h), "")["messages"][:2]
+                rows.append({"id": p["id"], "messages": m})
+            (ev / f"{data}_{mode}.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    out = Path(a.out_dir) / "sql"
+    out.mkdir(parents=True, exist_ok=True)
+    for name, rows in (("train", train), ("val", val)):
+        (out / f"{name}.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    chars = sorted(sum(len(m["content"]) for m in r["messages"]) for r in train)
+    stats = dict(train=len(train), val=len(val), train_with_hints=n_hinted, dropped=dict(drops),
+                 chars_median=chars[len(chars) // 2], chars_p99=chars[int(.99 * len(chars))], chars_max=chars[-1])
+    (Path(a.out_dir) / "stats.json").write_text(json.dumps(stats, indent=1))
+    print(json.dumps(stats, indent=1))
+
+
+if __name__ == "__main__":
+    main()

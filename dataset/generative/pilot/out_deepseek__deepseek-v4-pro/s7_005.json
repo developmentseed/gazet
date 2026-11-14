@@ -1,0 +1,38 @@
+[
+  {
+    "question": "avg fare and tip by payment type unpivoted",
+    "sql": "WITH components AS (SELECT t.payment_type, c.metric, c.value FROM nyc_taxi_trips t, LATERAL unnest([struct_pack(metric := 'fare', value := t.fare_amount), struct_pack(metric := 'tip', value := t.tip_amount)]) AS c WHERE t.payment_type IN (1,2,3,4)) SELECT payment_type, metric, round(avg(value),2) AS avg_value, count(*) AS n FROM components GROUP BY payment_type, metric ORDER BY payment_type, metric;",
+    "skills": ["unnest", "struct fields", "list literals"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "top 5 pickup hours with nested payment type stats as JSON",
+    "sql": "WITH hourly AS (SELECT hour(tpep_pickup_datetime) AS hr, payment_type, count(*) AS trips, round(avg(fare_amount), 2) AS avg_fare, round(sum(tip_amount), 2) AS total_tip FROM nyc_taxi_trips WHERE payment_type IN (1,2,3,4) GROUP BY 1,2), nested AS (SELECT hr, array_agg(struct_pack(payment_type := payment_type, trips := trips, avg_fare := avg_fare, total_tip := total_tip) ORDER BY trips DESC) AS stats FROM hourly GROUP BY hr) SELECT hr, to_json(stats) AS payment_stats FROM nested ORDER BY (SELECT sum(x.trips) FROM unnest(stats) AS x) DESC LIMIT 5;",
+    "skills": ["array_agg", "struct_pack", "json"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "top 10 fares as JSON with nested fare and od objects",
+    "sql": "SELECT json_group_array(json_object('fare', json_object('total', total_amount, 'tip', tip_amount), 'od', json_object('pickup', PULocationID, 'dropoff', DOLocationID), 'distance_km', round(trip_distance * 1.60934, 2))) AS top_trips FROM (SELECT * FROM nyc_taxi_trips WHERE total_amount > 0 AND trip_distance > 0 ORDER BY total_amount DESC LIMIT 10) t;",
+    "skills": ["json_group_array", "json_object", "nested json"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "per payment type top pickup locations with >10 trips as struct list",
+    "sql": "WITH loc AS (SELECT payment_type, PULocationID, count(*) AS trips, round(avg(fare_amount), 2) AS avg_fare FROM nyc_taxi_trips WHERE payment_type IN (1,2,3) GROUP BY 1,2), arr AS (SELECT payment_type, array_agg(struct_pack(location_id := PULocationID, trips := trips, avg_fare := avg_fare) ORDER BY trips DESC) AS locs FROM loc WHERE trips > 10 GROUP BY payment_type) SELECT payment_type, list_slice(list_filter(locs, x -> x.trips > 20), 1, 5) AS top_locations FROM arr ORDER BY payment_type;",
+    "skills": ["list_filter", "list_slice", "struct_pack", "array_agg"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "hourly cash trip stats as JSON object",
+    "sql": "WITH hourly AS (SELECT hour(tpep_pickup_datetime) AS hr, count(*) AS n, round(avg(fare_amount), 2) AS avg_fare, round(avg(tip_amount), 2) AS avg_tip FROM nyc_taxi_trips WHERE payment_type = 2 GROUP BY 1) SELECT json_group_object(hr, json_object('n', n, 'avg_fare', avg_fare, 'avg_tip', avg_tip)) AS hourly_json FROM hourly;",
+    "skills": ["json_group_object", "json_object", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "distance bins per rate code as array of labeled structs",
+    "sql": "WITH bins AS (SELECT RatecodeID, floor(trip_distance / 2.0) AS bin, count(*) AS n, round(avg(total_amount), 2) AS avg_total FROM nyc_taxi_trips WHERE RatecodeID IN (1,2,3,4,5,6) AND trip_distance BETWEEN 0.1 AND 30 GROUP BY 1,2), nested AS (SELECT RatecodeID, array_agg(struct_pack(bin_start := bin * 2.0, bin_end := bin * 2.0 + 2.0, trips := n, avg_total := avg_total) ORDER BY bin) AS bins FROM bins GROUP BY RatecodeID) SELECT RatecodeID, list_transform(bins, b -> struct_pack(bin_label := concat(cast(b.bin_start AS VARCHAR), '-', cast(b.bin_end AS VARCHAR)), trips := b.trips, avg_total := b.avg_total)) AS distance_bins FROM nested ORDER BY RatecodeID;",
+    "skills": ["list_transform", "struct_pack", "binning"],
+    "difficulty": "hard"
+  }
+]

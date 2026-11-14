@@ -1,0 +1,70 @@
+You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
+
+Below are the tables available. Each is a DuckDB view with exactly the columns shown.
+
+TABLE airports  -- Natural Earth 1:10m airports (points). EPSG:4326. rows=893
+  name VARCHAR  -- distinct~893 e.g. ["Birmingham Int'l", "Kansas City Int'l"]
+  iata_code VARCHAR  -- distinct~891 e.g. ['PZU', 'SGC']
+  icao_code VARCHAR  -- distinct~875 e.g. ['VERC', 'UNNT']
+  type VARCHAR  -- distinct~9 top=['mid', 'major', 'major and military', 'mid and military', 'military mid', 'military major']
+  scalerank INTEGER  -- range=[2, 9]
+  wikipedia VARCHAR  -- distinct~888 e.g. ['http://en.wikipedia.org/wiki/Kansas_C...', 'http://en.wikipedia.org/wiki/Sultan_S...']
+  geometry GEOMETRY('EPSG:4326')  -- types=['POINT'] extent=[-175.136, -53.781, 179.195, 78.247]
+
+TABLE populated_places  -- Natural Earth 1:50m populated places (points). EPSG:4326. rows=1251
+  name VARCHAR  -- distinct~1264 e.g. ['Vancouver', 'Córdoba']
+  country VARCHAR  -- distinct~220 top=['United States of America', 'China', 'Russia', 'India', 'Brazil', 'Canada']
+  iso_a2 VARCHAR  -- distinct~216 top=['US', 'CN', 'RU', 'IN', 'BR', 'CA']
+  admin1 VARCHAR  -- distinct~798 e.g. ['Alaska', 'Sakha (Yakutia)']
+  feature_class VARCHAR  -- distinct~8 top=['Admin-1 capital', 'Populated place', 'Admin-0 capital', 'Admin-1 region capital', 'Scientific station', 'Admin-0 region capital']
+  pop_max BIGINT  -- range=[0, 35676000]
+  pop_min BIGINT  -- range=[0, 14608512]
+  is_capital BOOLEAN  -- true/false
+  is_world_city BOOLEAN  -- true/false
+  geometry GEOMETRY('EPSG:4326')  -- types=['POINT'] extent=[-175.221, -90.0, 179.217, 78.221]
+
+Real data to ground the questions in (use these names, categories and coordinates as literals):
+
+REAL ROWS from airports (random sample; centroid lon/lat):
+  name=Rotterdam The Hague, iata_code=RTM, icao_code=EHRD, type=mid, scalerank=8, wikipedia=http://en.wikipedia.org/wiki/Rotterda..., lon=4.4338, lat=51.9491
+  name=Kilimanjaro Int'l, iata_code=JRO, icao_code=HTKJ, type=mid, scalerank=8, wikipedia=http://en.wikipedia.org/wiki/Kilimanj..., lon=37.0652, lat=-3.4244
+  name=Rajkot, iata_code=RAJ, icao_code=VARK, type=mid, scalerank=8, wikipedia=http://en.wikipedia.org/wiki/Rajkot_A..., lon=70.78, lat=22.3093
+  name=Gosselies, iata_code=CRL, icao_code=EBCI, type=mid, scalerank=3, wikipedia=http://en.wikipedia.org/wiki/Brussels..., lon=4.4544, lat=50.4571
+  name=Los Angeles Int'l, iata_code=LAX, icao_code=KLAX, type=major, scalerank=2, wikipedia=http://en.wikipedia.org/wiki/Los_Ange..., lon=-118.4025, lat=33.9442
+ALL VALUES in airports:
+  type: ['major', 'major and military', 'mid', 'mid and military', 'military', 'military major', 'military mid', 'small', 'spaceport']
+
+REAL ROWS from populated_places (random sample; centroid lon/lat):
+  name=Douglas, country=Isle of Man, iso_a2=IM, feature_class=Admin-0 region capital, pop_max=35854, pop_min=26218, is_capital=False, is_world_city=False, lon=-4.4803, lat=54.1491
+  name=Albuquerque, country=United States of America, iso_a2=US, admin1=New Mexico, feature_class=Populated place, pop_max=898642, pop_min=552804, is_capital=False, is_world_city=False, lon=-106.6413, lat=35.105
+  name=Konya, country=Turkey, iso_a2=TR, admin1=Konya, feature_class=Admin-1 capital, pop_max=919000, pop_min=518360, is_capital=False, is_world_city=False, lon=32.4731, lat=37.877
+  name=Tel Aviv, country=Israel, iso_a2=IL, admin1=Tel Aviv, feature_class=Admin-0 capital alt, pop_max=3112000, pop_min=378358, is_capital=False, is_world_city=False, lon=34.7681, lat=32.0819
+  name=Manila, country=Philippines, iso_a2=PH, admin1=Metropolitan Manila, feature_class=Admin-0 capital, pop_max=11100000, pop_min=3077575, is_capital=True, is_world_city=True, lon=120.9803, lat=14.6061
+ALL VALUES in populated_places:
+  feature_class: ['Admin-0 capital', 'Admin-0 capital alt', 'Admin-0 region capital', 'Admin-1 capital', 'Admin-1 region capital', 'Historic place', 'Populated place', 'Scientific station']
+
+Write 6 diverse (question, sql) pairs for these tables.
+- Focus skill: bounding-box and envelope filtering (ST_MakeEnvelope, bbox comparisons, ST_Extent)
+- Difficulty: hard
+- Question style: precise analyst questions that mention units and thresholds
+
+Rules:
+- SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
+- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Only use literal values (names, categories, codes) that appear in the real rows, value lists or top values above. The query should return at least one row.
+- Do not name places, neighbourhoods or landmarks that are not in the data. If a question needs an area or point that is not a row in the data, give its coordinates explicitly in the question.
+- Never measure distances, buffers or areas in EPSG:3857 (Web Mercator) or EPSG:6933; their scale is wrong away from the equator. Use the spheroid functions or a local metric CRS (UTM zone or national grid).
+- Results must be deterministic: no current_date, now() or random(); whenever you use LIMIT, ORDER BY columns that make the order unique.
+- Watch join fan-out: do not SUM a per-country (or per-parent) value after joining to many child rows.
+- Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
+- Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
+- Make the 6 pairs differ in intent, not just in literal values.
+
+DuckDB spatial is NOT PostGIS. `SET geometry_always_xy = true` is active (lon/lat order). Differences that matter:
+- No SRID arguments and no ST_SetSRID: ST_MakeEnvelope(xmin, ymin, xmax, ymax), ST_GeomFromText(wkt), ST_Point(lon, lat).
+- ST_Transform takes CRS strings, not integers: ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true).
+- No GEOGRAPHY type and no 'spheroid' / use_spheroid argument on ST_Distance or ST_Area. For metres use ST_Distance_Sphere / ST_Distance_Spheroid / ST_DWithin_Spheroid (POINT inputs only), ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS. For distances involving lines or polygons, transform to a metric CRS first.
+- ST_Collect takes a list: ST_Collect(list(geom)). Aggregates are ST_Union_Agg(geom) and ST_Extent_Agg(geom).
+
+Return ONLY a JSON array, no markdown fences:
+[{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "hard"}]

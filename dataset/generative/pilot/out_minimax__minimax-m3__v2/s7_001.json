@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the count of airports within the continental United States.",
+    "sql": "SELECT COUNT(*) AS num_airports FROM airports WHERE ST_Within(geometry, ST_MakeEnvelope(-125, 24, -66, 49))",
+    "skills": ["spatial filter", "bounding box", "ST_Within", "aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the number of airports in Europe broken down by type.",
+    "sql": "SELECT type, COUNT(*) AS num_airports FROM airports WHERE ST_Within(geometry, ST_MakeEnvelope(-15, 35, 50, 75)) GROUP BY type ORDER BY num_airports DESC",
+    "skills": ["spatial filter", "GROUP BY", "aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the 5 closest airports to Paris with their distances in kilometers.",
+    "sql": "SELECT name, iata_code, ST_Distance_Sphere(geometry, ST_Point(2.3522, 48.8566)) / 1000 AS distance_km FROM airports ORDER BY distance_km LIMIT 5",
+    "skills": ["distance calculation", "ST_Distance_Sphere", "nearest neighbor"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map the 10 densest 10-degree grid cells by airport count.",
+    "sql": "SELECT CAST(FLOOR((ST_X(geometry) + 180) / 10) AS INTEGER) AS grid_x, CAST(FLOOR((ST_Y(geometry) + 90) / 10) AS INTEGER) AS grid_y, COUNT(*) AS airport_count, ST_AsGeoJSON(ST_Extent_Agg(geometry)) AS cell_extent FROM airports GROUP BY grid_x, grid_y ORDER BY airport_count DESC LIMIT 10",
+    "skills": ["spatial join", "aggregation", "fishnet grid", "ST_Extent_Agg"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List major airports within 500 km of New York City with their distances in kilometers.",
+    "sql": "SELECT name, iata_code, ST_Distance_Sphere(geometry, ST_Point(-73.9857, 40.7484)) / 1000 AS distance_km FROM airports WHERE ST_DWithin_Spheroid(geometry, ST_Point(-73.9857, 40.7484), 500000) AND scalerank <= 4 ORDER BY distance_km",
+    "skills": ["distance filter", "ST_DWithin_Spheroid", "attribute filter", "ST_Distance_Sphere"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare the number of airports across continents.",
+    "sql": "WITH regions AS (SELECT 'North America' AS region, ST_MakeEnvelope(-170, 15, -50, 75) AS geom UNION ALL SELECT 'Europe', ST_MakeEnvelope(-15, 35, 50, 75) UNION ALL SELECT 'Asia', ST_MakeEnvelope(50, -10, 180, 75) UNION ALL SELECT 'South America', ST_MakeEnvelope(-90, -60, -30, 15) UNION ALL SELECT 'Africa', ST_MakeEnvelope(-20, -40, 55, 40) UNION ALL SELECT 'Oceania', ST_MakeEnvelope(110, -50, 180, 0)) SELECT r.region, COUNT(a.geometry) AS num_airports FROM regions r LEFT JOIN airports a ON ST_Within(a.geometry, r.geom) GROUP BY r.region ORDER BY num_airports DESC",
+    "skills": ["spatial join", "aggregation", "CTE", "ST_Within", "LEFT JOIN"],
+    "difficulty": "medium"
+  }
+]

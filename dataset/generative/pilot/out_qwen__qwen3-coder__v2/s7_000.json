@@ -1,0 +1,38 @@
+[
+  {
+    "question": "restaurants inside Belém district",
+    "sql": "SELECT lp.names.primary AS name, lp.geometry FROM lisbon_places lp WHERE lp.basic_category = 'restaurant' AND ST_Within(lp.geometry, (SELECT lb.geometry FROM lisbon_buildings lb WHERE lb.names.primary = 'Belém'))",
+    "skills": ["spatial filtering with ST_Within"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings intersecting the Tagus river polygon",
+    "sql": "SELECT lb.id, lb.subtype, lb.geometry FROM lisbon_buildings lb WHERE ST_Intersects(lb.geometry, (SELECT geometry FROM lisbon_buildings WHERE names.primary LIKE '%Tejo%' OR names.primary LIKE '%Tagus%'))",
+    "skills": ["spatial filtering with ST_Intersects"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "historic sites within 500m of Praça do Comércio",
+    "sql": "SELECT lp.names.primary AS name, lp.taxonomy.primary AS category FROM lisbon_places lp WHERE lp.taxonomy.primary = 'historic_site' AND ST_DWithin_Spheroid(lp.geometry::POINT, (SELECT geometry::POINT FROM lisbon_places WHERE names.primary = 'Praça do Comércio'), 500)",
+    "skills": ["distance-based spatial filtering with ST_DWithin_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "parks touching forested areas",
+    "sql": "SELECT p1.names.primary AS park_name FROM lisbon_places p1 JOIN lisbon_places p2 ON ST_Touches(p1.geometry, p2.geometry) WHERE p1.taxonomy.primary = 'park' AND p2.taxonomy.primary = 'natural_feature' AND p2.names.primary ILIKE '%forest%'",
+    "skills": ["spatial filtering with ST_Touches"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "show all cafes contained in Parque das Nações",
+    "sql": "SELECT lp.names.primary AS cafe_name, lp.geometry FROM lisbon_places lp WHERE lp.basic_category = 'cafe' AND ST_Within(lp.geometry, (SELECT lb.geometry FROM lisbon_buildings lb WHERE lb.names.primary = 'Parque das Nações'))",
+    "skills": ["spatial filtering with ST_Within"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "find museums that are not inside any building footprint",
+    "sql": "SELECT lp.names.primary AS museum_name, lp.geometry FROM lisbon_places lp WHERE lp.taxonomy.primary = 'museum' AND NOT EXISTS (SELECT 1 FROM lisbon_buildings lb WHERE ST_Contains(lb.geometry, lp.geometry))",
+    "skills": ["negation with spatial containment"],
+    "difficulty": "easy"
+  }
+]

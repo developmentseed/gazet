@@ -1,0 +1,38 @@
+[
+  {
+    "question": "For each continent, return a JSON object containing the continent name, the number of countries, the total estimated population, and a JSON array of the names of countries with an estimated population above 50 million, with each name in uppercase. Order by continent name.",
+    "sql": "SELECT json_object('continent', continent, 'country_count', count(*), 'total_population', sum(pop_est), 'large_countries', to_json(COALESCE(list_sort(list_transform(list(name) FILTER (WHERE pop_est > 50000000), x -> upper(x))), []))) AS summary FROM countries GROUP BY continent ORDER BY continent;",
+    "skills": ["JSON", "list functions", "list_transform", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each river feature class, return the feature class, the count of distinct rivers with a scalerank of 6 or lower that intersect at least one country in the '1. High income: OECD' income group, and the average length in kilometres of those rivers. Order by feature class.",
+    "sql": "WITH oecd_rivers AS (SELECT DISTINCT r.name, r.feature_class, r.geometry FROM rivers r JOIN countries c ON ST_Intersects(r.geometry, c.geometry) WHERE c.income_grp = '1. High income: OECD' AND r.scalerank <= 6) SELECT feature_class, COUNT(*) AS river_count, AVG(ST_Length_Spheroid(geometry) / 1000.0) AS avg_length_km FROM oecd_rivers GROUP BY feature_class ORDER BY feature_class;",
+    "skills": ["spatial join", "spheroid length", "DISTINCT", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each country in the Eastern Africa subregion with an estimated population above 10 million, return the country name, its estimated population, and an alphabetically sorted list of names of rivers with a scalerank of 6 or lower that intersect its territory. Order by country name.",
+    "sql": "SELECT c.name, c.pop_est, COALESCE(list_sort(list(DISTINCT r.name) FILTER (WHERE r.scalerank <= 6)), []) AS intersecting_rivers FROM countries c LEFT JOIN rivers r ON ST_Intersects(c.geometry, r.geometry) WHERE c.subregion = 'Eastern Africa' AND c.pop_est > 10000000 GROUP BY c.name, c.pop_est ORDER BY c.name;",
+    "skills": ["spatial join", "list functions", "FILTER", "LEFT JOIN"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For rivers that intersect at least 3 countries, return one row per river-country pair with the river name and the country name. Order by river name, then country name.",
+    "sql": "WITH river_countries AS (SELECT r.name AS river_name, list(DISTINCT c.name) AS countries FROM rivers r JOIN countries c ON ST_Intersects(r.geometry, c.geometry) GROUP BY r.name HAVING COUNT(DISTINCT c.name) >= 3) SELECT river_name, UNNEST(countries) AS country_name FROM river_countries ORDER BY river_name, country_name;",
+    "skills": ["UNNEST", "list aggregation", "spatial join", "HAVING"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each continent, create a list of structs for countries with an estimated population above 100 million, where each struct has fields 'country' and 'population'. Then unnest the list to return one row per such country with continent, country name, and population. Order by continent, then population descending.",
+    "sql": "WITH continent_structs AS (SELECT continent, list(struct_pack(country := name, population := pop_est)) AS countries FROM countries WHERE pop_est > 100000000 GROUP BY continent) SELECT continent, c.country AS country, c.population AS population FROM continent_structs, UNNEST(countries) AS c ORDER BY continent, population DESC;",
+    "skills": ["struct_pack", "UNNEST", "list aggregation", "nested data"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each country in the Western Africa subregion, calculate the total length in kilometres of rivers that intersect its territory. Return the country name, the total river length in kilometres rounded to one decimal, and an alphabetically sorted list of the names of those rivers. Only include countries with a total river length greater than 1000 km. Order by total river length descending.",
+    "sql": "WITH country_rivers AS (SELECT c.name AS country, r.name AS river, ST_Length_Spheroid(r.geometry) / 1000.0 AS length_km FROM countries c JOIN rivers r ON ST_Intersects(c.geometry, r.geometry) WHERE c.subregion = 'Western Africa') SELECT country, ROUND(SUM(length_km), 1) AS total_length_km, list_sort(list(DISTINCT river)) AS rivers FROM country_rivers GROUP BY country HAVING SUM(length_km) > 1000 ORDER BY total_length_km DESC;",
+    "skills": ["spatial join", "spheroid length", "list aggregation", "HAVING"],
+    "difficulty": "hard"
+  }
+]

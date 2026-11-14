@@ -1,0 +1,38 @@
+[
+  {
+    "question": "How many major airports are located within each country that has an estimated population greater than 50 million? List the country name, ISO‑A3 code, and the count, ordered by the count descending.",
+    "sql": "WITH major_airports AS (\n  SELECT c.iso_a3, c.name, COUNT(*) AS airport_cnt\n  FROM countries c\n  JOIN airports a ON ST_Contains(c.geometry, a.geometry)\n  WHERE c.pop_est > 50000000\n    AND a.type = 'major'\n  GROUP BY c.iso_a3, c.name\n)\nSELECT name, iso_a3, airport_cnt\nFROM major_airports\nORDER BY airport_cnt DESC;",
+    "skills": ["spatial join", "aggregation", "filter"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the total GDP (in million USD) of all countries that have at least one airport with \"military\" in its type located within 100 km of the country’s border?",
+    "sql": "WITH military_near_border AS (\n  SELECT DISTINCT c.iso_a3\n  FROM countries c\n  JOIN airports a ON a.type LIKE '%military%'\n    AND ST_Distance(\n          ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:3857', true),\n          ST_Transform(ST_Boundary(c.geometry), 'EPSG:4326', 'EPSG:3857', true)\n        ) <= 100000  -- 100 km in metres\n)\nSELECT SUM(c.gdp_md) AS total_gdp_md\nFROM countries c\nJOIN military_near_border m ON c.iso_a3 = m.iso_a3;",
+    "skills": ["spatial join", "distance", "aggregation", "transform"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which five largest countries by land area have no airports of type \"mid\" within their borders? Return the country name, area in square kilometres, and the airport count (should be zero).",
+    "sql": "WITH country_areas AS (\n  SELECT c.iso_a3,\n         c.name,\n         ST_Area(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:3857', true)) / 1e6 AS area_km2,\n         COUNT(a.*) AS airport_cnt\n  FROM countries c\n  LEFT JOIN airports a ON ST_Contains(c.geometry, a.geometry) AND a.type = 'mid'\n  GROUP BY c.iso_a3, c.name, area_km2\n)\nSELECT name, area_km2, airport_cnt\nFROM country_areas\nWHERE airport_cnt = 0\nORDER BY area_km2 DESC\nLIMIT 5;",
+    "skills": ["area calculation", "spatial join", "aggregation", "filter"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each continent, compute the average distance (in kilometres) from \"major and military\" airports to the nearest coastline (the exterior of their country's polygon).",
+    "sql": "WITH airport_dist AS (\n  SELECT c.continent,\n         ST_Distance(\n           ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:3857', true),\n           ST_Transform(ST_Boundary(c.geometry), 'EPSG:4326', 'EPSG:3857', true)\n         ) / 1000.0 AS dist_km\n  FROM airports a\n  JOIN countries c ON ST_Contains(c.geometry, a.geometry)\n  WHERE a.type = 'major and military'\n)\nSELECT continent,\n       AVG(dist_km) AS avg_dist_to_coast_km\nFROM airport_dist\nGROUP BY continent;",
+    "skills": ["distance", "aggregation", "spatial join", "transform"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "List the airports whose IATA code starts with the letter “A” and that lie within 200 km of any country classified as \"5. Low income\". For each, give the airport name, IATA code, the nearest low‑income country name, and the distance in kilometres.",
+    "sql": "WITH low_income_countries AS (\n  SELECT iso_a3, geometry, name FROM countries WHERE income_grp = '5. Low income'\n)\n, airport_nearest AS (\n  SELECT a.name AS airport_name,\n         a.iata_code,\n         c.name AS country_name,\n         ST_Distance(\n           ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:3857', true),\n           ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:3857', true)\n         ) / 1000.0 AS distance_km\n  FROM airports a\n  CROSS JOIN low_income_countries c\n  WHERE a.iata_code LIKE 'A%'\n    AND ST_Distance(\n          ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:3857', true),\n          ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:3857', true)\n        ) <= 200000  -- 200 km in metres\n)\nSELECT airport_name, iata_code, country_name, distance_km\nFROM (\n  SELECT *, ROW_NUMBER() OVER (PARTITION BY iata_code ORDER BY distance_km) AS rn\n  FROM airport_nearest\n) sub\nWHERE rn = 1\nORDER BY distance_km ASC\nLIMIT 10;",
+    "skills": ["distance", "filter", "join", "transform"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the combined population of all countries that have more than ten airports located within 500 km of the country’s centroid?",
+    "sql": "WITH country_centroids AS (\n  SELECT iso_a3, name, pop_est,\n         ST_Centroid(geometry) AS centroid_geom\n  FROM countries\n)\n, airport_counts AS (\n  SELECT cc.iso_a3,\n         cc.name,\n         cc.pop_est,\n         COUNT(a.*) AS near_airport_cnt\n  FROM country_centroids cc\n  JOIN airports a ON ST_Distance(\n        ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:3857', true),\n        ST_Transform(cc.centroid_geom, 'EPSG:4326', 'EPSG:3857', true)\n      ) <= 500000  -- 500 km in metres\n  GROUP BY cc.iso_a3, cc.name, cc.pop_est\n  HAVING COUNT(a.*) > 10\n)\nSELECT SUM(pop_est) AS total_population\nFROM airport_counts;",
+    "skills": ["centroid", "distance", "aggregation", "filter", "transform"],
+    "difficulty": "hard"
+  }
+]

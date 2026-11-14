@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "SiliconFlow",
+  "wall_s": 16.5,
+  "prompt_tokens": 1352,
+  "completion_tokens": 574,
+  "reasoning_tokens": 0,
+  "cost": 0.00025536
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "SiliconFlow",
+  "wall_s": 12.7,
+  "prompt_tokens": 597,
+  "completion_tokens": 501,
+  "reasoning_tokens": 0,
+  "cost": 0.00018207
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "SiliconFlow",
+  "wall_s": 19.2,
+  "prompt_tokens": 951,
+  "completion_tokens": 716,
+  "reasoning_tokens": 0,
+  "cost": 0.00026705
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "SiliconFlow",
+  "wall_s": 9.4,
+  "prompt_tokens": 1285,
+  "completion_tokens": 417,
+  "reasoning_tokens": 0,
+  "cost": 0.00020671
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "SiliconFlow",
+  "wall_s": 22.3,
+  "prompt_tokens": 1116,
+  "completion_tokens": 832,
+  "reasoning_tokens": 0,
+  "cost": 0.00031108
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "SiliconFlow",
+  "wall_s": 21.6,
+  "prompt_tokens": 812,
+  "completion_tokens": 909,
+  "reasoning_tokens": 0,
+  "cost": 0.00031136
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "SiliconFlow",
+  "wall_s": 16.7,
+  "prompt_tokens": 913,
+  "completion_tokens": 617,
+  "reasoning_tokens": 0,
+  "cost": 0.00023667
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "SiliconFlow",
+  "wall_s": 10.7,
+  "prompt_tokens": 936,
+  "completion_tokens": 570,
+  "reasoning_tokens": 0,
+  "cost": 0.00022512
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "SiliconFlow",
+  "wall_s": 22.3,
+  "prompt_tokens": 982,
+  "completion_tokens": 884,
+  "reasoning_tokens": 0,
+  "cost": 0.00031626
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "SiliconFlow",
+  "wall_s": 13.4,
+  "prompt_tokens": 864,
+  "completion_tokens": 558,
+  "reasoning_tokens": 0,
+  "cost": 0.00021672
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "SiliconFlow",
+  "wall_s": 18.4,
+  "prompt_tokens": 1446,
+  "completion_tokens": 762,
+  "reasoning_tokens": 0,
+  "cost": 0.00031458
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "SiliconFlow",
+  "wall_s": 18.7,
+  "prompt_tokens": 1023,
+  "completion_tokens": 793,
+  "reasoning_tokens": 0,
+  "cost": 0.00029365
+ }
+]

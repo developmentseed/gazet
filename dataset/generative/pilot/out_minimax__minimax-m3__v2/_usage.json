@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "ModelRun",
+  "wall_s": 40.5,
+  "prompt_tokens": 1670,
+  "completion_tokens": 7750,
+  "reasoning_tokens": 7094,
+  "cost": 0.010544
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "Parasail",
+  "wall_s": 48.9,
+  "prompt_tokens": 958,
+  "completion_tokens": 7807,
+  "reasoning_tokens": 6468,
+  "cost": 0.0096558
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "Venice",
+  "wall_s": 64.4,
+  "prompt_tokens": 1238,
+  "completion_tokens": 15561,
+  "reasoning_tokens": 14571,
+  "cost": 0.019005
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "ModelRun",
+  "wall_s": 8.8,
+  "prompt_tokens": 1614,
+  "completion_tokens": 1301,
+  "reasoning_tokens": 839,
+  "cost": 0.0018555
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "Venice",
+  "wall_s": 26.1,
+  "prompt_tokens": 1384,
+  "completion_tokens": 6227,
+  "reasoning_tokens": 5345,
+  "cost": 0.007848
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "ModelRun",
+  "wall_s": 119.7,
+  "prompt_tokens": 1145,
+  "completion_tokens": 20248,
+  "reasoning_tokens": 18577,
+  "cost": 0.0264739
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "Parasail",
+  "wall_s": 13.3,
+  "prompt_tokens": 1238,
+  "completion_tokens": 2689,
+  "reasoning_tokens": 1967,
+  "cost": 0.0035982
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "ModelRun",
+  "wall_s": 6.0,
+  "prompt_tokens": 1289,
+  "completion_tokens": 944,
+  "reasoning_tokens": 944,
+  "cost": 0.0015819
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "Venice",
+  "wall_s": 40.9,
+  "prompt_tokens": 1240,
+  "completion_tokens": 9243,
+  "reasoning_tokens": 8172,
+  "cost": 0.01123248
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "ModelRun",
+  "wall_s": 16.5,
+  "prompt_tokens": 1230,
+  "completion_tokens": 2842,
+  "reasoning_tokens": 2316,
+  "cost": 0.0038396
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "ModelRun",
+  "wall_s": 22.6,
+  "prompt_tokens": 1769,
+  "completion_tokens": 4089,
+  "reasoning_tokens": 3479,
+  "cost": 0.0056864
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "Venice",
+  "wall_s": 19.7,
+  "prompt_tokens": 1297,
+  "completion_tokens": 4070,
+  "reasoning_tokens": 3210,
+  "cost": 0.0051375
+ }
+]

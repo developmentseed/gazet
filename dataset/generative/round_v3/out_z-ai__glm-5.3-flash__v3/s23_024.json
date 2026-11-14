@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Could you give me the longitude and latitude of the exact middle point of Wollaston Lake?",
+    "sql": "SELECT round(ST_X(ST_Centroid(geometry)), 4) AS lon,\n       round(ST_Y(ST_Centroid(geometry)), 4) AS lat\nFROM lakes\nWHERE name = 'Wollaston Lake';",
+    "skills": ["ST_Centroid", "ST_X", "ST_Y"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "If we drew a zone stretching 50 kilometres out from the Itaipú Reservoir, which countries would that zone reach into?",
+    "sql": "WITH zone AS (\n  SELECT ST_Transform(\n           ST_Buffer(\n             ST_Transform(geometry, 'EPSG:4326', 'EPSG:32721', always_xy := true),\n             50000.0),\n           'EPSG:32721', 'EPSG:4326', always_xy := true) AS geom\n  FROM lakes\n  WHERE name = 'Itaipú Reservoir'\n)\nSELECT c.name AS country\nFROM zone z\nJOIN countries c ON ST_Intersects(c.geometry, z.geom)\nORDER BY c.name;",
+    "skills": ["ST_Buffer", "ST_Transform", "ST_Intersects"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "If every country in South America were fused together into one single shape, how many square kilometres would that combined shape cover?",
+    "sql": "SELECT round(ST_Area_Spheroid(ST_Union_Agg(geometry)) / 1000000.0, 0) AS combined_area_km2\nFROM countries\nWHERE continent = 'South America';",
+    "skills": ["ST_Union_Agg", "ST_Area_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Imagine wrapping a rubber band tightly around all of Indonesia's islands. How many square kilometres would the area inside the rubber band be?",
+    "sql": "SELECT round(ST_Area_Spheroid(ST_ConvexHull(geometry)) / 1000000.0, 0) AS rubber_band_area_km2\nFROM countries\nWHERE name = 'Indonesia';",
+    "skills": ["ST_ConvexHull", "ST_Area_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "How much of Finland lies more than 200 kilometres away from the country's own central point? Please give the answer in square kilometres.",
+    "sql": "WITH fin AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3067', always_xy := true) AS geom\n  FROM countries\n  WHERE name = 'Finland'\n)\nSELECT round(ST_Area(ST_Difference(geom, ST_Buffer(ST_Centroid(geom), 200000.0))) / 1000000.0, 0) AS area_km2\nFROM fin;",
+    "skills": ["ST_Centroid", "ST_Buffer", "ST_Difference", "ST_Transform"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "What share of Gabon's land lies on the northern side of the equator, as a percentage?",
+    "sql": "WITH gab AS (\n  SELECT geometry AS geom\n  FROM countries\n  WHERE name = 'Gabon'\n),\nnorth AS (\n  SELECT ST_MakeEnvelope(-180.0, 0.0, 180.0, 90.0) AS geom\n)\nSELECT round(100.0 * ST_Area_Spheroid(ST_Intersection(gab.geom, north.geom))\n             / ST_Area_Spheroid(gab.geom), 1) AS pct_north_of_equator\nFROM gab, north;",
+    "skills": ["ST_Intersection", "ST_MakeEnvelope", "ST_Area_Spheroid"],
+    "difficulty": "easy"
+  }
+]

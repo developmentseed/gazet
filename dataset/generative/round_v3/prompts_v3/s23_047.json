@@ -1,0 +1,1 @@
+{"id": "s23_047", "tables": ["ports", "countries"], "skill": "analytical SQL: GROUP BY / HAVING / CTEs / CASE / date-time functions / QUALIFY", "difficulty": "hard", "style": "full natural sentences from a non-technical user who does not know column names", "k": 6}

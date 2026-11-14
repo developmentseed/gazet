@@ -1,0 +1,76 @@
+You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
+
+Below are the tables available. Each is a DuckDB view with exactly the columns shown.
+
+TABLE countries  -- Natural Earth 1:50m country polygons with population/GDP attributes. EPSG:4326. rows=242
+  iso_a3 VARCHAR  -- distinct~246 e.g. ['ZMB', 'GUM']
+  iso_a2 VARCHAR  -- distinct~231 e.g. ['-99', 'TT']
+  name VARCHAR  -- distinct~243 e.g. ['Vatican', 'Marshall Is.']
+  name_long VARCHAR  -- distinct~249 e.g. ['Vatican', 'Guam']
+  continent VARCHAR  -- distinct~8 top=['Africa', 'Asia', 'Europe', 'North America', 'Oceania', 'South America']
+  region_un VARCHAR  -- distinct~6 top=['Africa', 'Asia', 'Americas', 'Europe', 'Oceania', 'Antarctica']
+  subregion VARCHAR  -- distinct~24 top=['Caribbean', 'Eastern Africa', 'Western Asia', 'Western Africa', 'Southern Europe', 'Northern Europe']
+  pop_est BIGINT  -- range=[0, 1397715000]
+  gdp_md BIGINT  -- range=[-99, 21433226]
+  income_grp VARCHAR  -- distinct~4 top=['4. Lower middle income', '3. Upper middle income', '2. High income: nonOECD', '5. Low income', '1. High income: OECD']
+  economy VARCHAR  -- distinct~7 top=['6. Developing region', '7. Least developed region', '2. Developed region: nonG7', '5. Emerging region: G20', '1. Developed region: G7', '4. Emerging region: MIKT']
+  geometry GEOMETRY('EPSG:4326')  -- types=['MULTIPOLYGON', 'POLYGON'] extent=[-180.0, -89.999, 180.0, 83.6]
+
+TABLE airports  -- Natural Earth 1:10m airports (points). EPSG:4326. rows=893
+  name VARCHAR  -- distinct~893 e.g. ["Birmingham Int'l", "Kansas City Int'l"]
+  iata_code VARCHAR  -- distinct~891 e.g. ['PZU', 'SGC']
+  icao_code VARCHAR  -- distinct~875 e.g. ['VERC', 'UNNT']
+  type VARCHAR  -- distinct~9 top=['mid', 'major', 'major and military', 'mid and military', 'military mid', 'military major']
+  scalerank INTEGER  -- range=[2, 9]
+  wikipedia VARCHAR  -- distinct~888 e.g. ['http://en.wikipedia.org/wiki/Kansas_C...', 'http://en.wikipedia.org/wiki/Sultan_S...']
+  geometry GEOMETRY('EPSG:4326')  -- types=['POINT'] extent=[-175.136, -53.781, 179.195, 78.247]
+
+Real data to ground the questions in (use these names, categories and coordinates as literals):
+
+REAL ROWS from countries (random sample; centroid lon/lat):
+  iso_a3=PRI, iso_a2=PR, name=Puerto Rico, name_long=Puerto Rico, continent=North America, region_un=Americas, subregion=Caribbean, pop_est=3193694, gdp_md=104988, income_grp=2. High income: nonOECD, economy=6. Developing region, lon=-66.4731, lat=18.2281
+  iso_a3=SOM, iso_a2=SO, name=Somalia, name_long=Somalia, continent=Africa, region_un=Africa, subregion=Eastern Africa, pop_est=10192317, gdp_md=4719, income_grp=5. Low income, economy=7. Least developed region, lon=45.7071, lat=4.7506
+  iso_a3=ABW, iso_a2=AW, name=Aruba, name_long=Aruba, continent=North America, region_un=Americas, subregion=Caribbean, pop_est=106314, gdp_md=3056, income_grp=2. High income: nonOECD, economy=6. Developing region, lon=-69.9827, lat=12.5209
+  iso_a3=GRC, iso_a2=GR, name=Greece, name_long=Greece, continent=Europe, region_un=Europe, subregion=Southern Europe, pop_est=10716322, gdp_md=209852, income_grp=1. High income: OECD, economy=2. Developed region: nonG7, lon=22.9556, lat=39.0747
+  iso_a3=FIN, iso_a2=FI, name=Finland, name_long=Finland, continent=Europe, region_un=Europe, subregion=Northern Europe, pop_est=5520314, gdp_md=269296, income_grp=1. High income: OECD, economy=2. Developed region: nonG7, lon=26.2747, lat=64.4988
+ALL VALUES in countries:
+  continent: ['Africa', 'Antarctica', 'Asia', 'Europe', 'North America', 'Oceania', 'Seven seas (open ocean)', 'South America']
+  region_un: ['Africa', 'Americas', 'Antarctica', 'Asia', 'Europe', 'Oceania']
+  subregion: ['Antarctica', 'Australia and New Zealand', 'Caribbean', 'Central America', 'Central Asia', 'Eastern Africa', 'Eastern Asia', 'Eastern Europe', 'Melanesia', 'Micronesia', 'Middle Africa', 'Northern Africa', 'Northern America', 'Northern Europe', 'Polynesia', 'Seven seas (open ocean)', 'South America', 'South-Eastern Asia', 'Southern Africa', 'Southern Asia', 'Southern Europe', 'Western Africa', 'Western Asia', 'Western Europe']
+  income_grp: ['1. High income: OECD', '2. High income: nonOECD', '3. Upper middle income', '4. Lower middle income', '5. Low income']
+  economy: ['1. Developed region: G7', '2. Developed region: nonG7', '3. Emerging region: BRIC', '4. Emerging region: MIKT', '5. Emerging region: G20', '6. Developing region', '7. Least developed region']
+
+REAL ROWS from airports (random sample; centroid lon/lat):
+  name=Vishakapatnam, iata_code=VTZ, icao_code=VEVZ, type=mid, scalerank=8, wikipedia=http://en.wikipedia.org/wiki/Visakhap..., lon=83.2235, lat=17.728
+  name=Santo Pekoa Int'l, iata_code=SON, icao_code=NVSS, type=mid, scalerank=8, wikipedia=http://en.wikipedia.org/wiki/Santo-Pe..., lon=167.2209, lat=-15.5055
+  name=Ponta Porã Int'l, iata_code=PMG, icao_code=SBPP, type=mid, scalerank=7, wikipedia=http://en.wikipedia.org/wiki/Ponta_Po..., lon=-55.7061, lat=-22.5518
+  name=Brussels, iata_code=BRU, icao_code=EBBR, type=major, scalerank=5, wikipedia=http://en.wikipedia.org/wiki/Brussels..., lon=4.4846, lat=50.8973
+  name=Fua'amotu Int'l, iata_code=TBU, icao_code=NFTF, type=mid, scalerank=4, wikipedia=http://en.wikipedia.org/wiki/Fua'amot..., lon=-175.1356, lat=-21.2486
+ALL VALUES in airports:
+  type: ['major', 'major and military', 'mid', 'mid and military', 'military', 'military major', 'military mid', 'small', 'spaceport']
+
+Write 6 diverse (question, sql) pairs for these tables.
+- Focus skill: spatial predicates (ST_Intersects / ST_Within / ST_Contains / ST_Touches) for filtering
+- Difficulty: medium
+- Question style: terse keyword-style requests a GIS analyst types into a search box
+
+Rules:
+- SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
+- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Only use literal values (names, categories, codes) that appear in the real rows, value lists or top values above. The query should return at least one row.
+- Do not name places, neighbourhoods or landmarks that are not in the data. If a question needs an area or point that is not a row in the data, give its coordinates explicitly in the question.
+- Never measure distances, buffers or areas in EPSG:3857 (Web Mercator) or EPSG:6933; their scale is wrong away from the equator. Use the spheroid functions or a local metric CRS (UTM zone or national grid).
+- Results must be deterministic: no current_date, now() or random(); whenever you use LIMIT, ORDER BY columns that make the order unique.
+- Watch join fan-out: do not SUM a per-country (or per-parent) value after joining to many child rows.
+- Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
+- Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
+- Make the 6 pairs differ in intent, not just in literal values.
+
+DuckDB spatial is NOT PostGIS. `SET geometry_always_xy = true` is active (lon/lat order). Differences that matter:
+- No SRID arguments and no ST_SetSRID: ST_MakeEnvelope(xmin, ymin, xmax, ymax), ST_GeomFromText(wkt), ST_Point(lon, lat).
+- ST_Transform takes CRS strings, not integers: ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true).
+- No GEOGRAPHY type and no 'spheroid' / use_spheroid argument on ST_Distance or ST_Area. For metres use ST_Distance_Sphere / ST_Distance_Spheroid / ST_DWithin_Spheroid (POINT inputs only), ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS. For distances involving lines or polygons, transform to a metric CRS first.
+- ST_Collect takes a list: ST_Collect(list(geom)). Aggregates are ST_Union_Agg(geom) and ST_Extent_Agg(geom).
+
+Return ONLY a JSON array, no markdown fences:
+[{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "medium"}]

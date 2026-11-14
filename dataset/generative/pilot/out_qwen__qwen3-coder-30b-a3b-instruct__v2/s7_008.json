@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Show me all the taxi zones that are located within a rectangular area around the center of Manhattan, roughly between longitude -74.01 and -73.98 and latitude 40.70 and 40.75.",
+    "sql": "SELECT zone FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.01, 40.70, -73.98, 40.75, 4326))",
+    "skills": ["bounding-box and envelope filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Find all the taxi zones that are located inside the bounding box that covers the area from the southern tip of Manhattan to the northern edge of the Bronx, approximately between longitude -74.05 and -73.85 and latitude 40.45 and 40.91.",
+    "sql": "SELECT zone FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.05, 40.45, -73.85, 40.91, 4326))",
+    "skills": ["bounding-box and envelope filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Show me the total number of taxi trips that started and ended in zones that are both within the bounding box defined by the corners of the Financial District (longitude -74.01 to -73.99 and latitude 40.70 to 40.72).",
+    "sql": "SELECT COUNT(*) FROM nyc_taxi_trips t JOIN nyc_taxi_zones z1 ON t.PULocationID = z1.location_id JOIN nyc_taxi_zones z2 ON t.DOLocationID = z2.location_id WHERE ST_Intersects(z1.geometry, ST_MakeEnvelope(-74.01, 40.70, -73.99, 40.72, 4326)) AND ST_Intersects(z2.geometry, ST_MakeEnvelope(-74.01, 40.70, -73.99, 40.72, 4326))",
+    "skills": ["bounding-box and envelope filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which boroughs have taxi zones that are entirely contained within a 500-meter square centered around the Empire State Building (longitude -73.9857, latitude 40.7484)?",
+    "sql": "WITH empire_state AS (SELECT ST_Point(-73.9857, 40.7484) AS center), buffered AS (SELECT ST_Transform(center, 'EPSG:4326', 'EPSG:32618', always_xy := true) AS buffered_center FROM empire_state), buffer_geom AS (SELECT ST_Buffer(buffered_center, 500) AS buffered_zone FROM buffered) SELECT DISTINCT borough FROM nyc_taxi_zones z JOIN buffer_geom b ON ST_Contains(b.buffered_zone, ST_Transform(z.geometry, 'EPSG:4326', 'EPSG:32618', always_xy := true))",
+    "skills": ["bounding-box and envelope filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "List all taxi zones that are within 1 kilometer of the area bounded by the coordinates of the Statue of Liberty (longitude -74.036, latitude 40.689) and a 1km radius around it.",
+    "sql": "WITH statue_of_liberty AS (SELECT ST_Point(-74.036, 40.689) AS point), buffered_zone AS (SELECT ST_Buffer_Sphere(point, 1000) AS buffered_geom FROM statue_of_liberty) SELECT zone FROM nyc_taxi_zones z JOIN buffered_zone b ON ST_Intersects(z.geometry, b.buffered_geom)",
+    "skills": ["bounding-box and envelope filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Identify the total area covered by taxi zones that are located inside the rectangular bounding box around the Brooklyn Bridge (longitude -73.996 and -73.988, latitude 40.704 and 40.708).",
+    "sql": "SELECT ST_Area_Spheroid(ST_Union_Agg(geometry)) AS total_area FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-73.996, 40.704, -73.988, 40.708, 4326))",
+    "skills": ["bounding-box and envelope filtering"],
+    "difficulty": "hard"
+  }
+]

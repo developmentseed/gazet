@@ -1,0 +1,38 @@
+[
+  {
+    "question": "total area residential buildings ha",
+    "sql": "SELECT SUM(ST_Area_Spheroid(geometry)) / 10000 AS area_ha FROM lisbon_buildings WHERE subtype = 'residential';",
+    "skills": ["area", "sum", "spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "total length footway roads km",
+    "sql": "SELECT SUM(ST_Length_Spheroid(geometry)) / 1000 AS length_km FROM lisbon_roads WHERE class = 'footway';",
+    "skills": ["length", "sum", "spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "average footprint area flat roof buildings m2",
+    "sql": "SELECT AVG(ST_Area_Spheroid(geometry)) AS avg_area_m2 FROM lisbon_buildings WHERE roof_shape = 'flat';",
+    "skills": ["area", "average", "spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings area > 500 m2 height > 10 m id area height",
+    "sql": "SELECT id, ST_Area_Spheroid(geometry) AS area_m2, height FROM lisbon_buildings WHERE ST_Area_Spheroid(geometry) > 500 AND height > 10;",
+    "skills": ["area", "filter", "spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "road segments longer than 200 m class length",
+    "sql": "SELECT class, ST_Length_Spheroid(geometry) AS length_m FROM lisbon_roads WHERE ST_Length_Spheroid(geometry) > 200;",
+    "skills": ["length", "filter", "spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "distance Torre VTS de Algés to nearest road m",
+    "sql": "WITH building AS (SELECT geometry AS geom FROM lisbon_buildings WHERE names.primary = 'Torre VTS de Algés' LIMIT 1) SELECT ST_Distance_Spheroid(b.geom, r.geometry) AS distance_m FROM building b, lisbon_roads r ORDER BY distance_m LIMIT 1;",
+    "skills": ["distance", "spheroid", "nearest"],
+    "difficulty": "easy"
+  }
+]

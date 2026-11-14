@@ -1,0 +1,38 @@
+[
+  {
+    "question": "List the number of airports in each broad region: North America, South America, Europe, Africa, Asia, and Oceania.",
+    "sql": "WITH regions(name, geom) AS (SELECT 'North America', ST_SetSRID(ST_GeomFromText('POLYGON((-170 15, -50 15, -50 75, -170 75, -170 15))'), 4326) UNION ALL SELECT 'South America', ST_SetSRID(ST_GeomFromText('POLYGON((-85 -60, -30 -60, -30 15, -85 15, -85 -60))'), 4326) UNION ALL SELECT 'Europe', ST_SetSRID(ST_GeomFromText('POLYGON((-10 35, 45 35, 45 70, -10 70, -10 35))'), 4326) UNION ALL SELECT 'Africa', ST_SetSRID(ST_GeomFromText('POLYGON((-20 -40, 55 -40, 55 40, -20 40, -20 -40))'), 4326) UNION ALL SELECT 'Asia', ST_SetSRID(ST_GeomFromText('POLYGON((60 -10, 180 -10, 180 75, 60 75, 60 -10))'), 4326) UNION ALL SELECT 'Oceania', ST_SetSRID(ST_GeomFromText('POLYGON((110 -50, 180 -50, 180 -10, 110 -10, 110 -50))'), 4326)) SELECT r.name, count(a.name) AS airport_count FROM regions r LEFT JOIN airports a ON ST_Intersects(r.geom, a.geometry) GROUP BY r.name ORDER BY airport_count DESC;",
+    "skills": ["spatial join", "aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each major airport, show the number of airports within 500 km, including the major airport itself.",
+    "sql": "SELECT h.name, count(a.name) AS airports_within_500km FROM airports h JOIN airports a ON ST_Distance_Spheroid(h.geometry, a.geometry) <= 500000 WHERE h.type = 'major' GROUP BY h.name ORDER BY airports_within_500km DESC;",
+    "skills": ["spatial self-join", "spatial aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For Kansas City Int'l, count the airports within 1,000 km by airport type, excluding the airport itself.",
+    "sql": "WITH hub AS (SELECT geometry FROM airports WHERE name = 'Kansas City Int''l') SELECT a.type, count(*) AS nearby_count FROM airports a JOIN hub h ON ST_Distance_Spheroid(h.geometry, a.geometry) <= 1000000 WHERE a.name <> 'Kansas City Int''l' GROUP BY a.type ORDER BY nearby_count DESC;",
+    "skills": ["spatial join", "aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map each broad region as a GeoJSON polygon, along with the count of airports it contains.",
+    "sql": "WITH regions(name, geom) AS (SELECT 'North America', ST_SetSRID(ST_GeomFromText('POLYGON((-170 15, -50 15, -50 75, -170 75, -170 15))'), 4326) UNION ALL SELECT 'South America', ST_SetSRID(ST_GeomFromText('POLYGON((-85 -60, -30 -60, -30 15, -85 15, -85 -60))'), 4326) UNION ALL SELECT 'Europe', ST_SetSRID(ST_GeomFromText('POLYGON((-10 35, 45 35, 45 70, -10 70, -10 35))'), 4326) UNION ALL SELECT 'Africa', ST_SetSRID(ST_GeomFromText('POLYGON((-20 -40, 55 -40, 55 40, -20 40, -20 -40))'), 4326) UNION ALL SELECT 'Asia', ST_SetSRID(ST_GeomFromText('POLYGON((60 -10, 180 -10, 180 75, 60 75, 60 -10))'), 4326) UNION ALL SELECT 'Oceania', ST_SetSRID(ST_GeomFromText('POLYGON((110 -50, 180 -50, 180 -10, 110 -10, 110 -50))'), 4326)) SELECT r.name, ST_AsGeoJSON(r.geom) AS region_geojson, count(a.name) AS airport_count FROM regions r LEFT JOIN airports a ON ST_Intersects(r.geom, a.geometry) GROUP BY r.name, r.geom ORDER BY r.name;",
+    "skills": ["spatial join", "aggregation", "geojson output"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Group airports by 20-degree latitude bands from -60 to 80 and count how many airports fall in each band.",
+    "sql": "WITH bands(label, geom) AS (SELECT '-60 to -40', ST_SetSRID(ST_GeomFromText('POLYGON((-180 -60, 180 -60, 180 -40, -180 -40, -180 -60))'), 4326) UNION ALL SELECT '-40 to -20', ST_SetSRID(ST_GeomFromText('POLYGON((-180 -40, 180 -40, 180 -20, -180 -20, -180 -40))'), 4326) UNION ALL SELECT '-20 to 0', ST_SetSRID(ST_GeomFromText('POLYGON((-180 -20, 180 -20, 180 0, -180 0, -180 -20))'), 4326) UNION ALL SELECT '0 to 20', ST_SetSRID(ST_GeomFromText('POLYGON((-180 0, 180 0, 180 20, -180 20, -180 0))'), 4326) UNION ALL SELECT '20 to 40', ST_SetSRID(ST_GeomFromText('POLYGON((-180 20, 180 20, 180 40, -180 40, -180 20))'), 4326) UNION ALL SELECT '40 to 60', ST_SetSRID(ST_GeomFromText('POLYGON((-180 40, 180 40, 180 60, -180 60, -180 40))'), 4326) UNION ALL SELECT '60 to 80', ST_SetSRID(ST_GeomFromText('POLYGON((-180 60, 180 60, 180 80, -180 80, -180 60))'), 4326)) SELECT b.label, count(a.name) AS airport_count FROM bands b LEFT JOIN airports a ON ST_Intersects(b.geom, a.geometry) GROUP BY b.label ORDER BY b.label;",
+    "skills": ["spatial join", "aggregation", "polygon binning"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "By airport type, show how many airports lie within 300 km of at least one major airport.",
+    "sql": "SELECT a.type, count(DISTINCT a.name) AS airports_near_major_hub FROM airports a JOIN airports h ON h.type = 'major' AND ST_Distance_Spheroid(h.geometry, a.geometry) <= 300000 GROUP BY a.type ORDER BY airports_near_major_hub DESC;",
+    "skills": ["spatial self-join", "spatial aggregation"],
+    "difficulty": "medium"
+  }
+]

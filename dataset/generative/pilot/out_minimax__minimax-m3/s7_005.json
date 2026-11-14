@@ -1,0 +1,38 @@
+[
+  {
+    "question": "top pickup zones by high-fare trip count",
+    "sql": "WITH zone_trips AS (\n  SELECT \n    PULocationID,\n    list({do: DOLocationID, fare: fare_amount, dist: trip_distance}) AS trips\n  FROM nyc_taxi_trips\n  WHERE fare_amount > 0 AND trip_distance > 0\n  GROUP BY PULocationID\n)\nSELECT \n  PULocationID,\n  len(trips) AS total_trips,\n  len(list_filter(trips, x -> x.fare > 50)) AS high_fare_count\nFROM zone_trips\nWHERE len(list_filter(trips, x -> x.fare > 50)) > 0\nORDER BY high_fare_count DESC\nLIMIT 10;",
+    "skills": ["list of structs", "list_filter", "struct literal", "CTE aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "busiest pickup-dropoff zone pairs",
+    "sql": "WITH pair_lists AS (\n  SELECT \n    PULocationID AS pu,\n    list({do: DOLocationID, fare: fare_amount, dist: trip_distance, pax: passenger_count}) AS trips\n  FROM nyc_taxi_trips\n  WHERE fare_amount > 0 AND trip_distance > 0\n  GROUP BY PULocationID\n)\nSELECT \n  pu,\n  t.do,\n  COUNT(*) AS cnt,\n  ROUND(AVG(t.fare), 2) AS avg_fare\nFROM pair_lists, UNNEST(trips) AS t(do, fare, dist, pax)\nGROUP BY pu, t.do\nHAVING COUNT(*) > 5\nORDER BY cnt DESC\nLIMIT 10;",
+    "skills": ["UNNEST struct list", "list of structs", "implicit cross join LATERAL"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "trips with highest total as nested json",
+    "sql": "SELECT \n  PULocationID,\n  DOLocationID,\n  json_extract_string(j, '$.charges.fare') AS fare,\n  json_extract_string(j, '$.charges.tip') AS tip\nFROM (\n  SELECT \n    PULocationID,\n    DOLocationID,\n    to_json({\n      charges: {fare: fare_amount, tip: tip_amount, tolls: tolls_amount},\n      trip: {dist: trip_distance, pax: passenger_count}\n    }) AS j\n  FROM nyc_taxi_trips\n  WHERE total_amount > 100\n)\nORDER BY CAST(json_extract_string(j, '$.charges.fare') AS DOUBLE) DESC\nLIMIT 10;",
+    "skills": ["to_json nested struct", "json_extract_string", "json path"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "pickup zones with largest tip amounts",
+    "sql": "WITH zone_data AS (\n  SELECT \n    PULocationID,\n    list({\n      do: DOLocationID,\n      charges: struct_pack(fare := fare_amount, tip := tip_amount, tolls := tolls_amount, surcharge := improvement_surcharge)\n    }) AS trips\n  FROM nyc_taxi_trips\n  WHERE total_amount > 0\n  GROUP BY PULocationID\n)\nSELECT \n  PULocationID,\n  len(trips) AS total,\n  len(list_filter(trips, x -> x.charges.tip > 10)) AS big_tip_count,\n  ROUND(list_avg(list_transform(trips, x -> x.charges.tip)), 2) AS avg_tip\nFROM zone_data\nWHERE len(list_filter(trips, x -> x.charges.tip > 10)) > 0\nORDER BY avg_tip DESC\nLIMIT 10;",
+    "skills": ["struct_pack nested struct", "list_filter nested field access", "list_transform", "list_avg"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "pickup zones sharing dropoff zones",
+    "sql": "WITH zone_dropoffs AS (\n  SELECT \n    PULocationID,\n    list_sort(list_distinct(list(DOLocationID))) AS dropoffs\n  FROM nyc_taxi_trips\n  GROUP BY PULocationID\n  HAVING COUNT(DISTINCT DOLocationID) >= 5\n),\ntop_zones AS (\n  SELECT * FROM zone_dropoffs ORDER BY len(dropoffs) DESC LIMIT 50\n)\nSELECT \n  a.PULocationID AS zone_a,\n  b.PULocationID AS zone_b,\n  len(list_intersect(a.dropoffs, b.dropoffs)) AS shared_count\nFROM top_zones a\nJOIN top_zones b ON a.PULocationID < b.PULocationID\nWHERE len(list_intersect(a.dropoffs, b.dropoffs)) >= 3\nORDER BY shared_count DESC\nLIMIT 10;",
+    "skills": ["list_distinct", "list_sort", "list_intersect", "self join on list overlap"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "pickup zones with peak evening rush trips",
+    "sql": "WITH hourly AS (\n  SELECT \n    PULocationID,\n    list({hr: EXTRACT(HOUR FROM tpep_pickup_datetime), fare: fare_amount}) AS trips\n  FROM nyc_taxi_trips\n  WHERE fare_amount > 0\n  GROUP BY PULocationID\n)\nSELECT \n  PULocationID,\n  len(trips) AS total_trips,\n  list_sort(list_distinct(list_transform(trips, x -> x.hr))) AS active_hours,\n  len(list_filter(trips, x -> x.hr BETWEEN 17 AND 19)) AS evening_rush\nFROM hourly\nWHERE len(list_filter(trips, x -> x.hr BETWEEN 17 AND 19)) > 0\nORDER BY evening_rush DESC\nLIMIT 10;",
+    "skills": ["list of structs", "list_transform projection", "list_filter range", "list_distinct + list_sort"],
+    "difficulty": "hard"
+  }
+]

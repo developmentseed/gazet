@@ -1,0 +1,1 @@
+{"id": "s23_008", "tables": ["lisbon_buildings", "lisbon_roads"], "skill": "bounding-box and envelope filtering (ST_MakeEnvelope, bbox comparisons, ST_Extent)", "difficulty": "hard", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}

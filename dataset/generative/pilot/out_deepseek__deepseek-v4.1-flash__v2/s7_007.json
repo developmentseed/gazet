@@ -1,0 +1,38 @@
+[
+  {
+    "question": "open places by category, min 100, top 10",
+    "sql": "SELECT basic_category, count(*) AS n FROM lisbon_places WHERE operating_status = 'open' GROUP BY basic_category HAVING count(*) >= 100 ORDER BY n DESC LIMIT 10",
+    "skills": ["GROUP BY", "HAVING"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "category closure rate and avg certainty, min 50 places",
+    "sql": "WITH cat AS (SELECT basic_category, count(*) AS total, sum(CASE WHEN operating_status = 'permanently_closed' THEN 1 ELSE 0 END) AS closed, avg(confidence) AS avg_conf FROM lisbon_places GROUP BY basic_category HAVING count(*) >= 50) SELECT basic_category, total, closed, round(closed * 1.0 / total, 3) AS closure_rate, round(avg_conf, 3) AS avg_conf FROM cat ORDER BY closure_rate DESC, total DESC LIMIT 15",
+    "skills": ["CTE", "CASE", "GROUP BY", "HAVING"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "top subtype per category by count",
+    "sql": "WITH tax AS (SELECT basic_category, taxonomy.primary AS taxonomy_primary, count(*) AS n FROM lisbon_places WHERE taxonomy.primary IS NOT NULL GROUP BY basic_category, taxonomy.primary) SELECT basic_category, taxonomy_primary, n FROM tax QUALIFY row_number() OVER (PARTITION BY basic_category ORDER BY n DESC) = 1 ORDER BY n DESC LIMIT 20",
+    "skills": ["CTE", "GROUP BY", "QUALIFY"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "restaurants within 1 km of Praça do Comércio by certainty bucket",
+    "sql": "WITH center AS (SELECT ST_Transform(ST_Point(-9.1393, 38.7071), 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom), near AS (SELECT p.*, ST_Distance(ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), c.geom) AS dist_m FROM lisbon_places p, center c WHERE p.basic_category = 'restaurant' AND ST_Distance(ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), c.geom) <= 1000) SELECT CASE WHEN confidence >= 0.8 THEN 'high' WHEN confidence >= 0.5 THEN 'medium' ELSE 'low' END AS confidence_bucket, count(*) AS n FROM near GROUP BY confidence_bucket ORDER BY confidence_bucket",
+    "skills": ["CTE", "CASE", "spatial distance", "ST_Transform", "GROUP BY"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "categories with high web and phone contact presence, min 100 places",
+    "sql": "WITH presence AS (SELECT basic_category, count(*) AS total, avg(CASE WHEN websites IS NOT NULL AND array_length(websites, 1) > 0 THEN 1 ELSE 0 END) AS website_share, avg(CASE WHEN phones IS NOT NULL AND array_length(phones, 1) > 0 THEN 1 ELSE 0 END) AS phone_share, avg(CASE WHEN socials IS NOT NULL AND array_length(socials, 1) > 0 THEN 1 ELSE 0 END) AS social_share FROM lisbon_places GROUP BY basic_category HAVING count(*) >= 100) SELECT basic_category, total, round(website_share, 3) AS website_share, round(phone_share, 3) AS phone_share, round(social_share, 3) AS social_share FROM presence WHERE website_share >= 0.5 AND phone_share >= 0.5 ORDER BY website_share DESC, phone_share DESC LIMIT 15",
+    "skills": ["CTE", "GROUP BY", "HAVING", "CASE"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "500m grid cells with most places",
+    "sql": "WITH projected AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom FROM lisbon_places), cells AS (SELECT floor(ST_X(geom) / 500) AS cell_x, floor(ST_Y(geom) / 500) AS cell_y, count(*) AS n FROM projected GROUP BY cell_x, cell_y HAVING count(*) >= 50) SELECT cell_x, cell_y, n, ST_AsGeoJSON(ST_Transform(ST_MakeEnvelope(cell_x * 500, cell_y * 500, (cell_x + 1) * 500, (cell_y + 1) * 500), 'EPSG:3763', 'EPSG:4326', always_xy := true)) AS cell_geojson FROM cells ORDER BY n DESC LIMIT 20",
+    "skills": ["CTE", "GROUP BY", "HAVING", "ST_Transform", "ST_MakeEnvelope", "ST_AsGeoJSON"],
+    "difficulty": "medium"
+  }
+]

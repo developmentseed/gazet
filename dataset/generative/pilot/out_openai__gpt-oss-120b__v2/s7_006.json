@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the five airports closest to Ottawa, the capital of Canada, and show the distance in kilometres.",
+    "sql": "WITH cap AS (\n  SELECT geometry\n  FROM populated_places\n  WHERE name = 'Ottawa' AND is_capital AND iso_a2 = 'CA'\n)\nSELECT a.name,\n       a.iata_code,\n       ST_Distance_Sphere(a.geometry, cap.geometry) / 1000.0 AS distance_km,\n       ROW_NUMBER() OVER (ORDER BY ST_Distance_Sphere(a.geometry, cap.geometry)) AS rn\nFROM airports AS a, cap\nORDER BY distance_km\nLIMIT 5;",
+    "skills": ["window functions", "spatial join", "distance calculation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the top three airports for each airport type ordered by their scalerank.",
+    "sql": "WITH ranked AS (\n  SELECT name,\n         iata_code,\n         type,\n         scalerank,\n         RANK() OVER (PARTITION BY type ORDER BY scalerank ASC) AS rnk\n  FROM airports\n)\nSELECT name,\n       iata_code,\n       type,\n       scalerank\nFROM ranked\nWHERE rnk <= 3\nORDER BY type, rnk;",
+    "skills": ["window functions", "per‑group ranking"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Show a running total of how many airports you have encountered as you move eastward across the dataset (ordered by longitude).",
+    "sql": "SELECT name,\n       iata_code,\n       ST_X(geometry) AS lon,\n       ROW_NUMBER() OVER (ORDER BY ST_X(geometry)) AS seq,\n       COUNT(*) OVER (ORDER BY ST_X(geometry) ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_count\nFROM airports\nORDER BY lon;",
+    "skills": ["window functions", "running total", "spatial attribute ordering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For each airport type, return the airport that has the highest scalerank.",
+    "sql": "WITH best AS (\n  SELECT name,\n         iata_code,\n         type,\n         scalerank,\n         RANK() OVER (PARTITION BY type ORDER BY scalerank DESC) AS rnk\n  FROM airports\n)\nSELECT name,\n       iata_code,\n       type,\n       scalerank\nFROM best\nWHERE rnk = 1\nORDER BY type;",
+    "skills": ["window functions", "per‑group ranking"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List all airports that are within 100 km of any world capital and give each a rank per capital based on proximity.",
+    "sql": "WITH caps AS (\n  SELECT name AS cap_name,\n         geometry AS cap_geom\n  FROM populated_places\n  WHERE is_capital\n),\nnearby AS (\n  SELECT a.name AS airport_name,\n         caps.cap_name,\n         ST_Distance_Sphere(a.geometry, caps.cap_geom) / 1000.0 AS dist_km,\n         ROW_NUMBER() OVER (PARTITION BY caps.cap_name ORDER BY ST_Distance_Sphere(a.geometry, caps.cap_geom)) AS rn\n  FROM airports AS a\n  JOIN caps\n    ON ST_DWithin_Spheroid(a.geometry, caps.cap_geom, 100000)  -- 100 km in metres\n)\nSELECT airport_name,\n       cap_name,\n       dist_km,\n       rn\nFROM nearby\nORDER BY cap_name, rn;",
+    "skills": ["window functions", "spatial join", "distance calculation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Map the ten most populous places together with their nearest airport, returning the geometries as GeoJSON.",
+    "sql": "WITH top_places AS (\n  SELECT name,\n         geometry\n  FROM populated_places\n  ORDER BY pop_max DESC\n  LIMIT 10\n),\nnearest AS (\n  SELECT p.name AS place_name,\n         a.name AS airport_name,\n         a.iata_code,\n         a.geometry AS airport_geom,\n         p.geometry AS place_geom,\n         ROW_NUMBER() OVER (PARTITION BY p.name ORDER BY ST_Distance_Sphere(a.geometry, p.geometry)) AS rn\n  FROM top_places AS p\n  CROSS JOIN airports AS a\n)\nSELECT place_name,\n       airport_name,\n       iata_code,\n       ST_AsGeoJSON(ST_Collect(list(place_geom, airport_geom))) AS geojson\nFROM nearest\nWHERE rn = 1\nORDER BY place_name;",
+    "skills": ["window functions", "spatial join", "geojson output"],
+    "difficulty": "easy"
+  }
+]

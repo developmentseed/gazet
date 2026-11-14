@@ -1,0 +1,38 @@
+[
+  {
+    "question": "show road names near 38.72 longitude and 9.15 latitude",
+    "sql": "SELECT names->'primary' AS name FROM lisbon_roads WHERE ST_Distance(ST_Point(9.15, 38.72), geometry) < 0.001 AND names->'primary' IS NOT NULL LIMIT 5",
+    "skills": ["ST_Distance", "ST_Point", "string formatting of results"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "what is the total length of all residential roads in km",
+    "sql": "SELECT ROUND(SUM(ST_Length(geometry, 'spheroid')) / 1000.0, 2) AS total_length_km FROM lisbon_roads WHERE class = 'residential'",
+    "skills": ["ST_Length", "ROUND", "spheroid functions"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "find the center point of the road named Passeio Marítimo de Algés",
+    "sql": "SELECT ST_AsText(ST_Centroid(geometry)) AS center_point FROM lisbon_roads WHERE names->'primary' = 'Passeio Marítimo de Algés' LIMIT 1",
+    "skills": ["ST_Centroid", "ST_AsText"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "list speed limits for all secondary roads with geojson",
+    "sql": "SELECT ST_AsGeoJSON(geometry) AS geojson, speed_limits[1]->'max_speed'->'value' AS max_speed FROM lisbon_roads WHERE class = 'secondary' AND speed_limits IS NOT NULL LIMIT 3",
+    "skills": ["ST_AsGeoJSON", "speed_limits", "string formatting of results"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "what are the coordinates of the first 3 roads",
+    "sql": "SELECT ST_X(ST_StartPoint(geometry)) AS start_lon, ST_Y(ST_StartPoint(geometry)) AS start_lat FROM lisbon_roads LIMIT 3",
+    "skills": ["ST_StartPoint", "ST_X", "ST_Y"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "show roads with paved surface and their geojson",
+    "sql": "SELECT ST_AsGeoJSON(geometry) AS geojson FROM lisbon_roads WHERE road_surface[1]->'value' = 'paved' LIMIT 2",
+    "skills": ["ST_AsGeoJSON", "road_surface"],
+    "difficulty": "easy"
+  }
+]

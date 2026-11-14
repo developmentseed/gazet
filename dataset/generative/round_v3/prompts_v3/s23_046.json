@@ -1,0 +1,1 @@
+{"id": "s23_046", "tables": ["countries", "airports"], "skill": "window functions and per-group ranking (ROW_NUMBER, RANK, running totals) combined with spatial attributes", "difficulty": "medium", "style": "questions phrased as tasks ('give me', 'list', 'map', 'compare')", "k": 6}

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "For every African country, determine which named river centreline features pass through it and how many kilometres of each river lie inside that country, measured in the country's local UTM zone derived from its centroid. Return only countries crossed by at least 5 distinct rivers, showing the river count and a list of river name / kilometres-in-country records sorted by length descending, with the most-crossed country first.",
+    "sql": "WITH c AS (\n  SELECT\n    name AS country,\n    geometry AS geom,\n    CASE WHEN ST_Y(ST_Centroid(geometry)) >= 0 THEN 'EPSG:326' ELSE 'EPSG:327' END\n      || LPAD(CAST(FLOOR((ST_X(ST_Centroid(geometry)) + 180) / 6) AS INTEGER) + 1 AS VARCHAR, 2, '0') AS utm\n  FROM countries\n  WHERE continent = 'Africa'\n),\nhits AS (\n  SELECT\n    c.country,\n    r.name AS river,\n    ST_Length(\n      ST_Intersection(\n        ST_Transform(r.geometry, 'EPSG:4326', c.utm, always_xy := true),\n        ST_Transform(c.geom, 'EPSG:4326', c.utm, always_xy := true)\n      )\n    ) / 1000.0 AS km\n  FROM c\n  JOIN rivers r ON ST_Intersects(c.geom, r.geometry)\n  WHERE r.feature_class = 'River'\n),\nper_country AS (\n  SELECT\n    country,\n    COUNT(*) AS n,\n    list(struct_pack(river := river, km_in_country := ROUND(km, 1)) ORDER BY km DESC) AS rivers\n  FROM hits\n  GROUP BY country\n)\nSELECT country, n AS river_count, rivers\nFROM per_country\nWHERE n >= 5\nORDER BY n DESC, country;",
+    "skills": ["list of structs via struct_pack", "ordered list aggregation", "ST_Transform to computed local metric CRS", "spatial intersection length"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Build one JSON summary document per population threshold: for thresholds of 1 million, 10 million, 100 million and 1 billion people, count how many Asian countries exceed the threshold, their combined population, and a JSON array of the country names ordered by population descending. Return the documents from the smallest threshold to the largest.",
+    "sql": "WITH thresholds AS (\n  SELECT UNNEST([1000000, 10000000, 100000000, 1000000000]) AS pop_threshold\n)\nSELECT\n  json_object(\n    'pop_threshold', t.pop_threshold,\n    'countries_above', COUNT(c.iso_a3),\n    'combined_population', COALESCE(SUM(c.pop_est), 0),\n    'country_names', to_json(list(c.name ORDER BY c.pop_est DESC) FILTER (WHERE c.iso_a3 IS NOT NULL))\n  ) AS summary\nFROM thresholds t\nLEFT JOIN countries c\n  ON c.continent = 'Asia' AND c.pop_est >= t.pop_threshold\nGROUP BY t.pop_threshold\nORDER BY t.pop_threshold;",
+    "skills": ["UNNEST over a list literal", "json_object construction", "to_json of ordered lists", "conditional aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each Asian subregion containing at least 5 countries, produce a single JSON report with the subregion name, the number of countries, the total population, and a JSON array of entries where each entry is a record holding the country name, its population in millions rounded to 1 decimal, and its GDP per capita in US dollars. Sort the entries by population descending and the reports by total population descending.",
+    "sql": "WITH stats AS (\n  SELECT\n    subregion,\n    COUNT(*) AS n_countries,\n    SUM(pop_est) AS total_pop,\n    list(\n      struct_pack(\n        name := name,\n        pop_millions := ROUND(pop_est / 1000000.0, 1),\n        gdp_per_capita_usd := ROUND(gdp_md * 1000000.0 / NULLIF(pop_est, 0))\n      )\n      ORDER BY pop_est DESC\n    ) AS entries\n  FROM countries\n  WHERE continent = 'Asia'\n  GROUP BY subregion\n)\nSELECT\n  json_object(\n    'subregion', subregion,\n    'n_countries', n_countries,\n    'total_population', total_pop,\n    'entries', to_json(entries)\n  ) AS report\nFROM stats\nWHERE n_countries >= 5\nORDER BY total_pop DESC, subregion;",
+    "skills": ["list of structs", "to_json / json_object", "GROUP BY with nested aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Several rivers are split across multiple centreline segments. Group the river features by name, count how many segments each has, and report the 10 longest rivers by total geodesic length in kilometres, together with their best (lowest) scale rank derived from the list of segment ranks. Order by total length descending, then by name.",
+    "sql": "SELECT\n  name,\n  COUNT(*) AS segment_count,\n  ROUND(SUM(ST_Length_Spheroid(geometry)) / 1000.0, 1) AS total_length_km,\n  list_aggregate(list_distinct(list(scalerank)), 'min') AS best_scalerank\nFROM rivers\nWHERE feature_class = 'River' AND name IS NOT NULL\nGROUP BY name\nORDER BY total_length_km DESC, name\nLIMIT 10;",
+    "skills": ["list functions (list, list_distinct, list_aggregate)", "spheroid length in km", "deterministic LIMIT with unique tiebreaker"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "From the point at longitude 69.3396, latitude 29.9498 in Pakistan, find the 5 nearest river or canal centreline features by great-circle distance measured from each feature's midpoint, in kilometres rounded to 2 decimals. Return a single row containing a JSON array of objects with the feature name, its feature class and the distance, nearest first.",
+    "sql": "WITH pt AS (\n  SELECT ST_Point(69.3396, 29.9498) AS p\n),\nd AS (\n  SELECT\n    r.name AS river,\n    r.feature_class AS kind,\n    ST_Distance_Sphere(pt.p, ST_Centroid(r.geometry)) AS dist_m\n  FROM rivers r CROSS JOIN pt\n  WHERE r.geometry IS NOT NULL\n)\nSELECT to_json(\n  list(\n    struct_pack(river := river, feature_class := kind, distance_km := ROUND(dist_m / 1000.0, 2))\n    ORDER BY dist_m ASC, river\n  )[1:5]\n) AS nearest_rivers\nFROM d\nWHERE dist_m IS NOT NULL;",
+    "skills": ["list slicing [1:5]", "ordered list of structs", "to_json", "ST_Distance_Sphere point distance in metres"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each country in Oceania, build one record containing a nested identity struct with the three-letter code and name, a bounding-box struct of its extent with coordinates rounded to 2 decimal degrees, its land area in square kilometres computed geodesically, and its population density in people per square kilometre. Return only countries with fewer than 50 people per square kilometre, ordered by density ascending and then by name.",
+    "sql": "WITH o AS (\n  SELECT\n    iso_a3,\n    name,\n    pop_est,\n    ST_Area_Spheroid(geometry) / 1000000.0 AS area_km2,\n    struct_pack(\n      xmin := ROUND(ST_XMin(geometry), 2),\n      ymin := ROUND(ST_YMin(geometry), 2),\n      xmax := ROUND(ST_XMax(geometry), 2),\n      ymax := ROUND(ST_YMax(geometry), 2)\n    ) AS bbox\n  FROM countries\n  WHERE continent = 'Oceania'\n)\nSELECT\n  struct_pack(iso_a3 := iso_a3, name := name) AS identity,\n  bbox,\n  ROUND(area_km2, 0) AS area_km2,\n  ROUND(pop_est / NULLIF(area_km2, 0), 2) AS people_per_km2\nFROM o\nWHERE area_km2 > 0 AND pop_est / area_km2 < 50\nORDER BY people_per_km2 ASC, name;",
+    "skills": ["nested structs (struct within struct)", "ST_Area_Spheroid for geodesic area in km2", "bbox struct from geometry envelope coordinates"],
+    "difficulty": "hard"
+  }
+]

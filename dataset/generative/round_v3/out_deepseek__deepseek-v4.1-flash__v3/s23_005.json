@@ -1,0 +1,38 @@
+[
+  {
+    "question": "countries top 3 cities json name pop_max",
+    "sql": "WITH ranked AS (\n  SELECT c.name AS country, p.name AS city, p.pop_max,\n         row_number() OVER (PARTITION BY c.iso_a3 ORDER BY p.pop_max DESC, p.name) AS rn\n  FROM countries c\n  JOIN populated_places p ON ST_Within(p.geometry, c.geometry)\n)\nSELECT country,\n       json_group_array(json_object('city', city, 'pop', pop_max) ORDER BY pop_max DESC) AS top_cities\nFROM ranked\nWHERE rn <= 3\nGROUP BY country\nORDER BY country\nLIMIT 10;",
+    "skills": ["json", "window", "spatial_join", "nested", "limit"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "unnest continents list countries city counts",
+    "sql": "WITH country_cities AS (\n  SELECT c.continent, c.name AS country, count(p.name) AS city_count\n  FROM countries c\n  LEFT JOIN populated_places p ON ST_Within(p.geometry, c.geometry)\n  GROUP BY c.continent, c.name\n),\ncontinent_lists AS (\n  SELECT continent, list(struct_pack(country := country, cities := city_count) ORDER BY city_count DESC, country) AS country_structs\n  FROM country_cities\n  GROUP BY continent\n)\nSELECT continent, s.country, s.cities\nFROM continent_lists, UNNEST(country_structs) AS s\nORDER BY continent, s.cities DESC, s.country\nLIMIT 20;",
+    "skills": ["unnest", "struct", "list", "spatial_join", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Brazil top 5 cities distance from Brasilia km",
+    "sql": "WITH brazil AS (\n  SELECT geometry FROM countries WHERE name = 'Brazil'\n),\nranked AS (\n  SELECT p.name, p.geometry,\n         row_number() OVER (ORDER BY p.pop_max DESC, p.name) AS rn\n  FROM brazil b\n  JOIN populated_places p ON ST_Within(p.geometry, b.geometry)\n),\ntop5 AS (\n  SELECT list(struct_pack(name := name, geom := geometry) ORDER BY rn) AS cities\n  FROM ranked\n  WHERE rn <= 5\n)\nSELECT s.name AS city,\n       ST_Distance_Spheroid(s.geom, ST_Point(-47.8825, -15.7942)) / 1000 AS dist_km\nFROM top5, UNNEST(cities) AS s\nORDER BY dist_km, s.name;",
+    "skills": ["list", "struct", "unnest", "spheroid_distance", "window"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "countries gdp > 1e6 name json pop gdp income",
+    "sql": "SELECT name,\n       json_object('pop', pop_est, 'gdp', gdp_md, 'income', income_grp) AS attrs\nFROM countries\nWHERE gdp_md > 1000000\nORDER BY gdp_md DESC, name\nLIMIT 10;",
+    "skills": ["json", "filter", "limit"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "continents >20 countries top 3 economies list",
+    "sql": "WITH continent_counts AS (\n  SELECT continent, count(*) AS n\n  FROM countries\n  GROUP BY continent\n  HAVING count(*) > 20\n),\nranked AS (\n  SELECT c.continent, c.name, c.gdp_md,\n         row_number() OVER (PARTITION BY c.continent ORDER BY c.gdp_md DESC, c.name) AS rn\n  FROM countries c\n  JOIN continent_counts cc ON c.continent = cc.continent\n)\nSELECT continent,\n       list(name ORDER BY gdp_md DESC) AS top_economies\nFROM ranked\nWHERE rn <= 3\nGROUP BY continent\nORDER BY continent;",
+    "skills": ["list", "window", "aggregation", "having"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "South America unnest cities distance to centroid km",
+    "sql": "WITH country_cities AS (\n  SELECT c.name AS country, c.geometry AS geom,\n         list(struct_pack(city := p.name, geom := p.geometry) ORDER BY p.pop_max DESC) AS cities\n  FROM countries c\n  JOIN populated_places p ON ST_Within(p.geometry, c.geometry)\n  WHERE c.continent = 'South America'\n  GROUP BY c.name, c.geometry\n)\nSELECT country, s.city,\n       ST_Distance_Spheroid(s.geom, ST_Centroid(geom)) / 1000 AS dist_km\nFROM country_cities, UNNEST(cities) AS s\nORDER BY country, dist_km, s.city\nLIMIT 20;",
+    "skills": ["list", "struct", "unnest", "spheroid_distance", "spatial_join"],
+    "difficulty": "hard"
+  }
+]

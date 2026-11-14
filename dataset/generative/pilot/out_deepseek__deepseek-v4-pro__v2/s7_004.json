@@ -1,0 +1,65 @@
+[
+  {
+    "question": "Which countries have territory within 200 kilometers of New York City, and how much of each country's area falls within that radius? Give the country name and the overlap area in square kilometers.",
+    "sql": "WITH nyc AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32618', always_xy := true) AS geom\n  FROM populated_places\n  WHERE name = 'New York' AND country = 'United States of America'\n),\nbuffer AS (\n  SELECT ST_Buffer(geom, 200000) AS geom FROM nyc\n),\ncountries_utm AS (\n  SELECT name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:32618', always_xy := true) AS geom\n  FROM countries\n),\nintersections AS (\n  SELECT c.name, ST_Intersection(c.geom, b.geom) AS inter_geom\n  FROM countries_utm c, buffer b\n  WHERE ST_Intersects(c.geom, b.geom)\n)\nSELECT name, ST_Area_Spheroid(ST_Transform(inter_geom, 'EPSG:32618', 'EPSG:4326', always_xy := true)) / 1e6 AS area_sqkm\nFROM intersections\nWHERE NOT ST_IsEmpty(inter_geom);",
+    "skills": [
+      "ST_Buffer",
+      "ST_Intersection",
+      "ST_Transform",
+      "ST_Area_Spheroid"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "question": "If all African countries were merged into a single region, what would be its total area in square kilometers?",
+    "sql": "SELECT ST_Area_Spheroid(ST_Union_Agg(geometry)) / 1e6 AS total_area_sqkm\nFROM countries\nWHERE continent = 'Africa';",
+    "skills": [
+      "ST_Union_Agg",
+      "ST_Area_Spheroid"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "question": "How much of Italy's land is more than 50 kilometers from any city with a population over 500,000? Provide the total area of these remote regions in square kilometers.",
+    "sql": "WITH italy AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32632', always_xy := true) AS geom\n  FROM countries\n  WHERE name = 'Italy'\n),\nmajor_cities AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32632', always_xy := true) AS geom\n  FROM populated_places\n  WHERE country = 'Italy' AND pop_max > 500000\n),\ncity_buffers AS (\n  SELECT ST_Buffer(geom, 50000) AS geom FROM major_cities\n),\nunioned_buffers AS (\n  SELECT ST_Union_Agg(geom) AS geom FROM city_buffers\n),\nremote_area AS (\n  SELECT ST_Difference(i.geom, u.geom) AS geom\n  FROM italy i, unioned_buffers u\n)\nSELECT ST_Area_Spheroid(ST_Transform(geom, 'EPSG:32632', 'EPSG:4326', always_xy := true)) / 1e6 AS area_sqkm\nFROM remote_area\nWHERE geom IS NOT NULL AND NOT ST_IsEmpty(geom);",
+    "skills": [
+      "ST_Difference",
+      "ST_Buffer",
+      "ST_Union_Agg",
+      "ST_Transform",
+      "ST_Area_Spheroid"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "question": "If you stretch a rubber band around all capital cities in Europe to form the tightest enclosing shape, what is the area of that shape in square kilometers?",
+    "sql": "WITH europe_capitals AS (\n  SELECT p.geometry AS geom\n  FROM populated_places p\n  JOIN countries c ON p.iso_a2 = c.iso_a2\n  WHERE p.is_capital = true AND c.continent = 'Europe'\n),\ncollected AS (\n  SELECT ST_Collect(list(geom)) AS geom FROM europe_capitals\n),\nhull AS (\n  SELECT ST_ConvexHull(geom) AS geom FROM collected\n)\nSELECT ST_Area_Spheroid(geom) / 1e6 AS area_sqkm\nFROM hull;",
+    "skills": [
+      "ST_ConvexHull",
+      "ST_Collect",
+      "ST_Area_Spheroid"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each continent, what is the geographic center point? Return the continent name and the center as a GeoJSON point.",
+    "sql": "SELECT continent, ST_AsGeoJSON(ST_Centroid(ST_Union_Agg(geometry))) AS center_geojson\nFROM countries\nGROUP BY continent;",
+    "skills": [
+      "ST_Centroid",
+      "ST_Union_Agg",
+      "ST_AsGeoJSON"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Consider all Brazilian cities with more than 100,000 inhabitants. Draw the smallest convex polygon that contains them. How much of that polygon's area lies outside Brazil's territory? Give the area in square kilometers.",
+    "sql": "WITH brazil AS (\n  SELECT geometry AS geom FROM countries WHERE name = 'Brazil'\n),\nbrazil_cities AS (\n  SELECT geometry AS geom FROM populated_places\n  WHERE country = 'Brazil' AND pop_max > 100000\n),\ncollected AS (\n  SELECT ST_Collect(list(geom)) AS geom FROM brazil_cities\n),\nhull AS (\n  SELECT ST_ConvexHull(geom) AS geom FROM collected\n),\noutside AS (\n  SELECT ST_Difference(h.geom, b.geom) AS geom\n  FROM hull h, brazil b\n)\nSELECT ST_Area_Spheroid(geom) / 1e6 AS area_sqkm\nFROM outside\nWHERE geom IS NOT NULL AND NOT ST_IsEmpty(geom);",
+    "skills": [
+      "ST_ConvexHull",
+      "ST_Difference",
+      "ST_Collect",
+      "ST_Area_Spheroid"
+    ],
+    "difficulty": "medium"
+  }
+]

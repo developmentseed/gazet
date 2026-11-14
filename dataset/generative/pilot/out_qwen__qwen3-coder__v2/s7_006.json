@@ -1,0 +1,38 @@
+[
+  {
+    "question": "List the top 3 most populous populated places in each country, ordered by population descending.",
+    "sql": "SELECT name, country, pop_max FROM (SELECT name, country, pop_max, ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn FROM populated_places) WHERE rn <= 3 ORDER BY country, pop_max DESC",
+    "skills": ["window functions", "ranking"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Give me all major airports ranked by their proximity to the city of London (within 500 km), showing distance in kilometers.",
+    "sql": "SELECT a.name AS airport_name, ROUND(ST_Distance_Sphere(a.geometry, l.geometry) / 1000.0, 2) AS distance_km FROM airports a JOIN populated_places l ON l.name = 'London' WHERE a.type LIKE '%major%' AND ST_DWithin_Sphere(a.geometry, l.geometry, 500000) ORDER BY distance_km",
+    "skills": ["spatial join", "distance filtering", "unit conversion"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Map the largest city (by max population) in each administrative region (admin1) across Canada.",
+    "sql": "SELECT name, admin1, pop_max, ST_AsGeoJSON(geometry) AS geom FROM (SELECT name, admin1, pop_max, geometry, ROW_NUMBER() OVER (PARTITION BY admin1 ORDER BY pop_max DESC) AS rn FROM populated_places WHERE iso_a2 = 'CA') WHERE rn = 1",
+    "skills": ["window functions", "per-group maximum", "geospatial output"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Compare the number of airports per type within 100 km of any capital city.",
+    "sql": "SELECT a.type, COUNT(*) AS count FROM airports a JOIN populated_places p ON ST_DWithin_Sphere(a.geometry, p.geometry, 100000) WHERE p.is_capital = true GROUP BY a.type ORDER BY count DESC",
+    "skills": ["spatial join", "aggregation", "filtering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Show the cumulative population of world cities ordered from west to east.",
+    "sql": "SELECT name, ST_X(geometry) AS longitude, pop_max, SUM(pop_max) OVER (ORDER BY ST_X(geometry)) AS cumulative_pop FROM populated_places WHERE is_world_city = true ORDER BY longitude",
+    "skills": ["running total", "window function", "ordering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Rank airports by scalerank within each country based on nearby populated places (within 50km).",
+    "sql": "SELECT a.name AS airport_name, p.country, a.scalerank, RANK() OVER (PARTITION BY p.country ORDER BY a.scalerank DESC) AS rank_in_country FROM airports a JOIN populated_places p ON ST_DWithin_Sphere(a.geometry, p.geometry, 50000)",
+    "skills": ["spatial join", "per-group ranking", "window function"],
+    "difficulty": "easy"
+  }
+]

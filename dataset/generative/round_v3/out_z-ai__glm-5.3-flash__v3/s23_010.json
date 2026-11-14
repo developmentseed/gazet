@@ -1,0 +1,38 @@
+[
+  {
+    "question": "airports inside greece",
+    "sql": "SELECT a.name, a.iata_code, a.type\nFROM airports a\nJOIN countries c ON ST_Within(a.geometry, c.geometry)\nWHERE c.name = 'Greece'\nORDER BY a.name",
+    "skills": ["ST_Within", "point-in-polygon join"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "countries overlapping the caribbean box -85,5 to -55,25",
+    "sql": "SELECT name, iso_a3, subregion\nFROM countries\nWHERE ST_Intersects(geometry, ST_MakeEnvelope(-85, 5, -55, 25))\nORDER BY name",
+    "skills": ["ST_Intersects", "ST_MakeEnvelope bbox filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "which country contains point -66.4731 18.2281",
+    "sql": "SELECT name, iso_a3, continent, pop_est\nFROM countries\nWHERE ST_Contains(geometry, ST_Point(-66.4731, 18.2281))\nORDER BY name",
+    "skills": ["ST_Contains", "point-in-polygon"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "european country pairs sharing a land border",
+    "sql": "SELECT c1.name AS country_a, c2.name AS country_b\nFROM countries c1\nJOIN countries c2 ON ST_Touches(c1.geometry, c2.geometry)\nWHERE c1.continent = 'Europe'\n  AND c2.continent = 'Europe'\n  AND c1.iso_a3 < c2.iso_a3\nORDER BY c1.name, c2.name",
+    "skills": ["ST_Touches", "self-join adjacency"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "major airports within 200 km of brussels 4.4846 50.8973",
+    "sql": "SELECT name, iata_code,\n       ROUND(ST_Distance_Spheroid(geometry, ST_Point(4.4846, 50.8973), 'SPHEROID[\"WGS84\",6378137,298.257223563]')) AS dist_m\nFROM airports\nWHERE type LIKE 'major%'\n  AND ST_DWithin_Spheroid(geometry, ST_Point(4.4846, 50.8973), 200000)\nORDER BY dist_m, name",
+    "skills": ["ST_DWithin_Spheroid", "ST_Distance_Spheroid", "metric radius filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "countries crossed by the equator",
+    "sql": "SELECT name, iso_a3, continent\nFROM countries\nWHERE ST_Intersects(geometry, ST_GeomFromText('LINESTRING(-180 0, 180 0)'))\nORDER BY name",
+    "skills": ["ST_Intersects", "line-polygon intersection"],
+    "difficulty": "medium"
+  }
+]

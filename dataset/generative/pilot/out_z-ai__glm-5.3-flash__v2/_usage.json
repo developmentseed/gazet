@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "Morph",
+  "wall_s": 787.7,
+  "prompt_tokens": 1526,
+  "completion_tokens": 10336,
+  "reasoning_tokens": 9560,
+  "cost": 0.003468584
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "Morph",
+  "wall_s": 946.4,
+  "prompt_tokens": 812,
+  "completion_tokens": 16858,
+  "reasoning_tokens": 15398,
+  "cost": 0.00550298
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "Morph",
+  "wall_s": 1267.3,
+  "prompt_tokens": 1141,
+  "completion_tokens": 27357,
+  "reasoning_tokens": 26126,
+  "cost": 0.008913926
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "Inceptron",
+  "wall_s": 98.7,
+  "prompt_tokens": 1463,
+  "completion_tokens": 3970,
+  "reasoning_tokens": 3467,
+  "cost": 0.00263071
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "Morph",
+  "wall_s": 882.6,
+  "prompt_tokens": 1290,
+  "completion_tokens": 14100,
+  "reasoning_tokens": 12935,
+  "cost": 0.00465888
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "Novita",
+  "wall_s": 386.3,
+  "prompt_tokens": 991,
+  "completion_tokens": 20481,
+  "reasoning_tokens": 18545,
+  "cost": 0.005817924
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "Inceptron",
+  "wall_s": 148.1,
+  "prompt_tokens": 1097,
+  "completion_tokens": 7364,
+  "reasoning_tokens": 6698,
+  "cost": 0.00460489
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "Novita",
+  "wall_s": 167.3,
+  "prompt_tokens": 1140,
+  "completion_tokens": 10645,
+  "reasoning_tokens": 9789,
+  "cost": 0.00307636
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "Morph",
+  "wall_s": 901.2,
+  "prompt_tokens": 1148,
+  "completion_tokens": 24494,
+  "reasoning_tokens": 23113,
+  "cost": 0.007992684
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "Inceptron",
+  "wall_s": 88.4,
+  "prompt_tokens": 1072,
+  "completion_tokens": 4118,
+  "reasoning_tokens": 3653,
+  "cost": 0.00265304
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "Morph",
+  "wall_s": 764.9,
+  "prompt_tokens": 1622,
+  "completion_tokens": 22479,
+  "reasoning_tokens": 21511,
+  "cost": 0.007387462
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "Morph",
+  "wall_s": 360.2,
+  "prompt_tokens": 1207,
+  "completion_tokens": 14057,
+  "reasoning_tokens": 12713,
+  "cost": 0.004650675
+ }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the two most populous nations in each continent, along with their population, GDP, and land area in square kilometres.",
+    "sql": "WITH ranked AS (SELECT name, continent, pop_est, gdp_md, ST_Area_Spheroid(geometry) / 1000000.0 AS area_km2, ROW_NUMBER() OVER (PARTITION BY continent ORDER BY pop_est DESC, name) AS rn FROM countries) SELECT name, continent, pop_est, gdp_md, area_km2 FROM ranked WHERE rn <= 2 ORDER BY continent, rn;",
+    "skills": ["window function", "ROW_NUMBER", "spatial area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For every nation, list the nearest airfield to its geographic centre and the distance in kilometres.",
+    "sql": "WITH country_centroids AS (SELECT iso_a3, name, ST_Centroid(geometry) AS geom FROM countries), distances AS (SELECT c.iso_a3, c.name AS country, a.name AS airport, a.iata_code, ST_Distance_Sphere(c.geom, a.geometry) AS dist_m, ROW_NUMBER() OVER (PARTITION BY c.iso_a3 ORDER BY ST_Distance_Sphere(c.geom, a.geometry), a.name) AS rn FROM country_centroids c JOIN airports a ON true) SELECT country, airport, iata_code, dist_m / 1000.0 AS dist_km FROM distances WHERE rn = 1 ORDER BY country;",
+    "skills": ["window function", "ROW_NUMBER", "spatial distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each airfield type, give me the top three nations by number of airfields of that type, with their land area in square kilometres.",
+    "sql": "WITH airport_country AS (SELECT a.type, c.iso_a3 FROM airports a JOIN countries c ON ST_Contains(c.geometry, a.geometry)), counts AS (SELECT type, iso_a3, COUNT(*) AS n_airports FROM airport_country GROUP BY type, iso_a3), ranked AS (SELECT counts.type, c.name AS country, counts.n_airports, ST_Area_Spheroid(c.geometry) / 1000000.0 AS area_km2, RANK() OVER (PARTITION BY counts.type ORDER BY counts.n_airports DESC, c.name) AS rnk FROM counts JOIN countries c ON counts.iso_a3 = c.iso_a3) SELECT type, country, n_airports, area_km2 FROM ranked WHERE rnk <= 3 ORDER BY type, rnk, country;",
+    "skills": ["window function", "RANK", "spatial join", "spatial area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For European nations, list them by land area from largest to smallest, showing each nation's population and the running total population of the nations seen so far.",
+    "sql": "WITH euro AS (SELECT name, pop_est, ST_Area_Spheroid(geometry) / 1000000.0 AS area_km2 FROM countries WHERE continent = 'Europe') SELECT name, area_km2, pop_est, SUM(pop_est) OVER (ORDER BY area_km2 DESC, name) AS running_pop FROM euro ORDER BY area_km2 DESC, name;",
+    "skills": ["window function", "running total", "spatial area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each subregion, list the nation with the highest GDP per capita, along with its area in square kilometres.",
+    "sql": "WITH metrics AS (SELECT name, subregion, pop_est, gdp_md, ST_Area_Spheroid(geometry) / 1000000.0 AS area_km2, CASE WHEN pop_est > 0 THEN gdp_md * 1000000.0 / pop_est ELSE NULL END AS gdp_per_capita FROM countries WHERE pop_est > 0), ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY subregion ORDER BY gdp_per_capita DESC NULLS LAST, name) AS rn FROM metrics) SELECT subregion, name, gdp_per_capita, area_km2 FROM ranked WHERE rn = 1 ORDER BY subregion;",
+    "skills": ["window function", "ROW_NUMBER", "spatial area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each continent, list the airfield that is farthest from the continent's geographic centre, with its distance in kilometres.",
+    "sql": "WITH continent_centroids AS (SELECT continent, ST_Centroid(ST_Union_Agg(geometry)) AS geom FROM countries GROUP BY continent), airport_continent AS (SELECT a.name AS airport, a.iata_code, a.type, c.continent, ST_Distance_Sphere(a.geometry, cc.geom) AS dist_m, ROW_NUMBER() OVER (PARTITION BY c.continent ORDER BY ST_Distance_Sphere(a.geometry, cc.geom) DESC, a.name) AS rn FROM airports a JOIN countries c ON ST_Contains(c.geometry, a.geometry) JOIN continent_centroids cc ON c.continent = cc.continent) SELECT continent, airport, iata_code, type, dist_m / 1000.0 AS dist_km FROM airport_continent WHERE rn = 1 ORDER BY continent;",
+    "skills": ["window function", "ROW_NUMBER", "spatial join", "spatial distance"],
+    "difficulty": "medium"
+  }
+]

@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "Venice",
+  "wall_s": 9.5,
+  "prompt_tokens": 1352,
+  "completion_tokens": 566,
+  "reasoning_tokens": 0,
+  "cost": 0.00131228
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "Venice",
+  "wall_s": 13.7,
+  "prompt_tokens": 597,
+  "completion_tokens": 883,
+  "reasoning_tokens": 0,
+  "cost": 0.00152353
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "Venice",
+  "wall_s": 10.3,
+  "prompt_tokens": 951,
+  "completion_tokens": 637,
+  "reasoning_tokens": 0,
+  "cost": 0.00128835
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "Venice",
+  "wall_s": 6.6,
+  "prompt_tokens": 1285,
+  "completion_tokens": 424,
+  "reasoning_tokens": 0,
+  "cost": 0.00107583
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "Venice",
+  "wall_s": 12.8,
+  "prompt_tokens": 1116,
+  "completion_tokens": 789,
+  "reasoning_tokens": 0,
+  "cost": 0.00143026
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "Venice",
+  "wall_s": 14.0,
+  "prompt_tokens": 812,
+  "completion_tokens": 904,
+  "reasoning_tokens": 0,
+  "cost": 0.00163028
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "Venice",
+  "wall_s": 8.6,
+  "prompt_tokens": 913,
+  "completion_tokens": 583,
+  "reasoning_tokens": 0,
+  "cost": 0.00110973
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "Venice",
+  "wall_s": 11.7,
+  "prompt_tokens": 936,
+  "completion_tokens": 774,
+  "reasoning_tokens": 0,
+  "cost": 0.00130012
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "Venice",
+  "wall_s": 11.3,
+  "prompt_tokens": 982,
+  "completion_tokens": 831,
+  "reasoning_tokens": 0,
+  "cost": 0.00158028
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "Venice",
+  "wall_s": 7.0,
+  "prompt_tokens": 864,
+  "completion_tokens": 468,
+  "reasoning_tokens": 0,
+  "cost": 0.00099448
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "Venice",
+  "wall_s": 12.5,
+  "prompt_tokens": 1446,
+  "completion_tokens": 777,
+  "reasoning_tokens": 0,
+  "cost": 0.00148312
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "Venice",
+  "wall_s": 14.1,
+  "prompt_tokens": 1023,
+  "completion_tokens": 1018,
+  "reasoning_tokens": 0,
+  "cost": 0.00174121
+ }
+]

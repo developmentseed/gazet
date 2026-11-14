@@ -1,0 +1,113 @@
+TABLE countries  -- Natural Earth 1:50m country polygons with population/GDP attributes. EPSG:4326. rows=242
+  iso_a3 VARCHAR  -- distinct~246 e.g. ['ZMB', 'GUM']
+  iso_a2 VARCHAR  -- distinct~231 e.g. ['-99', 'TT']
+  name VARCHAR  -- distinct~243 e.g. ['Vatican', 'Marshall Is.']
+  name_long VARCHAR  -- distinct~249 e.g. ['Vatican', 'Guam']
+  continent VARCHAR  -- distinct~8 top=['Africa', 'Asia', 'Europe', 'North America', 'Oceania', 'South America']
+  region_un VARCHAR  -- distinct~6 top=['Africa', 'Asia', 'Americas', 'Europe', 'Oceania', 'Antarctica']
+  subregion VARCHAR  -- distinct~24 top=['Caribbean', 'Western Asia', 'Eastern Africa', 'Western Africa', 'Southern Europe', 'Northern Europe']
+  pop_est BIGINT  -- range=[0, 1397715000]
+  gdp_md BIGINT  -- range=[-99, 21433226]
+  income_grp VARCHAR  -- distinct~4 top=['4. Lower middle income', '3. Upper middle income', '2. High income: nonOECD', '5. Low income', '1. High income: OECD']
+  economy VARCHAR  -- distinct~7 top=['6. Developing region', '7. Least developed region', '2. Developed region: nonG7', '5. Emerging region: G20', '1. Developed region: G7', '3. Emerging region: BRIC']
+  geometry GEOMETRY('EPSG:4326')  -- types=['MULTIPOLYGON', 'POLYGON'] extent=[-180.0, -89.999, 180.0, 83.6] 
+
+TABLE populated_places  -- Natural Earth 1:50m populated places (points). EPSG:4326. rows=1251
+  name VARCHAR  -- distinct~1264 e.g. ['Salem', 'Vancouver']
+  country VARCHAR  -- distinct~220 top=['United States of America', 'China', 'Russia', 'India', 'Brazil', 'Canada']
+  iso_a2 VARCHAR  -- distinct~216 top=['US', 'CN', 'RU', 'IN', 'BR', 'CA']
+  admin1 VARCHAR  -- distinct~798 e.g. ['Alaska', 'Sakha (Yakutia)']
+  feature_class VARCHAR  -- distinct~8 top=['Admin-1 capital', 'Populated place', 'Admin-0 capital', 'Admin-1 region capital', 'Scientific station', 'Admin-0 region capital']
+  pop_max BIGINT  -- range=[0, 35676000]
+  pop_min BIGINT  -- range=[0, 14608512]
+  is_capital BOOLEAN  -- true/false
+  is_world_city BOOLEAN  -- true/false
+  geometry GEOMETRY('EPSG:4326')  -- types=['POINT'] extent=[-175.221, -90.0, 179.217, 78.221] 
+
+TABLE rivers  -- Natural Earth 1:50m river and lake centerlines (linestrings). EPSG:4326. rows=478
+  name VARCHAR  -- distinct~342 e.g. ['White Sea Canal', 'Ob']
+  feature_class VARCHAR  -- distinct~3 top=['River', 'Lake Centerline', 'Canal']
+  scalerank INTEGER  -- range=[1, 12]
+  geometry GEOMETRY('EPSG:4326')  -- types=['MULTILINESTRING', None, 'LINESTRING'] extent=[-165.244, -50.24, 176.326, 73.335] 
+
+TABLE lakes  -- Natural Earth 1:50m lake polygons. EPSG:4326. rows=412
+  name VARCHAR  -- distinct~312 e.g. ['Tikchik Lakes', 'Lake Zaysan']
+  feature_class VARCHAR  -- distinct~3 top=['Lake', 'Reservoir', 'Alkaline Lake']
+  scalerank INTEGER  -- range=[0, 6]
+  geometry GEOMETRY('EPSG:4326')  -- types=['POLYGON'] extent=[-165.898, -50.62, 176.083, 81.94] 
+
+TABLE airports  -- Natural Earth 1:10m airports (points). EPSG:4326. rows=893
+  name VARCHAR  -- distinct~893 e.g. ["Birmingham Int'l", "Kansas City Int'l"]
+  iata_code VARCHAR  -- distinct~891 e.g. ['PZU', 'SGC']
+  icao_code VARCHAR  -- distinct~875 e.g. ['VILD', 'VIGR']
+  type VARCHAR  -- distinct~9 top=['mid', 'major', 'major and military', 'mid and military', 'military mid', 'military major']
+  scalerank INTEGER  -- range=[2, 9]
+  wikipedia VARCHAR  -- distinct~888 e.g. ['http://en.wikipedia.org/wiki/Kansas_C...', 'http://en.wikipedia.org/wiki/Rotterda...']
+  geometry GEOMETRY('EPSG:4326')  -- types=['POINT'] extent=[-175.136, -53.781, 179.195, 78.247] 
+
+TABLE ports  -- Natural Earth 1:10m ports (points). EPSG:4326. rows=1081
+  name VARCHAR  -- distinct~1089 e.g. ['Wilmington', 'Portsmouth']
+  website VARCHAR  -- distinct~561 e.g. ['www.pngports.com.pg', 'www.transnetnationalportsauthority.net']
+  scalerank INTEGER  -- range=[3, 8]
+  geometry GEOMETRY('EPSG:4326')  -- types=['POINT'] extent=[-171.758, -54.809, 179.309, 78.226] 
+
+TABLE nyc_taxi_zones  -- NYC TLC taxi zones (polygons), reprojected to EPSG:4326. rows=263
+  location_id INTEGER  -- range=[1, 263]
+  zone VARCHAR  -- distinct~254 e.g. ["Governor's Island/Ellis Island/Libert...", 'Corona']
+  borough VARCHAR  -- distinct~6 top=['Queens', 'Manhattan', 'Brooklyn', 'Bronx', 'Staten Island', 'EWR']
+  geometry GEOMETRY('OGC:CRS84')  -- types=['MULTIPOLYGON', 'POLYGON'] extent=[-74.256, 40.496, -73.7, 40.916] 
+
+TABLE nyc_taxi_trips  -- Sample of NYC yellow taxi trips, Jan 2024. PULocationID/DOLocationID reference nyc_taxi_zones.location_id. No geometry. rows=200000
+  VendorID INTEGER  -- range=[1, 6]
+  tpep_pickup_datetime TIMESTAMP  -- range=[2009-01-01 23:30:39, 2024-01-31 23:58:56]
+  tpep_dropoff_datetime TIMESTAMP  -- range=[2009-01-02 00:01:39, 2024-02-01 18:47:04]
+  passenger_count BIGINT  -- range=[0, 8]
+  trip_distance DOUBLE  -- range=[0.0, 38131.83]
+  RatecodeID BIGINT  -- range=[1, 99]
+  PULocationID INTEGER  -- range=[1, 265]
+  DOLocationID INTEGER  -- range=[1, 265]
+  payment_type BIGINT  -- range=[0, 4]
+  fare_amount DOUBLE  -- range=[-404.1, 5000.0]
+  extra DOUBLE  -- range=[-7.5, 14.25]
+  mta_tax DOUBLE  -- range=[-0.5, 4.0]
+  tip_amount DOUBLE  -- range=[-3.9, 140.0]
+  tolls_amount DOUBLE  -- range=[-60.0, 115.92]
+  improvement_surcharge DOUBLE  -- range=[-1.0, 1.0]
+  total_amount DOUBLE  -- range=[-426.54, 5000.0]
+  congestion_surcharge DOUBLE  -- range=[-2.5, 2.5]
+  Airport_fee DOUBLE  -- range=[-1.75, 1.75] 
+
+TABLE lisbon_places  -- Overture Maps places (POIs, points) in Lisbon. EPSG:4326. rows=52807
+  id VARCHAR  -- distinct~53391 e.g. ['14562f10-bd24-4846-af4d-b7a4e660bce1', 'ff3c58b4-67af-48b9-ba3c-20be3a72b644']
+  names STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[])  -- example={'primary': '벨렘탑', 'common': None, 'rules': None}
+  basic_category VARCHAR  -- distinct~229 top=['restaurant', 'personal_or_beauty_service', 'fashion_and_apparel_store', 'professional_service', 'wellness_service', 'real_estate_service']
+  taxonomy STRUCT("primary" VARCHAR, hierarchy VARCHAR[], alternates VARCHAR[])  -- example={'primary': 'historic_site', 'hierarchy': ['cultural_and_historic', 'historic_site'], 'alternates': None}
+  confidence DOUBLE  -- range=[0.0, 1.0]
+  operating_status VARCHAR  -- distinct~3 top=['open', 'permanently_closed', 'temporarily_closed']
+  websites VARCHAR[]  -- example=['http://www.torrebelem.pt/']
+  socials VARCHAR[]  -- example=['https://www.facebook.com/563315307113311']
+  phones VARCHAR[]  -- example=['+351933158503']
+  addresses STRUCT(freeform VARCHAR, locality VARCHAR, postcode VARCHAR, region VARCHAR, country VARCHAR)[]  -- example=[{'freeform': None, 'locality': 'Lisboa', 'postcode': None, 'region': None, 'country': 'PT'}]
+  brand STRUCT(wikidata VARCHAR, "names" STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[]))  -- example={'wikidata': None, 'names': {'primary': None, 'common': None, 'rules': None}}
+  geometry GEOMETRY('OGC:CRS84')  -- types=['POINT'] extent=[-9.25, 38.68, -9.091, 38.8] 
+
+TABLE lisbon_buildings  -- Overture Maps building footprints (polygons) in Lisbon. EPSG:4326. height in metres. rows=94538
+  id VARCHAR  -- distinct~98996 e.g. ['69ad8dde-fdec-4587-886d-def92b425f7c', 'c0356c48-5c77-4560-800f-3e33bda26763']
+  names STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[])  -- example={'primary': 'Torre VTS de Algés', 'common': {'en': 'Lisbon Harbor Control Tower'}, 'rules': [{'variant': 'alternate', 'language': None, 'perspectives': None,...
+  subtype VARCHAR  -- distinct~12 top=['residential', 'commercial', 'outbuilding', 'education', 'civic', 'industrial']
+  class VARCHAR  -- distinct~65 top=['apartments', 'residential', 'house', 'semidetached_house', 'roof', 'school']
+  height DOUBLE  -- range=[1.0, 190.5]
+  num_floors INTEGER  -- range=[1, 26]
+  roof_shape VARCHAR  -- distinct~11 top=['gabled', 'flat', 'hipped', 'pyramidal', 'gambrel', 'skillion']
+  geometry GEOMETRY('OGC:CRS84')  -- types=['MULTIPOLYGON', 'POLYGON'] extent=[-9.25, 38.68, -9.086, 38.8] 
+
+TABLE lisbon_roads  -- Overture Maps road segments (linestrings) in Lisbon. EPSG:4326. rows=64870
+  id VARCHAR  -- distinct~66224 e.g. ['9e903112-7902-46aa-b26d-972552825416', 'e70b57ea-ce84-4ae6-af57-c33b2cbdff4e']
+  names STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[])  -- example={'primary': 'Passeio Marítimo de Algés', 'common': None, 'rules': [{'variant': 'common', 'language': None, 'perspectives': None, 'value': 'Passeio Marítimo d...
+  subtype VARCHAR  -- distinct~1 top=['road']
+  class VARCHAR  -- distinct~16 top=['footway', 'residential', 'service', 'tertiary', 'steps', 'secondary']
+  subclass VARCHAR  -- distinct~7 top=['sidewalk', 'parking_aisle', 'crosswalk', 'driveway', 'link', 'alley']
+  road_surface STRUCT("value" VARCHAR, "between" DOUBLE[])[]  -- example=[{'value': 'paved', 'between': None}]
+  speed_limits STRUCT(min_speed STRUCT("value" INTEGER, unit VARCHAR), max_speed STRUCT("value" INTEGER, unit VARCHAR), is_max_speed_variable BOOLEAN, "when" STRUCT(during VARCHAR, heading VARCHAR, "using" VARCHAR[], recognized VARCHAR[], "mode" VARCHAR[], vehicle STRUCT(dimension VARCHAR, comparison VARCHAR, "value" DOUBLE, unit VARCHAR)[]), "between" DOUBLE[])[]  -- example=[{'min_speed': None, 'max_speed': {'value': 30, 'unit': 'km/h'}, 'is_max_speed_variable': None, 'when': None, 'between': None}]
+  geometry GEOMETRY('OGC:CRS84')  -- types=['LINESTRING'] extent=[-9.25, 38.68, -9.09, 38.8] 
+

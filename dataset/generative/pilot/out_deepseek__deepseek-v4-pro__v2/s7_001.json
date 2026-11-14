@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me a map of airport density using hexagons covering the world. For each hexagon, show its geometry as GeoJSON and the number of airports inside, ordered from most to least, but only include hexagons that contain at least one airport.",
+    "sql": "WITH grid AS (\n  SELECT geom FROM ST_HexagonGrid((SELECT ST_Extent_Agg(geometry) FROM airports), 5.0)\n)\nSELECT ST_AsGeoJSON(grid.geom) AS hexagon_geojson, COUNT(a.name) AS airport_count\nFROM grid\nLEFT JOIN airports a ON ST_Contains(grid.geom, a.geometry)\nGROUP BY grid.geom\nHAVING COUNT(a.name) > 0\nORDER BY airport_count DESC;",
+    "skills": ["spatial join", "hexagonal binning", "count aggregation", "ST_AsGeoJSON"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the square grid cells (size 10 degrees) that contain at least three airports. For each such cell, return its center point as GeoJSON and the number of airports, sorted by count descending.",
+    "sql": "WITH grid AS (\n  SELECT geom, i, j FROM ST_SquareGrid((SELECT ST_Extent_Agg(geometry) FROM airports), 10.0)\n),\ncell_counts AS (\n  SELECT grid.geom, grid.i, grid.j, COUNT(a.name) AS airport_count\n  FROM grid\n  JOIN airports a ON ST_Contains(grid.geom, a.geometry)\n  GROUP BY grid.geom, grid.i, grid.j\n)\nSELECT ST_AsGeoJSON(ST_Centroid(geom)) AS cell_center_geojson, airport_count\nFROM cell_counts\nWHERE airport_count >= 3\nORDER BY airport_count DESC;",
+    "skills": ["spatial join", "square grid aggregation", "count aggregation", "ST_Centroid"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each major airport, give me the count of mid-sized airports within 500 km. Show the major airport name, its IATA code, and the count, sorted from highest to lowest, excluding major airports with no nearby mid airports.",
+    "sql": "SELECT a.name AS major_airport, a.iata_code AS major_iata, COUNT(b.name) AS nearby_mid_count\nFROM airports a\nJOIN airports b ON a.iata_code != b.iata_code \n  AND a.type = 'major' \n  AND b.type = 'mid'\n  AND ST_DWithin_Spheroid(a.geometry, b.geometry, 500000)\nGROUP BY a.name, a.iata_code\nHAVING COUNT(b.name) > 0\nORDER BY nearby_mid_count DESC;",
+    "skills": ["spatial self-join", "distance join", "count aggregation", "ST_DWithin_Spheroid"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Sum the scalerank values of airports inside each hexagon (size 5 degrees) and return the hexagon geometry as GeoJSON along with the total scalerank. Only include hexagons with a total scalerank of at least 10, sorted by total descending.",
+    "sql": "WITH grid AS (\n  SELECT geom FROM ST_HexagonGrid((SELECT ST_Extent_Agg(geometry) FROM airports), 5.0)\n)\nSELECT ST_AsGeoJSON(grid.geom) AS hexagon_geojson, SUM(a.scalerank) AS total_scalerank\nFROM grid\nJOIN airports a ON ST_Contains(grid.geom, a.geometry)\nGROUP BY grid.geom\nHAVING SUM(a.scalerank) >= 10\nORDER BY total_scalerank DESC;",
+    "skills": ["spatial join", "hexagonal binning", "sum aggregation", "ST_AsGeoJSON"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare airports by distance from Kansas City Int'l. Group all airports into distance bands (0-500 km, 500-1000 km, 1000-2000 km, beyond 2000 km) and list how many airports fall into each band.",
+    "sql": "WITH ref AS (\n  SELECT geometry FROM airports WHERE name = 'Kansas City Int''l'\n),\ndistances AS (\n  SELECT a.name, ST_Distance_Sphere(ref.geometry, a.geometry) / 1000.0 AS dist_km\n  FROM airports a, ref\n)\nSELECT CASE\n    WHEN dist_km <= 500 THEN '0-500 km'\n    WHEN dist_km <= 1000 THEN '500-1000 km'\n    WHEN dist_km <= 2000 THEN '1000-2000 km'\n    ELSE '>2000 km'\n  END AS distance_band,\n  COUNT(*) AS airport_count\nFROM distances\nGROUP BY distance_band\nORDER BY distance_band;",
+    "skills": ["distance calculation", "conditional aggregation", "ST_Distance_Sphere"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List every airport with the count of other airports within 100 km of it, showing the airport name, IATA code, and the count. Order by count descending, and include only airports with at least one neighbor within that distance.",
+    "sql": "SELECT a.name, a.iata_code, COUNT(b.name) AS nearby_airport_count\nFROM airports a\nLEFT JOIN airports b ON a.iata_code != b.iata_code\n  AND ST_DWithin_Spheroid(a.geometry, b.geometry, 100000)\nGROUP BY a.name, a.iata_code\nHAVING COUNT(b.name) > 0\nORDER BY nearby_airport_count DESC;",
+    "skills": ["spatial self-join", "distance join", "count aggregation", "ST_DWithin_Spheroid"],
+    "difficulty": "medium"
+  }
+]

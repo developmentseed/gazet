@@ -1,0 +1,38 @@
+[
+  {
+    "question": "How many square kilometres larger is Azerbaijan than Belize?",
+    "sql": "SELECT ((SELECT ST_Area_Spheroid(geometry) FROM countries WHERE name = 'Azerbaijan') - (SELECT ST_Area_Spheroid(geometry) FROM countries WHERE name = 'Belize')) / 1000000.0 AS difference_km2;",
+    "skills": ["spheroid_area", "scalar_subquery"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the combined land area in square kilometres of all countries in the Caribbean?",
+    "sql": "SELECT SUM(ST_Area_Spheroid(geometry)) / 1000000.0 AS total_area_km2 FROM countries WHERE subregion = 'Caribbean';",
+    "skills": ["spheroid_area", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the perimeter of Belize in kilometres?",
+    "sql": "SELECT name, ST_Perimeter(ST_Transform(geometry, 'EPSG:4326', 'EPSG:32616', always_xy := true)) / 1000.0 AS perimeter_km FROM countries WHERE name = 'Belize';",
+    "skills": ["metric_crs_perimeter", "transform"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How far apart are Dublin and Delhi in kilometres, as the crow flies?",
+    "sql": "WITH pts AS (SELECT name, geometry FROM populated_places WHERE (name = 'Dublin' AND iso_a2 = 'IE') OR (name = 'Delhi' AND iso_a2 = 'IN')) SELECT ST_Distance_Spheroid((SELECT geometry FROM pts WHERE name = 'Dublin'), (SELECT geometry FROM pts WHERE name = 'Delhi')) / 1000.0 AS distance_km;",
+    "skills": ["spheroid_distance", "point_distance"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which provincial capital in China is closest to the centre of the country, and how far away is it in kilometres?",
+    "sql": "WITH china AS (SELECT geometry FROM countries WHERE name = 'China'), capitals AS (SELECT name, geometry FROM populated_places WHERE country = 'China' AND feature_class = 'Admin-1 capital') SELECT c.name, ST_Distance_Spheroid(c.geometry, ST_Centroid((SELECT geometry FROM china))) / 1000.0 AS distance_km FROM capitals c ORDER BY distance_km, c.name LIMIT 1;",
+    "skills": ["spheroid_distance", "centroid", "nearest"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the total land area in square kilometres of all countries classified as least developed?",
+    "sql": "SELECT SUM(ST_Area_Spheroid(geometry)) / 1000000.0 AS total_area_km2 FROM countries WHERE economy = '7. Least developed region';",
+    "skills": ["spheroid_area", "aggregation"],
+    "difficulty": "hard"
+  }
+]

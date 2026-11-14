@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "Venice",
+  "wall_s": 22.7,
+  "prompt_tokens": 1590,
+  "completion_tokens": 605,
+  "reasoning_tokens": 0,
+  "cost": 0.00145408
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "Venice",
+  "wall_s": 22.5,
+  "prompt_tokens": 834,
+  "completion_tokens": 627,
+  "reasoning_tokens": 0,
+  "cost": 0.00122248
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "Venice",
+  "wall_s": 32.6,
+  "prompt_tokens": 1187,
+  "completion_tokens": 716,
+  "reasoning_tokens": 0,
+  "cost": 0.00134561
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "Venice",
+  "wall_s": 15.1,
+  "prompt_tokens": 1522,
+  "completion_tokens": 417,
+  "reasoning_tokens": 0,
+  "cost": 0.00114828
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "Venice",
+  "wall_s": 22.5,
+  "prompt_tokens": 1349,
+  "completion_tokens": 679,
+  "reasoning_tokens": 0,
+  "cost": 0.00149065
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "Venice",
+  "wall_s": 98.6,
+  "prompt_tokens": 1049,
+  "completion_tokens": 1436,
+  "reasoning_tokens": 0,
+  "cost": 0.00251123
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "Venice",
+  "wall_s": 62.1,
+  "prompt_tokens": 1148,
+  "completion_tokens": 694,
+  "reasoning_tokens": 0,
+  "cost": 0.00135848
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "Venice",
+  "wall_s": 62.8,
+  "prompt_tokens": 1174,
+  "completion_tokens": 544,
+  "reasoning_tokens": 0,
+  "cost": 0.00121698
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "Venice",
+  "wall_s": 121.0,
+  "prompt_tokens": 1219,
+  "completion_tokens": 1629,
+  "reasoning_tokens": 0,
+  "cost": 0.00286023
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "Venice",
+  "wall_s": 61.5,
+  "prompt_tokens": 1101,
+  "completion_tokens": 525,
+  "reasoning_tokens": 0,
+  "cost": 0.00116293
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "Venice",
+  "wall_s": 79.2,
+  "prompt_tokens": 1684,
+  "completion_tokens": 899,
+  "reasoning_tokens": 0,
+  "cost": 0.00174942
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "Venice",
+  "wall_s": 55.9,
+  "prompt_tokens": 1258,
+  "completion_tokens": 817,
+  "reasoning_tokens": 0,
+  "cost": 0.00165588
+ }
+]

@@ -1,0 +1,1 @@
+{"id": "s23_011", "tables": ["ports", "countries"], "skill": "spatial join with aggregation (e.g. count/sum points per polygon)", "difficulty": "hard", "style": "precise analyst questions that mention units and thresholds", "k": 6}

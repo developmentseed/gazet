@@ -1,0 +1,38 @@
+[
+  {
+    "question": "trip counts by pickup zone for zones overlapping this bbox: (-74.02, 40.68, -73.94, 40.76)",
+    "sql": "SELECT z.location_id, COUNT(*) AS pickup_trips FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE ST_Intersects(z.geom, ST_MakeEnvelope(-74.02, 40.68, -73.94, 40.76)) GROUP BY z.location_id ORDER BY z.location_id",
+    "skills": ["ST_Intersects", "spatial join", "bbox filter"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "geojson of zones containing the point (-73.9857, 40.7484), with jan 2024 pickup counts",
+    "sql": "SELECT z.location_id, COUNT(*) AS pickup_trips, ST_AsGeoJSON(z.geom) AS zone_geojson FROM nyc_taxi_zones z JOIN nyc_taxi_trips t ON t.PULocationID = z.location_id WHERE ST_Contains(z.geom, ST_Point(-73.9857, 40.7484)) AND t.tpep_pickup_datetime >= TIMESTAMP '2024-01-01' AND t.tpep_pickup_datetime < TIMESTAMP '2024-02-01' GROUP BY z.location_id, z.geom ORDER BY z.location_id",
+    "skills": ["ST_Contains", "point-in-polygon", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "pickup counts for zones touching taxi zone 114",
+    "sql": "SELECT z.location_id, COUNT(*) AS pickup_trips FROM nyc_taxi_zones z JOIN nyc_taxi_trips t ON t.PULocationID = z.location_id WHERE z.location_id <> 114 AND ST_Touches(z.geom, (SELECT geom FROM nyc_taxi_zones WHERE location_id = 114)) GROUP BY z.location_id ORDER BY z.location_id",
+    "skills": ["ST_Touches", "adjacency", "spatial join"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "trips where the pickup zone lies inside the dropoff zone",
+    "sql": "SELECT pu.location_id AS pickup_zone, dz.location_id AS dropoff_zone, COUNT(*) AS trips FROM nyc_taxi_trips t JOIN nyc_taxi_zones pu ON t.PULocationID = pu.location_id JOIN nyc_taxi_zones dz ON t.DOLocationID = dz.location_id WHERE ST_Contains(dz.geom, pu.geom) GROUP BY pu.location_id, dz.location_id ORDER BY pu.location_id, dz.location_id",
+    "skills": ["ST_Contains", "polygon-polygon predicate", "self join"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "trips with pickup zone intersecting this line: LINESTRING(-73.98 40.75, -73.97 40.76, -73.95 40.77)",
+    "sql": "SELECT z.location_id, COUNT(*) AS pickup_trips FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE ST_Intersects(z.geom, ST_GeomFromText('LINESTRING(-73.98 40.75, -73.97 40.76, -73.95 40.77)')) GROUP BY z.location_id ORDER BY z.location_id",
+    "skills": ["ST_Intersects", "line-polygon predicate", "ST_GeomFromText"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "count trips that start and end in zones fully within this envelope: (-74.03, 40.69, -73.93, 40.79)",
+    "sql": "SELECT COUNT(*) AS trips FROM nyc_taxi_trips t JOIN nyc_taxi_zones pu ON t.PULocationID = pu.location_id JOIN nyc_taxi_zones dz ON t.DOLocationID = dz.location_id WHERE ST_Within(pu.geom, ST_MakeEnvelope(-74.03, 40.69, -73.93, 40.79)) AND ST_Within(dz.geom, ST_MakeEnvelope(-74.03, 40.69, -73.93, 40.79))",
+    "skills": ["ST_Within", "bbox containment", "join"],
+    "difficulty": "easy"
+  }
+]

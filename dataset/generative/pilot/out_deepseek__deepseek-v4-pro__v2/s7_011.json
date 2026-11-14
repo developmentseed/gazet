@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which five countries have the highest density of airports per 100,000 square kilometres? Include the country name, total airport count, area in square kilometres, and airport density per 100,000 km². Exclude countries with fewer than 3 airports.",
+    "sql": "WITH country_airports AS (\n    SELECT \n        c.name,\n        c.iso_a3,\n        COUNT(a.name) AS num_airports,\n        ST_Area_Spheroid(c.geometry) / 1e6 AS area_km2\n    FROM countries c\n    LEFT JOIN airports a ON ST_Within(a.geometry, c.geometry)\n    GROUP BY c.name, c.iso_a3, c.geometry\n)\nSELECT \n    name,\n    num_airports,\n    area_km2,\n    (num_airports / area_km2) * 100000 AS density_per_100k_km2\nFROM country_airports\nWHERE num_airports >= 3\nORDER BY density_per_100k_km2 DESC\nLIMIT 5;",
+    "skills": ["spatial join", "ST_Within", "ST_Area_Spheroid", "aggregation", "density calculation", "filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each continent, what is the total number of airports and the combined GDP in billions of USD for countries that have at least one airport? Only include continents where the total population of these countries exceeds 100 million.",
+    "sql": "WITH country_airport_counts AS (\n    SELECT \n        c.iso_a3,\n        c.continent,\n        c.pop_est,\n        c.gdp_md,\n        COUNT(a.name) AS airport_count\n    FROM countries c\n    INNER JOIN airports a ON ST_Within(a.geometry, c.geometry)\n    GROUP BY c.iso_a3, c.continent, c.pop_est, c.gdp_md\n)\nSELECT \n    continent,\n    SUM(airport_count) AS total_airports,\n    SUM(gdp_md) / 1e9 AS total_gdp_billion_usd,\n    SUM(pop_est) AS total_population\nFROM country_airport_counts\nGROUP BY continent\nHAVING SUM(pop_est) > 100000000\nORDER BY total_airports DESC;",
+    "skills": ["spatial join", "ST_Within", "aggregation", "GROUP BY", "HAVING", "GDP calculation", "population threshold"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which airports are the most remote, defined as being more than 200 kilometres from the nearest country border? For each such airport, return the airport name, IATA code, the country it belongs to (if any), and its distance in kilometres to the closest country boundary.",
+    "sql": "WITH airport_country AS (\n    SELECT \n        a.name AS airport_name,\n        a.iata_code,\n        a.geometry AS airport_geom,\n        c.name AS country_name\n    FROM airports a\n    LEFT JOIN countries c ON ST_Within(a.geometry, c.geometry)\n),\nairport_min_border_dist AS (\n    SELECT \n        ac.airport_name,\n        ac.iata_code,\n        ac.country_name,\n        MIN(ST_Distance_Spheroid(ac.airport_geom, ST_ClosestPoint(ST_Boundary(c.geometry), ac.airport_geom))) / 1000 AS min_dist_km\n    FROM airport_country ac\n    CROSS JOIN countries c\n    GROUP BY ac.airport_name, ac.iata_code, ac.country_name, ac.airport_geom\n)\nSELECT \n    airport_name,\n    iata_code,\n    country_name,\n    min_dist_km\nFROM airport_min_border_dist\nWHERE min_dist_km > 200\nORDER BY min_dist_km DESC;",
+    "skills": ["spatial join", "ST_Boundary", "ST_ClosestPoint", "ST_Distance_Spheroid", "CROSS JOIN", "MIN aggregation", "distance threshold"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "By income group, how many major airports (scalerank of 4 or less) exist, and what is the total land area in square kilometres of the countries in each group? Only show income groups that contain at least 5 major airports.",
+    "sql": "WITH country_major_airports AS (\n    SELECT \n        c.iso_a3,\n        c.income_grp,\n        c.geometry,\n        COUNT(a.name) AS major_airport_count\n    FROM countries c\n    INNER JOIN airports a ON ST_Within(a.geometry, c.geometry) AND a.scalerank <= 4\n    GROUP BY c.iso_a3, c.income_grp, c.geometry\n)\nSELECT \n    income_grp,\n    SUM(major_airport_count) AS total_major_airports,\n    SUM(ST_Area_Spheroid(geometry)) / 1e6 AS total_area_km2\nFROM country_major_airports\nGROUP BY income_grp\nHAVING SUM(major_airport_count) >= 5\nORDER BY total_major_airports DESC;",
+    "skills": ["spatial join", "ST_Within", "attribute filter", "ST_Area_Spheroid", "aggregation", "GROUP BY", "HAVING"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What are the top three countries with the greatest average distance from their airports to the country's geographic centre? Provide the country name, number of airports, and the average distance in kilometres.",
+    "sql": "WITH country_airport_dists AS (\n    SELECT \n        c.name,\n        c.iso_a3,\n        ST_Centroid(c.geometry) AS centroid,\n        a.geometry AS airport_geom\n    FROM countries c\n    INNER JOIN airports a ON ST_Within(a.geometry, c.geometry)\n)\nSELECT \n    name,\n    COUNT(*) AS num_airports,\n    AVG(ST_Distance_Spheroid(airport_geom, centroid)) / 1000 AS avg_dist_km\nFROM country_airport_dists\nGROUP BY name, iso_a3\nORDER BY avg_dist_km DESC\nLIMIT 3;",
+    "skills": ["spatial join", "ST_Within", "ST_Centroid", "ST_Distance_Spheroid", "AVG aggregation", "ordering", "LIMIT"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which countries have at least 5 airports and more than half of them located within 50 kilometres of the country's border? Output the country name, total number of airports, and the percentage of airports within 50 km of the border.",
+    "sql": "WITH airport_border_dist AS (\n    SELECT \n        c.name,\n        c.iso_a3,\n        a.name AS airport_name,\n        ST_Distance_Spheroid(a.geometry, ST_ClosestPoint(ST_Boundary(c.geometry), a.geometry)) / 1000 AS dist_km\n    FROM countries c\n    INNER JOIN airports a ON ST_Within(a.geometry, c.geometry)\n),\ncountry_stats AS (\n    SELECT \n        name,\n        iso_a3,\n        COUNT(*) AS total_airports,\n        SUM(CASE WHEN dist_km < 50 THEN 1 ELSE 0 END) AS near_border_airports\n    FROM airport_border_dist\n    GROUP BY name, iso_a3\n)\nSELECT \n    name,\n    total_airports,\n    (near_border_airports * 100.0 / total_airports) AS pct_near_border\nFROM country_stats\nWHERE total_airports >= 5\n  AND near_border_airports > total_airports / 2.0\nORDER BY pct_near_border DESC;",
+    "skills": ["spatial join", "ST_Within", "ST_Boundary", "ST_ClosestPoint", "ST_Distance_Spheroid", "conditional aggregation", "percentage calculation", "HAVING"],
+    "difficulty": "hard"
+  }
+]

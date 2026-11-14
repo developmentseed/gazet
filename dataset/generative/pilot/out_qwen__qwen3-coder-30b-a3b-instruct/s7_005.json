@@ -1,0 +1,38 @@
+[
+  {
+    "question": "find zones with more than 5000 trips and avg tip > 5",
+    "sql": "SELECT z.zone, AVG(t.tip_amount) AS avg_tip FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE z.zone IS NOT NULL GROUP BY z.zone HAVING COUNT(*) > 5000 AND AVG(t.tip_amount) > 5 ORDER BY avg_tip DESC LIMIT 10",
+    "skills": ["nested Overture-style data", "struct fields", "UNNEST", "list functions", "JSON-like attributes"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "list top 3 pickup zones by total fare in jan 2024",
+    "sql": "SELECT z.zone, SUM(t.fare_amount) AS total_fare FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE t.tpep_pickup_datetime >= '2024-01-01' AND t.tpep_pickup_datetime < '2024-02-01' GROUP BY z.zone ORDER BY total_fare DESC LIMIT 3",
+    "skills": ["nested Overture-style data", "struct fields", "UNNEST", "list functions", "JSON-like attributes"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "zones where average trip distance is over 5 km and passenger count exceeds 2",
+    "sql": "SELECT z.zone, AVG(t.trip_distance) AS avg_distance FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE t.passenger_count > 2 GROUP BY z.zone HAVING AVG(t.trip_distance) > 5 ORDER BY avg_distance DESC LIMIT 10",
+    "skills": ["nested Overture-style data", "struct fields", "UNNEST", "list functions", "JSON-like attributes"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "show zones with multiple dropoff points having total tolls > 1000",
+    "sql": "SELECT z.zone, COUNT(DISTINCT t.DOLocationID) AS dropoff_count FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE t.tolls_amount > 0 GROUP BY z.zone HAVING SUM(t.tolls_amount) > 1000 AND COUNT(DISTINCT t.DOLocationID) > 1 ORDER BY dropoff_count DESC LIMIT 5",
+    "skills": ["nested Overture-style data", "struct fields", "UNNEST", "list functions", "JSON-like attributes"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "zones with high tip percentage (>20%) and avg fare > 20",
+    "sql": "SELECT z.zone, (SUM(t.tip_amount) / SUM(t.fare_amount)) * 100 AS tip_percentage FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE t.fare_amount > 0 GROUP BY z.zone HAVING (SUM(t.tip_amount) / SUM(t.fare_amount)) > 0.2 AND AVG(t.fare_amount) > 20 ORDER BY tip_percentage DESC LIMIT 5",
+    "skills": ["nested Overture-style data", "struct fields", "UNNEST", "list functions", "JSON-like attributes"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "find zones with more than 3000 trips and lowest average fare",
+    "sql": "SELECT z.zone, AVG(t.fare_amount) AS avg_fare FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE z.zone IS NOT NULL GROUP BY z.zone HAVING COUNT(*) > 3000 ORDER BY avg_fare ASC LIMIT 5",
+    "skills": ["nested Overture-style data", "struct fields", "UNNEST", "list functions", "JSON-like attributes"],
+    "difficulty": "hard"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "List every country that has 5 or more airports classified as 'major' (not combined military). Show the country name and the exact count of such airports, ordered from most to least.",
+    "sql": "SELECT c.name, COUNT(a.iata_code) AS major_airports\nFROM countries c\nJOIN airports a ON ST_Contains(c.geometry, a.geometry)\nWHERE a.type = 'major'\nGROUP BY c.name\nHAVING COUNT(a.iata_code) >= 5\nORDER BY major_airports DESC;",
+    "skills": ["spatial join", "aggregation", "having"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Consider only countries that contain at least one airport of any type. For each income group, compute the average number of airports per such country, and exclude groups with fewer than 5 countries. Output the income group, number of countries, and the average airport count, sorted by average descending.",
+    "sql": "WITH country_cnt AS (\n    SELECT c.income_grp, c.iso_a3, COUNT(a.iata_code) AS airport_count\n    FROM countries c\n    INNER JOIN airports a ON ST_Contains(c.geometry, a.geometry)\n    GROUP BY c.income_grp, c.iso_a3\n)\nSELECT income_grp, COUNT(*) AS num_countries_with_airports, AVG(airport_count) AS avg_airports_per_country\nFROM country_cnt\nGROUP BY income_grp\nHAVING COUNT(*) >= 5\nORDER BY avg_airports_per_country DESC;",
+    "skills": ["spatial join", "aggregation", "having", "cte"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each country, count how many of its airports lie within 100 km of the country's centroid. Only report countries that have at least one such airport. Sort by the count in descending order.",
+    "sql": "SELECT c.name, COUNT(a.iata_code) AS airports_near_center\nFROM countries c\nJOIN airports a\n    ON ST_Contains(c.geometry, a.geometry)\n    AND ST_Distance_Sphere(a.geometry, ST_Centroid(c.geometry)) < 100000\nGROUP BY c.name\nHAVING COUNT(a.iata_code) >= 1\nORDER BY airports_near_center DESC;",
+    "skills": ["spatial join", "distance calculation", "st_centroid", "aggregation", "having"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Calculate the total GDP (in million US dollars) of all European countries that contain at least one 'major' airport. Provide a single number.",
+    "sql": "SELECT SUM(DISTINCT c.gdp_md) AS total_gdp_millions\nFROM countries c\nJOIN airports a ON ST_Contains(c.geometry, a.geometry)\nWHERE a.type = 'major' AND c.continent = 'Europe';",
+    "skills": ["spatial join", "aggregation", "distinct"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each subregion, compute the average population density (people per square kilometre) of countries that have at most 2 airports. Exclude subregions with fewer than 3 such countries. Use an equal-area projection (EPSG:6933) to calculate country area.",
+    "sql": "WITH country_info AS (\n    SELECT c.subregion, c.iso_a3, c.pop_est,\n           ST_Area(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:6933', always_xy := true)) / 1e6 AS area_km2,\n           COUNT(a.iata_code) AS num_airports\n    FROM countries c\n    LEFT JOIN airports a ON ST_Contains(c.geometry, a.geometry)\n    GROUP BY c.subregion, c.iso_a3, c.pop_est, c.geometry\n)\nSELECT subregion,\n       AVG(pop_est / NULLIF(area_km2, 0)) AS avg_pop_density_per_km2,\n       COUNT(*) AS country_count\nFROM country_info\nWHERE num_airports <= 2\nGROUP BY subregion\nHAVING COUNT(*) >= 3\nORDER BY avg_pop_density_per_km2 DESC;",
+    "skills": ["spatial join", "aggregation", "st_area", "st_transform", "having", "cte"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Find the 5 largest countries by area (in km²) that have at least one 'mid' type airport but no 'major' type airport. Use EPSG:6933 for area calculation.",
+    "sql": "WITH country_types AS (\n    SELECT c.name, c.geometry,\n           BOOL_OR(a.type = 'mid') AS has_mid,\n           BOOL_OR(a.type = 'major') AS has_major\n    FROM countries c\n    INNER JOIN airports a ON ST_Contains(c.geometry, a.geometry)\n    GROUP BY c.name, c.geometry\n)\nSELECT name,\n       ST_Area(ST_Transform(geometry, 'EPSG:4326', 'EPSG:6933', always_xy := true)) / 1e6 AS area_km2\nFROM country_types\nWHERE has_mid AND NOT has_major\nORDER BY area_km2 DESC\nLIMIT 5;",
+    "skills": ["spatial join", "bool_or", "aggregation", "st_area", "st_transform", "filtering"],
+    "difficulty": "hard"
+  }
+]

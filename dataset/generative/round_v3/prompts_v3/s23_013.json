@@ -1,0 +1,1 @@
+{"id": "s23_013", "tables": ["lisbon_buildings"], "skill": "measurement in real units (area/length via ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS)", "difficulty": "medium", "style": "full natural sentences from a non-technical user who does not know column names", "k": 6}

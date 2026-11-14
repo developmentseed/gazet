@@ -1,0 +1,1 @@
+qwen/qwen3-coder-30b-a3b-instruct: 12/12 ok, cost $0.0031, providers ['SiliconFlow'], avg completion 678 tok (reasoning 0)

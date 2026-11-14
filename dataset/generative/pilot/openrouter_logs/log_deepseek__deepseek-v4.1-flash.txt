@@ -1,0 +1,1 @@
+deepseek/deepseek-v4.1-flash: 12/12 ok, cost $0.0356, providers ['AtlasCloud', 'Baidu', 'CoreWeave', 'InferenceNet', 'Morph'], avg completion 6155 tok (reasoning 5675)

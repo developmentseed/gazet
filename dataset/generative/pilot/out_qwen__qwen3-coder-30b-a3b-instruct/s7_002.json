@@ -1,0 +1,38 @@
+[
+  {
+    "question": "nearest country to lat 40.7128 lon -74.0060 within 1000km",
+    "sql": "SELECT name FROM countries WHERE ST_Distance_Sphere(ST_GeomFromText('POINT(-74.0060 40.7128)', 4326), geometry) < 1000000 ORDER BY ST_Distance_Sphere(ST_GeomFromText('POINT(-74.0060 40.7128)', 4326), geometry) LIMIT 1",
+    "skills": ["distance", "nearest-neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "countries within 500km of the equator",
+    "sql": "SELECT name FROM countries WHERE ST_DWithin(geometry, ST_GeomFromText('LINESTRING(0 -90, 0 90)', 4326), 500000) ORDER BY ST_Distance_Sphere(ST_GeomFromText('POINT(0 0)', 4326), geometry)",
+    "skills": ["distance", "nearest-neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "nearest 3 rivers to lat 34.0522 lon -118.2437",
+    "sql": "SELECT name FROM rivers ORDER BY ST_Distance_Sphere(ST_GeomFromText('POINT(-118.2437 34.0522)', 4326), geometry) LIMIT 3",
+    "skills": ["distance", "nearest-neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "what countries are closest to the river Ob",
+    "sql": "SELECT c.name FROM countries c JOIN rivers r ON ST_Distance_Sphere(r.geometry, c.geometry) = (SELECT MIN(ST_Distance_Sphere(r2.geometry, c2.geometry)) FROM countries c2 JOIN rivers r2 ON r2.name = 'Ob') WHERE r.name = 'Ob' LIMIT 1",
+    "skills": ["distance", "nearest-neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "find countries within 2000km of the prime meridian",
+    "sql": "SELECT name FROM countries WHERE ST_DWithin(geometry, ST_GeomFromText('LINESTRING(0 -90, 0 90)', 4326), 2000000) ORDER BY ST_Distance_Sphere(ST_GeomFromText('POINT(0 0)', 4326), geometry)",
+    "skills": ["distance", "nearest-neighbour"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "which country is nearest to the capital of France",
+    "sql": "SELECT c.name FROM countries c WHERE ST_Distance_Sphere((SELECT geometry FROM countries WHERE name = 'France'), c.geometry) = (SELECT MIN(ST_Distance_Sphere((SELECT geometry FROM countries WHERE name = 'France'), c2.geometry)) FROM countries c2) LIMIT 1",
+    "skills": ["distance", "nearest-neighbour"],
+    "difficulty": "hard"
+  }
+]

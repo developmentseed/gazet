@@ -1,0 +1,38 @@
+[
+  {
+    "question": "top 5 zones by trips with hourly breakdown as nested struct list",
+    "sql": "WITH hourly_per_zone AS (\n  SELECT \n    PULocationID AS zone_id,\n    EXTRACT(HOUR FROM tpep_pickup_datetime) AS hr,\n    COUNT(*) AS n,\n    ROUND(AVG(fare_amount), 2) AS avg_fare\n  FROM nyc_taxi_trips\n  WHERE fare_amount > 0\n  GROUP BY PULocationID, hr\n),\ns AS (\n  SELECT \n    zone_id,\n    LIST(struct_pack(hour := hr, trips := n, avg_fare := avg_fare) ORDER BY hr) AS hourly_stats\n  FROM hourly_per_zone\n  GROUP BY zone_id\n  HAVING SUM(n) > 50\n)\nSELECT \n  zone_id,\n  hourly_stats,\n  list_aggregate(list_transform(hourly_stats, x -> x.trips), 'sum') AS total_trips\nFROM s\nORDER BY total_trips DESC\nLIMIT 5;",
+    "skills": ["struct_pack", "LIST aggregate with ORDER BY", "list_transform", "list_aggregate", "CTE"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "top 10 zones ranked, unnest with share pct",
+    "sql": "WITH ranked AS (\n  SELECT \n    PULocationID AS zone_id,\n    COUNT(*) AS n,\n    ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) AS rnk\n  FROM nyc_taxi_trips\n  WHERE fare_amount > 0\n  GROUP BY PULocationID\n  QUALIFY rnk <= 10\n),\npacked AS (\n  SELECT LIST(struct_pack(rank := rnk, zone := zone_id, trips := n) ORDER BY rnk) AS top_zones\n  FROM ranked\n)\nSELECT \n  z.rank,\n  z.zone,\n  z.trips,\n  ROUND(z.trips * 100.0 / SUM(z.trips) OVER (), 2) AS share_pct\nFROM packed, UNNEST(packed.top_zones) AS t(z)\nORDER BY z.rank;",
+    "skills": ["struct_pack", "LIST aggregate", "UNNEST", "window function", "QUALIFY"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "fare outliers per zone using list_filter",
+    "sql": "WITH zone_fares AS (\n  SELECT \n    PULocationID AS zone_id,\n    LIST(fare_amount) AS fares,\n    COUNT(*) AS n,\n    approx_quantile(fare_amount, 0.95) AS p95\n  FROM nyc_taxi_trips\n  WHERE fare_amount > 0 AND trip_distance > 0\n  GROUP BY PULocationID\n)\nSELECT \n  zone_id,\n  n,\n  ROUND(p95, 2) AS p95_fare,\n  list_count(list_filter(fares, x -> x > p95)) AS n_outliers,\n  list_filter(fares, x -> x > p95) AS outlier_fares\nFROM zone_fares\nWHERE n > 100\nORDER BY n DESC\nLIMIT 5;",
+    "skills": ["LIST aggregate", "list_filter", "list_count", "approx_quantile", "lambda"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "export zone stats as JSON with payment breakdown",
+    "sql": "WITH payments AS (\n  SELECT \n    PULocationID AS zone_id,\n    payment_type,\n    COUNT(*) AS n\n  FROM nyc_taxi_trips\n  WHERE fare_amount > 0\n  GROUP BY PULocationID, payment_type\n),\nzone_payments AS (\n  SELECT \n    zone_id,\n    LIST(struct_pack(type := payment_type, count := n) ORDER BY payment_type) AS payment_mix\n  FROM payments\n  GROUP BY zone_id\n),\nzone_summary AS (\n  SELECT \n    PULocationID AS zone_id,\n    COUNT(*) AS trips,\n    ROUND(AVG(fare_amount), 2) AS avg_fare,\n    ROUND(AVG(tip_amount), 2) AS avg_tip,\n    ROUND(AVG(trip_distance), 2) AS avg_distance\n  FROM nyc_taxi_trips\n  WHERE fare_amount > 0\n  GROUP BY PULocationID\n)\nSELECT \n  TO_JSON({\n    zone: zs.zone_id,\n    summary: {\n      trips: zs.trips,\n      avg_fare: zs.avg_fare,\n      avg_tip: zs.avg_tip,\n      avg_distance: zs.avg_distance\n    },\n    payment_mix: zp.payment_mix\n  }) AS zone_json\nFROM zone_summary zs\nJOIN zone_payments zp ON zs.zone_id = zp.zone_id\nORDER BY zs.trips DESC\nLIMIT 5;",
+    "skills": ["TO_JSON", "struct_pack", "LIST aggregate", "nested structs", "CTE join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "OD pairs per origin zone, top 5 origins",
+    "sql": "WITH od AS (\n  SELECT \n    PULocationID AS pu,\n    DOLocationID AS do,\n    COUNT(*) AS n,\n    AVG(fare_amount) AS avg_fare\n  FROM nyc_taxi_trips\n  WHERE fare_amount > 0 AND PULocationID != DOLocationID\n  GROUP BY pu, do\n  HAVING COUNT(*) > 5\n),\norigins AS (\n  SELECT \n    pu,\n    LIST(struct_pack(destination := do, trips := n, avg_fare := ROUND(avg_fare, 2)) ORDER BY n DESC) AS destinations\n  FROM od\n  GROUP BY pu\n)\nSELECT \n  pu AS origin_zone,\n  destinations,\n  list_count(destinations) AS n_destinations,\n  list_aggregate(list_transform(destinations, x -> x.trips), 'sum') AS total_trips\nFROM origins\nORDER BY total_trips DESC\nLIMIT 5;",
+    "skills": ["struct_pack", "LIST aggregate with ORDER BY DESC", "list_transform", "list_count", "list_aggregate"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "hourly trip distribution with peak hour detection",
+    "sql": "WITH hourly AS (\n  SELECT \n    EXTRACT(HOUR FROM tpep_pickup_datetime) AS hr,\n    COUNT(*) AS n,\n    ROUND(AVG(fare_amount), 2) AS avg_fare\n  FROM nyc_taxi_trips\n  WHERE fare_amount > 0\n  GROUP BY hr\n),\npacked AS (\n  SELECT LIST(struct_pack(hour := hr, trips := n, avg_fare := avg_fare) ORDER BY hr) AS hours\n  FROM hourly\n)\nSELECT \n  h.hour,\n  h.trips,\n  h.avg_fare,\n  ROUND(h.trips * 100.0 / SUM(h.trips) OVER (), 2) AS pct,\n  list_filter(packed.hours, x -> x.trips > 8000) AS peak_hours\nFROM packed, UNNEST(packed.hours) AS t(h)\nORDER BY h.hour;",
+    "skills": ["struct_pack", "LIST aggregate", "UNNEST", "list_filter", "window function"],
+    "difficulty": "hard"
+  }
+]

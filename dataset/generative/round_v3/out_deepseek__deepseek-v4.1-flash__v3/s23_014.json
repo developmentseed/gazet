@@ -1,0 +1,38 @@
+[
+  {
+    "question": "What is the area in square kilometres of the convex hull that encloses the combined landmasses of Niger, Laos and Georgia, and does it exceed 5,000,000 km²?",
+    "sql": "WITH selected AS (\n  SELECT geometry FROM countries WHERE name IN ('Niger', 'Laos', 'Georgia')\n),\nhull AS (\n  SELECT ST_ConvexHull(ST_Union_Agg(geometry)) AS geom FROM selected\n)\nSELECT ST_Area_Spheroid(geom)/1e6 AS area_sq_km,\n       ST_Area_Spheroid(geom)/1e6 > 5000000 AS exceeds_threshold\nFROM hull;",
+    "skills": ["ST_Union_Agg", "ST_ConvexHull", "ST_Area_Spheroid"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For Niger, what is the area in square kilometres of the part of the country that lies more than 100 km from its centroid?",
+    "sql": "WITH niger AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32632', always_xy := true) AS geom\n  FROM countries WHERE name = 'Niger'\n),\ncentroid AS (\n  SELECT ST_Centroid(geom) AS cent, geom FROM niger\n),\ndiff AS (\n  SELECT ST_Difference(geom, ST_Buffer(cent, 100000)) AS geom FROM centroid\n)\nSELECT ST_Area(geom)/1e6 AS area_sq_km FROM diff;",
+    "skills": ["ST_Transform", "ST_Centroid", "ST_Buffer", "ST_Difference", "ST_Area"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For the Peace river, what is the length in kilometres of the portion that lies within 300 km of Lake Claire?",
+    "sql": "WITH lake AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32612', always_xy := true) AS geom\n  FROM lakes WHERE name = 'Lake Claire'\n),\nriver AS (\n  SELECT ST_Union_Agg(ST_Transform(geometry, 'EPSG:4326', 'EPSG:32612', always_xy := true)) AS geom\n  FROM rivers WHERE name = 'Peace'\n),\nbuffered AS (\n  SELECT ST_Buffer(geom, 300000) AS geom FROM lake\n),\ninter AS (\n  SELECT ST_Intersection(r.geom, b.geom) AS geom\n  FROM river r, buffered b\n)\nSELECT 'Peace' AS river_name,\n       COALESCE(ST_Length(i.geom)/1000, 0) AS length_km\nFROM inter i;",
+    "skills": ["ST_Transform", "ST_Union_Agg", "ST_Buffer", "ST_Intersection", "ST_Length"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For Lake Havasu, what is the area in square kilometres of the lake polygon that lies within 10 km of any river centerline?",
+    "sql": "WITH lake AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32611', always_xy := true) AS geom,\n         geometry AS geom_4326\n  FROM lakes WHERE name = 'Lake Havasu'\n),\nrivers AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32611', always_xy := true) AS geom\n  FROM rivers\n  WHERE ST_Distance(geometry, (SELECT geom_4326 FROM lake)) < 1.0\n),\nriver_buffers AS (\n  SELECT ST_Union_Agg(ST_Buffer(geom, 10000)) AS geom FROM rivers\n),\ninter AS (\n  SELECT ST_Intersection(l.geom, rb.geom) AS geom\n  FROM lake l, river_buffers rb\n)\nSELECT ST_Area(geom)/1e6 AS area_sq_km FROM inter;",
+    "skills": ["ST_Transform", "ST_Distance", "ST_Buffer", "ST_Union_Agg", "ST_Intersection", "ST_Area"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the longitude and latitude of the centroid of a 50 km buffer around Georgia?",
+    "sql": "WITH georgia AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32638', always_xy := true) AS geom\n  FROM countries WHERE name = 'Georgia'\n),\nbuffered AS (\n  SELECT ST_Buffer(geom, 50000) AS geom FROM georgia\n),\ncentroid AS (\n  SELECT ST_Centroid(geom) AS geom FROM buffered\n),\ncentroid_4326 AS (\n  SELECT ST_Transform(geom, 'EPSG:32638', 'EPSG:4326', always_xy := true) AS geom FROM centroid\n)\nSELECT ST_X(geom) AS lon, ST_Y(geom) AS lat FROM centroid_4326;",
+    "skills": ["ST_Transform", "ST_Buffer", "ST_Centroid", "ST_X", "ST_Y"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the area in square kilometres of the convex hull of all lakes classified as 'Lake' with a scale rank of 0, and does it exceed 10,000,000 km²?",
+    "sql": "WITH selected AS (\n  SELECT geometry FROM lakes WHERE feature_class = 'Lake' AND scalerank = 0\n),\nhull AS (\n  SELECT ST_ConvexHull(ST_Union_Agg(geometry)) AS geom FROM selected\n)\nSELECT ST_Area_Spheroid(geom)/1e6 AS area_sq_km,\n       ST_Area_Spheroid(geom)/1e6 > 10000000 AS exceeds_threshold\nFROM hull;",
+    "skills": ["ST_Union_Agg", "ST_ConvexHull", "ST_Area_Spheroid"],
+    "difficulty": "hard"
+  }
+]

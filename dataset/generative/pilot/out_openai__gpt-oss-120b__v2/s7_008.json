@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which taxi zones are completely inside the rectangle that covers Central Park (roughly between longitude ‑73.985 and ‑73.949, latitude 40.764 and 40.800)? List their names and boroughs.",
+    "sql": "SELECT zone, borough\nFROM nyc_taxi_zones\nWHERE ST_Within(geometry, ST_MakeEnvelope(-73.985, 40.764, -73.949, 40.800))",
+    "skills": ["bounding-box", "ST_Within"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How many trips started within a 1 km radius of the Statue of Liberty and ended in any zone that touches the Hudson River (approximately between longitude ‑74.05 and ‑74.00, latitude 40.70 and 40.78)?",
+    "sql": "WITH statue_point AS (SELECT ST_Point(-74.0445, 40.6892) AS pt),\n     hudson_zones AS (\n       SELECT location_id\n       FROM nyc_taxi_zones\n       WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.05, 40.70, -74.00, 40.78))\n     ),\n     pickup_zones AS (\n       SELECT z.location_id\n       FROM nyc_taxi_zones z, statue_point sp\n       WHERE ST_Distance_Sphere(ST_Centroid(z.geometry), sp.pt) <= 1000\n     )\nSELECT COUNT(*) AS trips_count\nFROM nyc_taxi_trips t\nWHERE t.PULocationID IN (SELECT location_id FROM pickup_zones)\n  AND t.DOLocationID IN (SELECT location_id FROM hudson_zones);",
+    "skills": ["bounding-box", "ST_Distance_Sphere", "ST_Intersects"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which zones intersect the overall area covered by all trips that happened on New Year’s Eve 2023 between 8 pm and midnight, and how many distinct trips started or ended in each of those zones?",
+    "sql": "WITH newyear_trips AS (\n       SELECT *\n       FROM nyc_taxi_trips\n       WHERE tpep_pickup_datetime >= TIMESTAMP '2023-12-31 20:00:00'\n         AND tpep_pickup_datetime < TIMESTAMP '2024-01-01 00:00:00'\n     ),\n     involved_zones AS (\n       SELECT DISTINCT PULocationID AS zone_id FROM newyear_trips\n       UNION ALL\n       SELECT DISTINCT DOLocationID FROM newyear_trips\n     ),\n     envelope AS (\n       SELECT ST_Extent_Agg(z.geometry) AS env_geom\n       FROM nyc_taxi_zones z\n       JOIN involved_zones iz ON z.location_id = iz.zone_id\n     )\nSELECT z.zone,\n       z.borough,\n       COUNT(DISTINCT t.vendorid) AS distinct_trip_count\nFROM nyc_taxi_zones z\nJOIN nyc_taxi_trips t ON (t.PULocationID = z.location_id OR t.DOLocationID = z.location_id)\nWHERE t.tpep_pickup_datetime >= TIMESTAMP '2023-12-31 20:00:00'\n  AND t.tpep_pickup_datetime < TIMESTAMP '2024-01-01 00:00:00'\n  AND ST_Intersects(z.geometry, (SELECT env_geom FROM envelope))\nGROUP BY z.zone, z.borough;",
+    "skills": ["bounding-box", "ST_Extent_Agg", "ST_Intersects"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Show me the zones whose own bounding box is wider than 0.05 degrees in either longitude or latitude, and give me the shape of that box as GeoJSON.",
+    "sql": "SELECT zone,\n       borough,\n       ST_AsGeoJSON(ST_Envelope(geometry)) AS envelope_geojson\nFROM nyc_taxi_zones\nWHERE (ST_XMax(ST_Envelope(geometry)) - ST_XMin(ST_Envelope(geometry))) > 0.05\n   OR (ST_YMax(ST_Envelope(geometry)) - ST_YMin(ST_Envelope(geometry))) > 0.05;",
+    "skills": ["bounding-box", "ST_Envelope", "ST_XMin", "ST_XMax", "ST_YMin", "ST_YMax"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the total fare amount for all trips that both started and ended entirely inside the area that covers Brooklyn (roughly between longitude ‑74.041 and ‑73.85, latitude 40.55 and 40.73)?",
+    "sql": "WITH brooklyn_zones AS (\n       SELECT location_id\n       FROM nyc_taxi_zones\n       WHERE ST_Within(geometry, ST_MakeEnvelope(-74.041, 40.55, -73.85, 40.73))\n     )\nSELECT SUM(fare_amount) AS total_fare\nFROM nyc_taxi_trips\nWHERE PULocationID IN (SELECT location_id FROM brooklyn_zones)\n  AND DOLocationID IN (SELECT location_id FROM brooklyn_zones);",
+    "skills": ["bounding-box", "ST_Within", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which five zones received the most trips that began inside the small box around LaGuardia Airport (longitude ‑73.88 to ‑73.86, latitude 40.77 to 40.78) and whose drop‑off zone is at least 5 km away from the centre of that box? List the zone name, borough and the trip count.",
+    "sql": "WITH la_guardia_box AS (\n       SELECT ST_MakeEnvelope(-73.88, 40.77, -73.86, 40.78) AS env\n     ),\n     origin_zones AS (\n       SELECT location_id\n       FROM nyc_taxi_zones\n       WHERE ST_Intersects(geometry, (SELECT env FROM la_guardia_box))\n     ),\n     trips_filtered AS (\n       SELECT t.DOLocationID\n       FROM nyc_taxi_trips t\n       JOIN origin_zones o ON t.PULocationID = o.location_id\n       JOIN nyc_taxi_zones dz ON t.DOLocationID = dz.location_id\n       WHERE ST_Distance_Sphere(\n               ST_Centroid(dz.geometry),\n               ST_Point(-73.87, 40.775)  -- centre of the LaGuardia box\n             ) > 5000\n     )\nSELECT z.zone,\n       z.borough,\n       COUNT(*) AS trip_count\nFROM nyc_taxi_zones z\nJOIN trips_filtered tf ON z.location_id = tf.DOLocationID\nGROUP BY z.zone, z.borough\nORDER BY trip_count DESC\nLIMIT 5;",
+    "skills": ["bounding-box", "ST_Intersects", "ST_Distance_Sphere", "aggregation"],
+    "difficulty": "hard"
+  }
+]

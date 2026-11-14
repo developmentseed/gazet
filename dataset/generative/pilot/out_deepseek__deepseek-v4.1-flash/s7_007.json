@@ -1,0 +1,38 @@
+[
+  {
+    "question": "top categories by POI count, min 100",
+    "sql": "SELECT basic_category, COUNT(*) AS cnt FROM lisbon_places GROUP BY basic_category HAVING COUNT(*) >= 100 ORDER BY cnt DESC LIMIT 10;",
+    "skills": ["GROUP BY", "HAVING", "ORDER BY"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "open vs closed counts for restaurant, personal_or_beauty_service, fashion_and_apparel_store",
+    "sql": "SELECT basic_category, SUM(CASE WHEN operating_status = 'open' THEN 1 ELSE 0 END) AS open_cnt, SUM(CASE WHEN operating_status = 'permanently_closed' THEN 1 ELSE 0 END) AS closed_cnt FROM lisbon_places WHERE basic_category IN ('restaurant', 'personal_or_beauty_service', 'fashion_and_apparel_store') GROUP BY basic_category ORDER BY open_cnt DESC;",
+    "skills": ["CASE", "GROUP BY", "WHERE"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "brands with most locations, named only",
+    "sql": "SELECT brand.names.primary AS brand_name, COUNT(*) AS locations FROM lisbon_places WHERE brand.names.primary IS NOT NULL GROUP BY brand.names.primary HAVING COUNT(*) > 1 ORDER BY locations DESC LIMIT 10;",
+    "skills": ["GROUP BY", "HAVING", "STRUCT access"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "POIs within 1 km of Belém Tower, count by category",
+    "sql": "WITH target AS (SELECT ST_Transform(ST_Point(-9.216, 38.6916), 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom) SELECT basic_category, COUNT(*) AS cnt FROM lisbon_places, target WHERE ST_Distance(ST_Transform(geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), target.geom) <= 1000 GROUP BY basic_category ORDER BY cnt DESC;",
+    "skills": ["CTE", "ST_Transform", "ST_Distance", "GROUP BY"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "top 5 categories within 500m of Praça do Comércio",
+    "sql": "WITH target AS (SELECT ST_Transform(ST_Point(-9.136, 38.707), 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom) SELECT basic_category, COUNT(*) AS cnt FROM lisbon_places, target WHERE ST_Distance(ST_Transform(geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true), target.geom) <= 500 GROUP BY basic_category QUALIFY ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) <= 5 ORDER BY cnt DESC;",
+    "skills": ["CTE", "ST_Transform", "ST_Distance", "QUALIFY", "GROUP BY"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "categories with above-average confidence, min 50 POIs",
+    "sql": "WITH cat_stats AS (SELECT basic_category, COUNT(*) AS cnt, AVG(confidence) AS avg_conf FROM lisbon_places GROUP BY basic_category) SELECT basic_category, cnt, avg_conf FROM cat_stats WHERE cnt >= 50 AND avg_conf > (SELECT AVG(confidence) FROM lisbon_places) ORDER BY avg_conf DESC;",
+    "skills": ["CTE", "GROUP BY", "subquery", "aggregation"],
+    "difficulty": "medium"
+  }
+]

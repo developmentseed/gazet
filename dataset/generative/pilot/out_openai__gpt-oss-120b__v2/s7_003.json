@@ -1,0 +1,38 @@
+[
+  {
+    "question": "total building footprint area km2",
+    "sql": "SELECT SUM(ST_Area_Spheroid(geometry)) / 1e6 AS total_area_km2 FROM lisbon_buildings;",
+    "skills": ["ST_Area_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "building footprints larger than 1000 sqm",
+    "sql": "SELECT id, ST_Area_Spheroid(geometry) AS area_sqm, ST_AsGeoJSON(geometry) AS geojson FROM lisbon_buildings WHERE ST_Area_Spheroid(geometry) > 1000;",
+    "skills": ["ST_Area_Spheroid", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "longest road segment meters",
+    "sql": "SELECT id, ST_Length_Spheroid(geometry) AS length_m FROM lisbon_roads ORDER BY length_m DESC LIMIT 1;",
+    "skills": ["ST_Length_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "total length of residential roads km",
+    "sql": "SELECT SUM(ST_Length_Spheroid(geometry)) / 1000 AS total_length_km FROM lisbon_roads WHERE class = 'residential';",
+    "skills": ["ST_Length_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings taller than 50m with footprint under 500 sqm",
+    "sql": "SELECT id, height, ST_Area_Spheroid(geometry) AS area_sqm FROM lisbon_buildings WHERE height > 50 AND ST_Area_Spheroid(geometry) < 500;",
+    "skills": ["ST_Area_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "road network length inside central Lisbon bbox km",
+    "sql": "WITH bbox AS (SELECT ST_MakeEnvelope(-9.15, 38.71, -9.10, 38.75) AS geom) SELECT SUM(ST_Length_Spheroid(ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true))) / 1000 AS length_km FROM lisbon_roads r, bbox b WHERE ST_Intersects(r.geometry, b.geom);",
+    "skills": ["ST_Transform", "ST_Length_Spheroid", "ST_Intersects"],
+    "difficulty": "easy"
+  }
+]

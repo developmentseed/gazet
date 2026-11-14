@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the closest airport to each world city.",
+    "sql": "WITH ranked AS (\n  SELECT pp.name AS city, a.name AS airport, a.iata_code,\n    ST_Distance(pp.geometry, a.geometry) AS dist_deg,\n    ROW_NUMBER() OVER (PARTITION BY pp.name ORDER BY ST_Distance(pp.geometry, a.geometry)) AS rn\n  FROM populated_places pp\n  CROSS JOIN airports a\n  WHERE pp.is_world_city = true\n)\nSELECT city, airport, iata_code, dist_deg\nFROM ranked WHERE rn = 1",
+    "skills": ["ROW_NUMBER", "CROSS JOIN", "ST_Distance", "spatial ranking"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the top 3 most populous cities in each country, with their locations.",
+    "sql": "WITH ranked AS (\n  SELECT name, country, pop_max, geometry,\n    RANK() OVER (PARTITION BY country ORDER BY pop_max DESC) AS pop_rank\n  FROM populated_places\n)\nSELECT name, country, pop_max, ST_AsGeoJSON(geometry) AS geom\nFROM ranked WHERE pop_rank <= 3",
+    "skills": ["RANK", "PARTITION BY", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Map the largest city in each admin1 region.",
+    "sql": "WITH ranked AS (\n  SELECT name, admin1, country, pop_max, geometry,\n    ROW_NUMBER() OVER (PARTITION BY admin1 ORDER BY pop_max DESC) AS rn\n  FROM populated_places\n)\nSELECT name, admin1, country, pop_max, ST_AsGeoJSON(geometry) AS geom\nFROM ranked WHERE rn = 1",
+    "skills": ["ROW_NUMBER", "PARTITION BY", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the 5 nearest airports (in metres) to each country's capital.",
+    "sql": "WITH capitals AS (\n  SELECT name AS capital, country, geometry\n  FROM populated_places\n  WHERE is_capital = true\n),\nranked AS (\n  SELECT c.country, c.capital, a.name AS airport, a.iata_code,\n    ST_Distance_Spheroid(c.geometry, a.geometry) AS dist_m,\n    ROW_NUMBER() OVER (PARTITION BY c.country ORDER BY ST_Distance_Spheroid(c.geometry, a.geometry)) AS rn\n  FROM capitals c\n  CROSS JOIN airports a\n)\nSELECT country, capital, airport, iata_code, dist_m\nFROM ranked WHERE rn <= 5",
+    "skills": ["ROW_NUMBER", "CROSS JOIN", "ST_Distance_Spheroid", "spatial ranking"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List airports ranked by scalerank within each type, with their locations.",
+    "sql": "SELECT name, type, scalerank,\n  ROW_NUMBER() OVER (PARTITION BY type ORDER BY scalerank) AS rank_in_type,\n  ST_AsGeoJSON(geometry) AS geom\nFROM airports",
+    "skills": ["ROW_NUMBER", "PARTITION BY", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Show a running total of population for cities within each country, ordered from largest to smallest.",
+    "sql": "SELECT name, country, pop_max,\n  SUM(pop_max) OVER (PARTITION BY country ORDER BY pop_max DESC) AS running_pop\nFROM populated_places",
+    "skills": ["SUM OVER", "running total", "PARTITION BY"],
+    "difficulty": "easy"
+  }
+]

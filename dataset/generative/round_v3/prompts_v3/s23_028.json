@@ -1,0 +1,1 @@
+{"id": "s23_028", "tables": ["countries", "airports"], "skill": "bounding-box and envelope filtering (ST_MakeEnvelope, bbox comparisons, ST_Extent)", "difficulty": "medium", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}

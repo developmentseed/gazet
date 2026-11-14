@@ -1,0 +1,1 @@
+{"id": "s23_035", "tables": ["countries", "rivers"], "skill": "nested Overture-style data: struct fields, lists, UNNEST, list functions, JSON-like attributes", "difficulty": "hard", "style": "precise analyst questions that mention units and thresholds", "k": 6}

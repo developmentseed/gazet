@@ -1,0 +1,15 @@
+# Rebuildable data and tooling (see README)
+lake/
+raw/
+models
+llama/
+.venv/
+# Working output; snapshot meaningful rounds into their own folder (like pilot/)
+runs/
+# The gold eval set and its candidates are versioned despite the repo-wide *.jsonl rule
+!gold/**/*.jsonl
+!gold/*.jsonl
+!dev/*.jsonl
+!eval/**/*.jsonl
+.tmp/
+!gold2/**/*.jsonl

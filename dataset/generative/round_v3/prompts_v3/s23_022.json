@@ -1,0 +1,1 @@
+{"id": "s23_022", "tables": ["lisbon_places", "lisbon_roads"], "skill": "distance and nearest-neighbour queries (ST_Distance_Sphere / ST_DWithin, ORDER BY distance LIMIT k, LATERAL)", "difficulty": "medium", "style": "questions phrased as tasks ('give me', 'list', 'map', 'compare')", "k": 6}

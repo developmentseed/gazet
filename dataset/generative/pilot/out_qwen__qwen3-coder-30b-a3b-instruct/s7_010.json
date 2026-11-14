@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Show me all the restaurants located within 500 meters of the Tagus River in Lisbon.",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p WHERE p.basic_category = 'restaurant' AND ST_Distance(p.geometry, ST_GeomFromText('LINESTRING(-9.133333 38.700000, -9.133333 38.750000)', 4326), 'spheroid') < 500",
+    "skills": ["ST_Distance", "ST_GeomFromText"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find all places that are located inside the area covered by the road named 'Avenida da Liberdade'.",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p JOIN lisbon_roads r ON ST_Within(p.geometry, r.geometry) WHERE r.names->>'primary' = 'Avenida da Liberdade'",
+    "skills": ["ST_Within"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List all historical sites that lie within a 1-kilometer radius of the castle in Lisbon.",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p WHERE p.taxonomy->>'primary' = 'historic_site' AND ST_Distance(p.geometry, ST_GeomFromText('POINT(-9.139333 38.709922)', 4326), 'spheroid') < 1000",
+    "skills": ["ST_Distance", "ST_GeomFromText"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find any places that are right next to or touching the road called 'Passeio Marítimo de Algés'.",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p JOIN lisbon_roads r ON ST_Touches(p.geometry, r.geometry) WHERE r.names->>'primary' = 'Passeio Marítimo de Algés'",
+    "skills": ["ST_Touches"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show me all the stores that are located inside the boundaries of the neighborhood called Alfama.",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p WHERE ST_Within(p.geometry, ST_GeomFromText('POLYGON((-9.145 38.705, -9.145 38.715, -9.135 38.715, -9.135 38.705, -9.145 38.705))', 4326))",
+    "skills": ["ST_Within", "ST_GeomFromText"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Tell me which places are either directly inside or very close to the road segment that has the name 'Rua do Ouro'.",
+    "sql": "SELECT p.names->>'primary' AS name FROM lisbon_places p JOIN lisbon_roads r ON ST_Intersects(p.geometry, r.geometry) WHERE r.names->>'primary' = 'Rua do Ouro'",
+    "skills": ["ST_Intersects"],
+    "difficulty": "medium"
+  }
+]

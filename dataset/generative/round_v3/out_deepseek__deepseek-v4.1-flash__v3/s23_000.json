@@ -1,0 +1,38 @@
+[
+  {
+    "question": "taxi zones containing point -73.9859, 40.7276",
+    "sql": "SELECT z.location_id, z.zone FROM nyc_taxi_zones z WHERE ST_Contains(z.geometry, ST_Point(-73.9859, 40.7276)) ORDER BY z.location_id",
+    "skills": ["spatial_predicate", "ST_Contains"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "taxi zones intersecting envelope -74.02,40.68,-73.98,40.70",
+    "sql": "SELECT z.location_id, z.zone FROM nyc_taxi_zones z WHERE ST_Intersects(z.geometry, ST_MakeEnvelope(-74.02, 40.68, -73.98, 40.70)) ORDER BY z.location_id",
+    "skills": ["spatial_predicate", "ST_Intersects"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "taxi zones touching Bath Beach",
+    "sql": "SELECT b.location_id, b.zone FROM nyc_taxi_zones a JOIN nyc_taxi_zones b ON ST_Touches(a.geometry, b.geometry) WHERE a.zone = 'Bath Beach' ORDER BY b.location_id",
+    "skills": ["spatial_join", "ST_Touches"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "point -74.0075,40.6043 within which taxi zone",
+    "sql": "SELECT z.location_id, z.zone FROM nyc_taxi_zones z WHERE ST_Within(ST_Point(-74.0075, 40.6043), z.geometry) ORDER BY z.location_id",
+    "skills": ["spatial_predicate", "ST_Within"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "count trips picked up in zone containing point -73.9943,40.7326",
+    "sql": "SELECT count(*) AS trip_count FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE ST_Contains(z.geometry, ST_Point(-73.9943, 40.7326))",
+    "skills": ["spatial_join", "ST_Contains", "aggregate"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "average total amount for trips dropped in zones intersecting envelope -73.96,40.78,-73.93,40.80",
+    "sql": "SELECT avg(t.total_amount) AS avg_total_amount FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.DOLocationID = z.location_id WHERE ST_Intersects(z.geometry, ST_MakeEnvelope(-73.96, 40.78, -73.93, 40.80))",
+    "skills": ["spatial_join", "ST_Intersects", "aggregate"],
+    "difficulty": "easy"
+  }
+]

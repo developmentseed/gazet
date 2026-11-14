@@ -1,0 +1,38 @@
+[
+  {
+    "question": "total building footprint area m2",
+    "sql": "SELECT SUM(ST_Area_Spheroid(geometry)) AS total_footprint_area_m2 FROM lisbon_buildings;",
+    "skills": ["spatial_measurement", "ST_Area_Spheroid", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "average building footprint area by class",
+    "sql": "SELECT class, AVG(ST_Area_Spheroid(geometry)) AS avg_footprint_area_m2 FROM lisbon_buildings GROUP BY class ORDER BY avg_footprint_area_m2 DESC;",
+    "skills": ["spatial_measurement", "ST_Area_Spheroid", "group_by"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "top 10 largest buildings by footprint area",
+    "sql": "SELECT id, struct_extract(names, 'primary') AS name, class, ST_Area_Spheroid(geometry) AS footprint_area_m2 FROM lisbon_buildings ORDER BY footprint_area_m2 DESC LIMIT 10;",
+    "skills": ["spatial_measurement", "ST_Area_Spheroid", "order_by"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "total road length km by road class",
+    "sql": "SELECT class, SUM(ST_Length_Spheroid(geometry))/1000.0 AS total_length_km FROM lisbon_roads GROUP BY class ORDER BY total_length_km DESC;",
+    "skills": ["spatial_measurement", "ST_Length_Spheroid", "group_by"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "top 10 longest road segments",
+    "sql": "SELECT id, struct_extract(names, 'primary') AS name, class, ST_Length_Spheroid(geometry) AS length_m FROM lisbon_roads ORDER BY length_m DESC LIMIT 10;",
+    "skills": ["spatial_measurement", "ST_Length_Spheroid", "order_by"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings taller than 50m footprint area",
+    "sql": "SELECT id, struct_extract(names, 'primary') AS name, height, ST_Area(ST_Transform(geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true)) AS footprint_area_m2 FROM lisbon_buildings WHERE height > 50 ORDER BY footprint_area_m2 DESC;",
+    "skills": ["spatial_measurement", "ST_Transform", "ST_Area", "filter"],
+    "difficulty": "easy"
+  }
+]

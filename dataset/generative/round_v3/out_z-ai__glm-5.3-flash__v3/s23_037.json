@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Considering only places marked as open, which categories contain at least 500 open places? For each such category show the number of open places, the average confidence score rounded to 3 decimals, and the category's percentage share of all open places rounded to 2 decimals, sorted by count descending.",
+    "sql": "WITH open_counts AS (\n  SELECT basic_category,\n         COUNT(*) AS n_open,\n         AVG(confidence) AS avg_conf\n  FROM lisbon_places\n  WHERE operating_status = 'open'\n  GROUP BY basic_category\n),\ntotals AS (\n  SELECT SUM(n_open) AS total_open\n  FROM open_counts\n)\nSELECT o.basic_category,\n       o.n_open,\n       ROUND(o.avg_conf, 3) AS avg_confidence,\n       ROUND(100.0 * o.n_open / t.total_open, 2) AS pct_of_all_open\nFROM open_counts o\nCROSS JOIN totals t\nWHERE o.n_open >= 500\nORDER BY o.n_open DESC, o.basic_category",
+    "skills": ["GROUP BY", "HAVING-threshold in WHERE", "CTE", "share of total"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Using the point at longitude -9.2282, latitude 38.7242 as the anchor, how many open coffee shops lie within 300 metres of it, and how many within 1,000 metres? Return both counts in a single row.",
+    "sql": "SELECT\n  COUNT(*) FILTER (WHERE ST_Distance_Spheroid(geometry, ST_Point(-9.2282, 38.7242)) <= 300) AS within_300_m,\n  COUNT(*) FILTER (WHERE ST_Distance_Spheroid(geometry, ST_Point(-9.2282, 38.7242)) <= 1000) AS within_1000_m\nFROM lisbon_places\nWHERE basic_category = 'coffee_shop'\n  AND operating_status = 'open'",
+    "skills": ["FILTER aggregation", "ST_Distance_Spheroid", "point literal"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Profile the building stock by subtype: for each subtype with at least 200 buildings, give the building count, the average height in metres rounded to 1 decimal, and the percentage of buildings taller than 15 metres rounded to 1 decimal; order by average height from highest to lowest.",
+    "sql": "SELECT subtype,\n       COUNT(*) AS n_buildings,\n       ROUND(AVG(height), 1) AS avg_height_m,\n       ROUND(100.0 * SUM(CASE WHEN height > 15 THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_over_15m\nFROM lisbon_buildings\nGROUP BY subtype\nHAVING COUNT(*) >= 200\nORDER BY avg_height_m DESC, subtype",
+    "skills": ["GROUP BY", "HAVING", "CASE", "conditional aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For every building class that has at least 50 named buildings, find the single tallest named building and report the class, the building's name, its height in metres and its number of floors, ordered by height descending.",
+    "sql": "WITH named AS (\n  SELECT class,\n         names.\"primary\" AS building_name,\n         height,\n         num_floors,\n         id\n  FROM lisbon_buildings\n  WHERE names.\"primary\" IS NOT NULL\n),\nclass_sizes AS (\n  SELECT class, COUNT(*) AS n_named\n  FROM named\n  GROUP BY class\n),\ntallest AS (\n  SELECT class, building_name, height, num_floors\n  FROM named\n  QUALIFY ROW_NUMBER() OVER (PARTITION BY class ORDER BY height DESC, id) = 1\n)\nSELECT t.class,\n       t.building_name,\n       t.height AS height_m,\n       t.num_floors,\n       c.n_named\nFROM tallest t\nJOIN class_sizes c USING (class)\nWHERE c.n_named >= 50\nORDER BY t.height DESC, t.class",
+    "skills": ["CTE", "QUALIFY", "window function", "JOIN"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which categories of open places have 5 or more places that fall inside the footprint of a building at least 20 metres tall? Return the category and the distinct place count, largest count first.",
+    "sql": "WITH tall_buildings AS (\n  SELECT geometry\n  FROM lisbon_buildings\n  WHERE height >= 20\n)\nSELECT p.basic_category,\n       COUNT(DISTINCT p.id) AS n_pois\nFROM lisbon_places p\nJOIN tall_buildings b ON ST_Contains(b.geometry, p.geometry)\nWHERE p.operating_status = 'open'\nGROUP BY p.basic_category\nHAVING COUNT(DISTINCT p.id) >= 5\nORDER BY n_pois DESC, p.basic_category",
+    "skills": ["spatial join", "ST_Contains", "COUNT DISTINCT", "GROUP BY", "HAVING"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Among buildings with a footprint area of at least 2,000 square metres, count the buildings per roof shape and compute the average footprint area in square metres; keep only roof shapes with at least 100 such buildings and order by count descending.",
+    "sql": "WITH sized AS (\n  SELECT roof_shape,\n         ST_Area_Spheroid(geometry) AS area_m2\n  FROM lisbon_buildings\n  WHERE roof_shape IS NOT NULL\n)\nSELECT roof_shape,\n       COUNT(*) AS n_buildings,\n       ROUND(AVG(area_m2), 0) AS avg_footprint_m2\nFROM sized\nWHERE area_m2 >= 2000\nGROUP BY roof_shape\nHAVING COUNT(*) >= 100\nORDER BY n_buildings DESC, roof_shape",
+    "skills": ["CTE", "ST_Area_Spheroid", "GROUP BY", "HAVING"],
+    "difficulty": "medium"
+  }
+]

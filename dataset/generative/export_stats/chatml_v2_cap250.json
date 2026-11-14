@@ -1,0 +1,13 @@
+{
+ "train": 18528,
+ "val": 1068,
+ "train_with_hints": 10152,
+ "dropped": {
+  "filter value the student cannot see": 662,
+  "reads a table not in the prompt": 59,
+  "sqlglot cannot parse": 1
+ },
+ "chars_median": 2487,
+ "chars_p99": 5271,
+ "chars_max": 6568
+}

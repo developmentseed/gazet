@@ -1,0 +1,38 @@
+[
+  {
+    "question": "residential roads GeoJSON",
+    "sql": "SELECT ST_AsGeoJSON(geometry) AS geojson FROM lisbon_roads WHERE class = 'residential' LIMIT 10;",
+    "skills": ["ST_AsGeoJSON", "filtering"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "WKT of footways with road surface and name",
+    "sql": "SELECT ST_AsText(geometry) AS wkt, names.primary AS name, road_surface[1].value AS surface FROM lisbon_roads WHERE class = 'footway' AND road_surface IS NOT NULL AND len(road_surface) > 0 LIMIT 10;",
+    "skills": ["ST_AsText", "struct access"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "centroid lon lat of Avenida da Liberdade",
+    "sql": "SELECT ROUND(ST_X(ST_Centroid(geometry))::DOUBLE, 5) AS lon, ROUND(ST_Y(ST_Centroid(geometry))::DOUBLE, 5) AS lat FROM lisbon_roads WHERE names.primary ILIKE '%Avenida%Liberdade%' LIMIT 1;",
+    "skills": ["ST_X", "ST_Y", "ST_Centroid", "ROUND"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "max speed string for tertiary roads",
+    "sql": "SELECT CONCAT('Max speed: ', max_speed_s.max_speed.value, ' ', max_speed_s.max_speed.unit) AS speed_label FROM lisbon_roads, UNNEST(speed_limits) AS t(max_speed_s) WHERE class = 'tertiary' AND max_speed_s.max_speed IS NOT NULL LIMIT 10;",
+    "skills": ["UNNEST", "CONCAT", "struct access"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "length metres of steps roads rounded to 2 decimals",
+    "sql": "SELECT ROUND(ST_Length_Spheroid(geometry)::DOUBLE, 2) AS length_m FROM lisbon_roads WHERE class = 'steps' LIMIT 10;",
+    "skills": ["ST_Length_Spheroid", "ROUND"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "bounding box GeoJSON of all residential roads",
+    "sql": "SELECT ST_AsGeoJSON(ST_Extent_Agg(geometry)) AS bbox_geojson FROM lisbon_roads WHERE class = 'residential';",
+    "skills": ["ST_Extent_Agg", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  }
+]

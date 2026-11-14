@@ -1,0 +1,2 @@
+12 scenarios to (re)generate
+meta/muse-spark-open: 12/12 ok, cost $0.5088, providers ['BaseTen', 'Makora', 'Nebius', 'Together'], avg completion 9707 tok (reasoning 8790)

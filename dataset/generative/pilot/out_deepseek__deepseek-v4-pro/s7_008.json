@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which taxi zones are completely inside the rectangular area with longitude from -74.02 to -73.97 and latitude from 40.70 to 40.73?",
+    "sql": "SELECT zone, borough FROM nyc_taxi_zones WHERE ST_Within(geometry, ST_MakeEnvelope(-74.02, 40.70, -73.97, 40.73, 4326))",
+    "skills": ["ST_MakeEnvelope", "ST_Within", "bounding-box filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "How many taxi trips started in zones that overlap with the area around LaGuardia Airport (longitude -73.89 to -73.85, latitude 40.76 to 40.79)?",
+    "sql": "SELECT COUNT(*) AS trip_count FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE ST_Intersects(z.geometry, ST_MakeEnvelope(-73.89, 40.76, -73.85, 40.79, 4326))",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "join", "bounding-box filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "List all taxi zones whose bounding box is wider than 0.05 degrees in longitude.",
+    "sql": "SELECT zone, borough FROM nyc_taxi_zones WHERE ST_XMax(ST_Envelope(geometry)) - ST_XMin(ST_Envelope(geometry)) > 0.05",
+    "skills": ["ST_Envelope", "ST_XMin", "ST_XMax", "bbox size comparison"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the overall bounding box of all taxi zones in Queens? Please provide the shape.",
+    "sql": "SELECT ST_AsGeoJSON(ST_Extent(geometry)) AS extent_geojson FROM nyc_taxi_zones WHERE borough = 'Queens'",
+    "skills": ["ST_Extent", "ST_AsGeoJSON", "aggregate envelope"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Which taxi zones have a bounding box that intersects the bounding box of JFK Airport, but whose actual polygon does not touch the JFK Airport zone?",
+    "sql": "WITH jfk AS (SELECT geometry, zone FROM nyc_taxi_zones WHERE zone = 'JFK Airport') SELECT z.zone, z.borough FROM nyc_taxi_zones z, jfk WHERE ST_Intersects(ST_Envelope(z.geometry), ST_Envelope(jfk.geometry)) AND NOT ST_Intersects(z.geometry, jfk.geometry) AND z.zone <> 'JFK Airport'",
+    "skills": ["ST_Envelope", "ST_Intersects", "bbox vs actual geometry", "CTE"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For taxi trips longer than 30 miles, what is the bounding box of all pickup zones used by those trips?",
+    "sql": "WITH long_trip_pickup_zones AS (SELECT DISTINCT z.location_id, z.geometry FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE t.trip_distance > 30) SELECT ST_AsGeoJSON(ST_Extent(geometry)) AS pickup_extent_geojson FROM long_trip_pickup_zones",
+    "skills": ["ST_Extent", "ST_AsGeoJSON", "join", "aggregate envelope", "bounding-box from filtered data"],
+    "difficulty": "hard"
+  }
+]

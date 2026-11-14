@@ -1,0 +1,1 @@
+openai/gpt-oss-120b: 12/12 ok, cost $0.0101, providers ['AkashML', 'Crusoe', 'DeepInfra', 'DekaLLM', 'SiliconFlow'], avg completion 2832 tok (reasoning 1236)

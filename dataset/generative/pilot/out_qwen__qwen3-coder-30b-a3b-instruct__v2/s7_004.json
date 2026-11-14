@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Show me the area covered by all countries in the European continent, but exclude the area of the United Kingdom.",
+    "sql": "SELECT ST_AsGeoJSON(ST_Difference(ST_Union_Agg(geometry), (SELECT geometry FROM countries WHERE name = 'United Kingdom'))) AS area FROM countries WHERE continent = 'Europe'",
+    "skills": ["ST_Difference", "ST_Union_Agg"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the combined shape of all major cities in Asia that have populations over 10 million?",
+    "sql": "SELECT ST_AsGeoJSON(ST_Union_Agg(geometry)) AS combined_shape FROM populated_places WHERE country IN (SELECT name FROM countries WHERE continent = 'Asia') AND pop_max > 10000000",
+    "skills": ["ST_Union_Agg"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show me the buffer zone around the border of the largest country in Africa by area.",
+    "sql": "SELECT ST_AsGeoJSON(ST_Buffer(geometry, 0.1)) AS buffer_zone FROM countries WHERE continent = 'Africa' ORDER BY ST_Area(geometry) DESC LIMIT 1",
+    "skills": ["ST_Buffer", "ST_Area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find the center point of the convex hull that contains all populated places in South America.",
+    "sql": "SELECT ST_AsGeoJSON(ST_Centroid(ST_ConvexHull(ST_Union_Agg(geometry)))) AS center_point FROM populated_places WHERE country IN (SELECT name FROM countries WHERE continent = 'South America')",
+    "skills": ["ST_ConvexHull", "ST_Centroid", "ST_Union_Agg"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Create a polygon that represents the smallest area that includes all capital cities in Europe, then find its centroid.",
+    "sql": "SELECT ST_AsGeoJSON(ST_Centroid(ST_ConvexHull(ST_Union_Agg(geometry)))) AS centroid FROM populated_places WHERE is_capital = TRUE AND country IN (SELECT name FROM countries WHERE continent = 'Europe')",
+    "skills": ["ST_ConvexHull", "ST_Centroid", "ST_Union_Agg"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Give me the shape of the union of all countries in Oceania and their 100km buffer zones.",
+    "sql": "SELECT ST_AsGeoJSON(ST_Union_Agg(ST_Buffer(geometry, 0.1))) AS buffer_union FROM countries WHERE continent = 'Oceania'",
+    "skills": ["ST_Buffer", "ST_Union_Agg"],
+    "difficulty": "medium"
+  }
+]

@@ -1,0 +1,2 @@
+12 scenarios to (re)generate
+deepseek/deepseek-v4.1-flash: 12/12 ok, cost $0.0510, providers ['AtlasCloud', 'Baidu', 'CoreWeave', 'InferenceNet'], avg completion 8252 tok (reasoning 7218)

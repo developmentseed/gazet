@@ -1,0 +1,2 @@
+2 scenarios to (re)generate
+deepseek/deepseek-v4-pro: 2/2 ok, cost $0.0780, providers ['GMICloud', 'Novita'], avg completion 16002 tok (reasoning 14554)

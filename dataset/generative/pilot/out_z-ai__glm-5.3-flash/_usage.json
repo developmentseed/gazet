@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_003",
+  "provider": "Inceptron",
+  "wall_s": 85.7,
+  "prompt_tokens": 1228,
+  "completion_tokens": 4464,
+  "reasoning_tokens": 3960,
+  "cost": 0.00288716
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "Z.AI",
+  "wall_s": 41.9,
+  "prompt_tokens": 837,
+  "completion_tokens": 2824,
+  "reasoning_tokens": 2311,
+  "cost": 0.00153755
+ },
+ {
+  "scenario": "s7_000",
+  "provider": "Inceptron",
+  "wall_s": 96.6,
+  "prompt_tokens": 1291,
+  "completion_tokens": 6011,
+  "reasoning_tokens": 5423,
+  "cost": 0.00382607
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "Inceptron",
+  "wall_s": 366.4,
+  "prompt_tokens": 577,
+  "completion_tokens": 19250,
+  "reasoning_tokens": 18306,
+  "cost": 0.01164809
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "Inceptron",
+  "wall_s": 615.4,
+  "prompt_tokens": 907,
+  "completion_tokens": 32000,
+  "reasoning_tokens": 31996,
+  "cost": 0.01935419
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "Inceptron",
+  "wall_s": 341.5,
+  "prompt_tokens": 1059,
+  "completion_tokens": 15521,
+  "reasoning_tokens": 14125,
+  "cost": 0.00949263
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "Inceptron",
+  "wall_s": 277.1,
+  "prompt_tokens": 756,
+  "completion_tokens": 15549,
+  "reasoning_tokens": 14493,
+  "cost": 0.00945792
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "Inceptron",
+  "wall_s": 76.2,
+  "prompt_tokens": 864,
+  "completion_tokens": 6104,
+  "reasoning_tokens": 5263,
+  "cost": 0.00380928
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "Inceptron",
+  "wall_s": 174.8,
+  "prompt_tokens": 905,
+  "completion_tokens": 9240,
+  "reasoning_tokens": 8163,
+  "cost": 0.00569785
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "Morph",
+  "wall_s": 1622.1,
+  "prompt_tokens": 913,
+  "completion_tokens": 32000,
+  "reasoning_tokens": 32000,
+  "cost": 0.010387996
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "Inceptron",
+  "wall_s": 396.3,
+  "prompt_tokens": 1387,
+  "completion_tokens": 20952,
+  "reasoning_tokens": 19607,
+  "cost": 0.01280699
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "Inceptron",
+  "wall_s": 349.6,
+  "prompt_tokens": 974,
+  "completion_tokens": 22896,
+  "reasoning_tokens": 21330,
+  "cost": 0.01390318
+ }
+]

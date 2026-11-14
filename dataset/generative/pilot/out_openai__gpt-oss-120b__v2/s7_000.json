@@ -1,0 +1,38 @@
+[
+  {
+    "question": "restaurants within 500 meters of Praça do Comércio",
+    "sql": "SELECT id, names.primary AS name, ST_AsGeoJSON(geometry) AS geojson\nFROM lisbon_places\nWHERE basic_category = 'restaurant'\n  AND ST_DWithin_Spheroid(geometry, ST_Point(-9.140, 38.707), 500);",
+    "skills": ["ST_DWithin_Spheroid", "filter_by_category"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "building footprints that intersect the Tagus River line",
+    "sql": "SELECT id, class, subtype, ST_AsGeoJSON(geometry) AS geojson\nFROM lisbon_buildings\nWHERE ST_Intersects(\n        geometry,\n        ST_MakeLine(ST_Point(-9.200, 38.700), ST_Point(-9.100, 38.800))\n      );",
+    "skills": ["ST_Intersects"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "POIs inside Parque das Nações (approx bounding box)",
+    "sql": "SELECT id, names.primary AS name, basic_category\nFROM lisbon_places\nWHERE ST_Within(\n        geometry,\n        ST_MakeEnvelope(-9.090, 38.760, -9.070, 38.780)\n      );",
+    "skills": ["ST_Within"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "commercial buildings that touch Alfama district boundary (approx polygon)",
+    "sql": "SELECT id, class, height\nFROM lisbon_buildings\nWHERE subtype = 'commercial'\n  AND ST_Touches(\n        geometry,\n        ST_GeomFromText('POLYGON((-9.13 38.71, -9.12 38.71, -9.12 38.72, -9.13 38.72, -9.13 38.71))')\n      );",
+    "skills": ["ST_Touches"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "total residential building area within 1 km of Lisbon airport (approx -9.135,38.775)",
+    "sql": "SELECT SUM(\n           ST_Area(\n             ST_Transform(geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true)\n           )\n         ) AS total_residential_area_m2\nFROM lisbon_buildings\nWHERE subtype = 'residential'\n  AND ST_DWithin_Spheroid(geometry, ST_Point(-9.135, 38.775), 1000);",
+    "skills": ["ST_DWithin_Spheroid", "ST_Transform", "ST_Area", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "historic sites that are contained within any building footprint",
+    "sql": "WITH historic AS (\n  SELECT id, names.primary AS name, geometry\n  FROM lisbon_places\n  WHERE taxonomy.primary = 'historic_site'\n)\nSELECT h.name,\n       ST_AsGeoJSON(b.geometry) AS building_geojson\nFROM historic h\nJOIN lisbon_buildings b\n  ON ST_Contains(b.geometry, h.geometry)\nLIMIT 10;",
+    "skills": ["ST_Contains", "join", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  }
+]

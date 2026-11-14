@@ -1,0 +1,38 @@
+[
+  {
+    "question": "List open restaurants with their name, confidence rounded to 2 decimals, and point coordinates as longitude/latitude rounded to 5 decimals plus WKT, highest confidence first, limit 10.",
+    "sql": "SELECT names.primary AS name,\n       ROUND(confidence, 2) AS confidence,\n       ROUND(ST_X(geometry), 5) AS lon,\n       ROUND(ST_Y(geometry), 5) AS lat,\n       ST_AsText(geometry) AS point_wkt\nFROM lisbon_places\nWHERE basic_category = 'restaurant' AND operating_status = 'open'\nORDER BY confidence DESC, id\nLIMIT 10;",
+    "skills": ["ST_AsText", "ST_X", "ST_Y", "ROUND", "ORDER BY", "LIMIT"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map residential buildings taller than 20 metres by returning name, height rounded to one decimal, floor count, and their footprint as GeoJSON, ordered by height descending and id, limit 15.",
+    "sql": "SELECT names.primary AS name,\n       ROUND(height, 1) AS height_m,\n       num_floors,\n       ST_AsGeoJSON(geometry) AS footprint_geojson\nFROM lisbon_buildings\nWHERE subtype = 'residential' AND height > 20\nORDER BY height DESC, id\nLIMIT 15;",
+    "skills": ["ST_AsGeoJSON", "ROUND", "ORDER BY", "LIMIT"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare roof shapes for buildings taller than 15 metres: list each roof shape, the building count, and the share of these buildings as a percentage string with one decimal, most common first.",
+    "sql": "WITH tall AS (\n  SELECT roof_shape\n  FROM lisbon_buildings\n  WHERE height > 15 AND roof_shape IS NOT NULL\n)\nSELECT roof_shape,\n       COUNT(*) AS building_count,\n       printf('%.1f%%', 100.0 * COUNT(*) / SUM(COUNT(*)) OVER ()) AS share\nFROM tall\nGROUP BY roof_shape\nORDER BY building_count DESC, roof_shape;",
+    "skills": ["string formatting", "ROUND", "GROUP BY", "ORDER BY"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List hotels with their name, website count, first phone number, and point as GeoJSON, ordered by name.",
+    "sql": "SELECT names.primary AS name,\n       COALESCE(len(websites), 0) AS website_count,\n       COALESCE(phones[1], '') AS first_phone,\n       ST_AsGeoJSON(geometry) AS point_geojson\nFROM lisbon_places\nWHERE basic_category = 'hotel'\nORDER BY names.primary, id;",
+    "skills": ["ST_AsGeoJSON", "COALESCE", "ORDER BY"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For the place named 'Mimosa do Camões', return its name, category, confidence rounded to 3 decimals, longitude and latitude rounded to 5 decimals, and point in WKT.",
+    "sql": "SELECT names.primary AS name,\n       basic_category,\n       ROUND(confidence, 3) AS confidence,\n       ROUND(ST_X(geometry), 5) AS lon,\n       ROUND(ST_Y(geometry), 5) AS lat,\n       ST_AsText(geometry) AS point_wkt\nFROM lisbon_places\nWHERE names.primary = 'Mimosa do Camões';",
+    "skills": ["ST_AsText", "ST_X", "ST_Y", "ROUND", "filtering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare the distance in metres from the point at longitude -9.1447, latitude 38.7103 to open restaurants: list name, rounded distance to the nearest metre, and longitude/latitude rounded to 5 decimals, nearest first, limit 10.",
+    "sql": "SELECT names.primary AS name,\n       ROUND(ST_Distance_Sphere(geometry, ST_Point(-9.1447, 38.7103)), 0) AS distance_m,\n       ROUND(ST_X(geometry), 5) AS lon,\n       ROUND(ST_Y(geometry), 5) AS lat\nFROM lisbon_places\nWHERE basic_category = 'restaurant' AND operating_status = 'open'\nORDER BY distance_m, id\nLIMIT 10;",
+    "skills": ["ST_Distance_Sphere", "ST_Point", "ST_X", "ST_Y", "ROUND", "ORDER BY", "LIMIT"],
+    "difficulty": "medium"
+  }
+]

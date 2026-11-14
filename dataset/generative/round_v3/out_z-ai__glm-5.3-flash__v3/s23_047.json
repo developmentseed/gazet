@@ -1,0 +1,40 @@
+```json
+[
+  {
+    "question": "What share of the world's population lives on each continent? Show the number of people on each continent and the percentage of the global total rounded to one decimal, starting with the continent that has the biggest share.",
+    "sql": "WITH by_continent AS (SELECT continent, SUM(pop_est) AS people FROM countries GROUP BY continent) SELECT continent, people, ROUND(100.0 * people / SUM(people) OVER (), 1) AS world_share_pct FROM by_continent ORDER BY world_share_pct DESC, continent;",
+    "skills": ["CTE", "GROUP BY", "window function"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "In each subregion of the world, which single country has the most ports within its borders, and how many ports is that? Give me one row per subregion.",
+    "sql": "WITH ports_per_country AS (SELECT c.subregion, c.name AS country, c.iso_a3, COUNT(*) AS port_count FROM countries c JOIN ports p ON ST_Intersects(p.geometry, c.geometry) GROUP BY c.subregion, c.name, c.iso_a3) SELECT subregion, country, port_count FROM ports_per_country QUALIFY ROW_NUMBER() OVER (PARTITION BY subregion ORDER BY port_count DESC, country, iso_a3) = 1 ORDER BY subregion;",
+    "skills": ["spatial join", "GROUP BY", "QUALIFY"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Leaving out countries with no usable economic or population figures, sort the world's countries by economic output per person and split them into three brackets: under 5,000, 5,000 to 20,000, and above 20,000 US dollars. For each bracket, how many countries does it contain, how many people live in them combined, and what are the lowest and highest output-per-person figures in the bracket?",
+    "sql": "WITH base AS (SELECT pop_est, gdp_md, 1000000.0 * gdp_md / pop_est AS gdp_per_person FROM countries WHERE pop_est > 0 AND gdp_md >= 0), bucketed AS (SELECT CASE WHEN gdp_per_person < 5000 THEN 'under 5,000' WHEN gdp_per_person < 20000 THEN '5,000 to 20,000' ELSE 'above 20,000' END AS bracket, gdp_per_person, pop_est FROM base) SELECT bracket, COUNT(*) AS countries, SUM(pop_est) AS total_people, ROUND(MIN(gdp_per_person), 0) AS lowest_value, ROUND(MAX(gdp_per_person), 0) AS highest_value FROM bucketed GROUP BY bracket ORDER BY MIN(gdp_per_person);",
+    "skills": ["CTE", "CASE", "GROUP BY", "derived metric"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For every country in the Eastern Africa subregion, find the port that is closest to the country's geographic middle point and tell me how far away that port is in kilometres.",
+    "sql": "WITH eastern_africa AS (SELECT name AS country, ST_Centroid(geometry) AS center_pt FROM countries WHERE subregion = 'Eastern Africa'), distances AS (SELECT e.country, p.name AS port, ST_Distance_Spheroid(e.center_pt, p.geometry) / 1000.0 AS km_to_port FROM eastern_africa e CROSS JOIN ports p) SELECT country, port, ROUND(km_to_port, 1) AS km_to_port FROM distances QUALIFY ROW_NUMBER() OVER (PARTITION BY country ORDER BY km_to_port, port) = 1 ORDER BY country;",
+    "skills": ["CTE", "CROSS JOIN", "ST_Distance_Spheroid", "QUALIFY"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Ports carry an importance score that runs from 3 for the most significant down to 8 for the least. Within 500 kilometres of the location at longitude -64.4372 and latitude 48.8244, how many ports fall into each of these three bands: 3 to 4, 5 to 6, and 7 to 8? Leave out any band that has fewer than two ports.",
+    "sql": "SELECT CASE WHEN scalerank <= 4 THEN '3-4 (most significant)' WHEN scalerank <= 6 THEN '5-6' ELSE '7-8 (least significant)' END AS importance_band, COUNT(*) AS port_count FROM ports WHERE ST_DWithin_Spheroid(geometry, ST_Point(-64.4372, 48.8244), 500000) GROUP BY 1 HAVING COUNT(*) >= 2 ORDER BY MIN(scalerank);",
+    "skills": ["ST_DWithin_Spheroid", "CASE", "GROUP BY", "HAVING"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Group the world's countries by continent and, within each continent, count how many are classified as developed (either the G7 developed group or other developed regions), how many are emerging (BRIC, MIKT or G20 emerging groups), and how many are developing or least developed regions. Also give the total number of countries per continent.",
+    "sql": "SELECT continent, COUNT(*) AS total_countries, SUM(CASE WHEN economy IN ('1. Developed region: G7', '2. Developed region: nonG7') THEN 1 ELSE 0 END) AS developed, SUM(CASE WHEN economy IN ('3. Emerging region: BRIC', '4. Emerging region: MIKT', '5. Emerging region: G20') THEN 1 ELSE 0 END) AS emerging, SUM(CASE WHEN economy IN ('6. Developing region', '7. Least developed region') THEN 1 ELSE 0 END) AS developing_or_least FROM countries GROUP BY continent ORDER BY continent;",
+    "skills": ["CASE", "conditional aggregation", "GROUP BY"],
+    "difficulty": "hard"
+  }
+]
+```

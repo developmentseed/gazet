@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which countries have any part within 200 kilometers of the capital city of France?",
+    "sql": "WITH capital AS (\n  SELECT geometry\n  FROM populated_places\n  WHERE country = 'France' AND is_capital\n),\nbuf AS (\n  SELECT ST_Transform(\n           ST_Buffer(\n             ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857'),\n             200000\n           ),\n           'EPSG:3857',\n           'EPSG:4326'\n         ) AS geom\n  FROM capital\n)\nSELECT\n  c.name,\n  ST_AsGeoJSON(ST_Intersection(c.geometry, b.geom)) AS intersection_geo\nFROM countries c\nJOIN buf b ON ST_Intersects(c.geometry, b.geom)\nWHERE ST_Area(ST_Intersection(c.geometry, b.geom)) > 0;",
+    "skills": ["ST_Buffer", "ST_Transform", "ST_Intersection", "ST_AsGeoJSON", "ST_Intersects", "ST_Area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the total land area covered by all countries in South America?",
+    "sql": "WITH union_geom AS (\n  SELECT ST_Union_Agg(geometry) AS geom\n  FROM countries\n  WHERE continent = 'South America'\n)\nSELECT\n  ST_Area(ST_Transform(geom, 'EPSG:4326', 'EPSG:3857')) / 1e6 AS area_km2\nFROM union_geom;",
+    "skills": ["ST_Union_Agg", "ST_Transform", "ST_Area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find the largest city (by population) that lies within 50 km of the border of Kenya.",
+    "sql": "WITH kenya AS (\n  SELECT geometry\n  FROM countries\n  WHERE name = 'Kenya'\n),\nbuf AS (\n  SELECT ST_Transform(\n           ST_Buffer(\n             ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857'),\n             50000\n           ),\n           'EPSG:3857',\n           'EPSG:4326'\n         ) AS geom\n  FROM kenya\n)\nSELECT\n  p.name,\n  p.country,\n  p.pop_max\nFROM populated_places p\nJOIN buf b ON ST_Contains(b.geom, p.geometry)\nORDER BY p.pop_max DESC\nLIMIT 1;",
+    "skills": ["ST_Buffer", "ST_Transform", "ST_Contains"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the centroid of the combined area of all European countries?",
+    "sql": "WITH eu AS (\n  SELECT geometry\n  FROM countries\n  WHERE continent = 'Europe'\n),\nunion_geom AS (\n  SELECT ST_Union_Agg(geometry) AS geom\n  FROM eu\n)\nSELECT ST_AsGeoJSON(ST_Centroid(geom)) AS centroid_geo\nFROM union_geom;",
+    "skills": ["ST_Union_Agg", "ST_Centroid", "ST_AsGeoJSON"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List all populated places that are inside the convex hull of the United Kingdom's territory.",
+    "sql": "WITH uk AS (\n  SELECT geometry\n  FROM countries\n  WHERE name = 'United Kingdom'\n),\nhull AS (\n  SELECT ST_ConvexHull(ST_Union_Agg(geometry)) AS geom\n  FROM uk\n)\nSELECT p.name, p.country\nFROM populated_places p\nJOIN hull h ON ST_Contains(h.geom, p.geometry);",
+    "skills": ["ST_ConvexHull", "ST_Union_Agg", "ST_Contains"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which countries have any part that is not within 1000 km of any scientific station?",
+    "sql": "WITH stations AS (\n  SELECT geometry\n  FROM populated_places\n  WHERE feature_class = 'Scientific station'\n),\nbuf_union AS (\n  SELECT ST_Union_Agg(\n           ST_Transform(\n             ST_Buffer(\n               ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857'),\n               1000000\n             ),\n             'EPSG:3857',\n             'EPSG:4326'\n           )\n         ) AS geom\n  FROM stations\n)\nSELECT c.name\nFROM countries c\nLEFT JOIN buf_union b ON TRUE\nWHERE NOT ST_IsEmpty(ST_Difference(c.geometry, b.geom));",
+    "skills": ["ST_Buffer", "ST_Transform", "ST_Union_Agg", "ST_Difference", "ST_IsEmpty"],
+    "difficulty": "medium"
+  }
+]

@@ -1,0 +1,40 @@
+```json
+[
+  {
+    "question": "total building footprint area in sqm",
+    "sql": "SELECT SUM(ST_Area_Spheroid(geometry)) AS total_area_sqm\nFROM lisbon_buildings;",
+    "skills": ["area calculation", "ST_Area_Spheroid", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "average area of residential buildings in square meters",
+    "sql": "SELECT AVG(ST_Area_Spheroid(geometry)) AS avg_area_sqm\nFROM lisbon_buildings\nWHERE subtype = 'residential';",
+    "skills": ["area calculation", "ST_Area_Spheroid", "filtering by subtype", "aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "total length of footways in km",
+    "sql": "SELECT SUM(ST_Length_Spheroid(geometry)) / 1000 AS total_length_km\nFROM lisbon_roads\nWHERE class = 'footway';",
+    "skills": ["length calculation", "ST_Length_Spheroid", "unit conversion", "filtering by class"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "buildings with flat roof and area > 500 sqm show name and area",
+    "sql": "SELECT names.primary AS name,\n       ST_Area_Spheroid(geometry) AS area_sqm\nFROM lisbon_buildings\nWHERE roof_shape = 'flat'\n  AND ST_Area_Spheroid(geometry) > 500;",
+    "skills": ["area calculation", "ST_Area_Spheroid", "roof_shape filtering", "attribute retrieval"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "distance in meters from Torre VTS de Algés to Passeio Marítimo de Algés",
+    "sql": "SELECT ST_Distance(\n         ST_Transform(ST_Centroid(b.geometry), 'EPSG:4326', 'EPSG:3763', always_xy := true),\n         ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true)\n       ) AS distance_m\nFROM lisbon_buildings b, lisbon_roads r\nWHERE b.names.primary = 'Torre VTS de Algés'\n  AND r.names.primary = 'Passeio Marítimo de Algés';",
+    "skills": ["distance measurement", "ST_Transform", "ST_Centroid", "ST_Distance", "named entity lookup", "metric CRS"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "list buildings taller than 50m with height and footprint area",
+    "sql": "SELECT names.primary AS name,\n       height,\n       ST_Area_Spheroid(geometry) AS area_sqm\nFROM lisbon_buildings\nWHERE height > 50\nORDER BY height DESC;",
+    "skills": ["area calculation", "ST_Area_Spheroid", "height filtering", "attribute retrieval"],
+    "difficulty": "easy"
+  }
+]
+```

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "zones sharing a border with East Village",
+    "sql": "SELECT b.zone, b.borough FROM nyc_taxi_zones a JOIN nyc_taxi_zones b ON ST_Touches(a.geometry, b.geometry) WHERE a.zone = 'East Village' AND b.zone <> 'East Village' ORDER BY b.zone",
+    "skills": ["spatial predicates", "ST_Touches", "self join"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "pickup counts for the zone containing point -73.9458 40.79",
+    "sql": "SELECT z.zone, z.borough, count(*) AS pickups FROM nyc_taxi_zones z JOIN nyc_taxi_trips t ON t.PULocationID = z.location_id WHERE ST_Contains(z.geometry, ST_Point(-73.9458, 40.79)) GROUP BY z.zone, z.borough ORDER BY pickups DESC, z.zone",
+    "skills": ["spatial predicates", "ST_Contains", "point-in-polygon"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "zones intersecting bbox -74.02 40.70 -73.96 40.76",
+    "sql": "SELECT zone, borough FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.02, 40.70, -73.96, 40.76)) ORDER BY zone",
+    "skills": ["spatial predicates", "ST_Intersects", "bounding box"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "zones crossed by a straight line from -73.9859 40.7276 to -73.9458 40.79",
+    "sql": "SELECT zone, borough FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_GeomFromText('LINESTRING(-73.9859 40.7276, -73.9458 40.79)')) ORDER BY zone",
+    "skills": ["spatial predicates", "ST_Intersects", "linestring"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "pickup counts for zones fully inside bbox -74.01 40.71 -73.95 40.78, top 10",
+    "sql": "SELECT z.zone, count(*) AS pickups FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE ST_Within(z.geometry, ST_MakeEnvelope(-74.01, 40.71, -73.95, 40.78)) GROUP BY z.zone ORDER BY pickups DESC, z.zone LIMIT 10",
+    "skills": ["spatial predicates", "ST_Within", "join aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "trip count where pickup and dropoff zones share a border",
+    "sql": "SELECT count(*) AS trips FROM nyc_taxi_trips t JOIN nyc_taxi_zones pu ON t.PULocationID = pu.location_id JOIN nyc_taxi_zones dof ON t.DOLocationID = dof.location_id WHERE ST_Touches(pu.geometry, dof.geometry)",
+    "skills": ["spatial predicates", "ST_Touches", "double join"],
+    "difficulty": "easy"
+  }
+]

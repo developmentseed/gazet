@@ -1,0 +1,38 @@
+[
+  {
+    "question": "What is the straight-line distance in metres between Nicolau Lisboa and Zip Gum Boogie?",
+    "sql": "WITH a AS (\n  SELECT geometry FROM lisbon_places WHERE names.primary = 'Nicolau Lisboa' ORDER BY id LIMIT 1\n), b AS (\n  SELECT geometry FROM lisbon_places WHERE names.primary = 'Zip Gum Boogie' ORDER BY id LIMIT 1\n)\nSELECT ST_Distance_Spheroid(a.geometry, b.geometry) AS distance_m\nFROM a, b;",
+    "skills": ["measurement", "distance", "spheroid distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the area in square metres of a 250-metre-radius circle centered on PURIFICACION GARCIA | Lisbon?",
+    "sql": "WITH p AS (\n  SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom\n  FROM lisbon_places\n  WHERE names.primary = 'PURIFICACION GARCIA | Lisbon'\n  ORDER BY id LIMIT 1\n)\nSELECT ST_Area(ST_Buffer(geom, 250)) AS area_sqm\nFROM p;",
+    "skills": ["measurement", "area", "transform to metric CRS"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "How long in metres is the two-leg journey that goes from Nicolau Lisboa to Cafetaria Estado D'Alma and then to Zip Gum Boogie?",
+    "sql": "WITH a AS (\n  SELECT geometry FROM lisbon_places WHERE names.primary = 'Nicolau Lisboa' ORDER BY id LIMIT 1\n), b AS (\n  SELECT geometry FROM lisbon_places WHERE names.primary = 'Cafetaria Estado D''Alma' ORDER BY id LIMIT 1\n), c AS (\n  SELECT geometry FROM lisbon_places WHERE names.primary = 'Zip Gum Boogie' ORDER BY id LIMIT 1\n)\nSELECT ST_Distance_Spheroid(a.geometry, b.geometry) + ST_Distance_Spheroid(b.geometry, c.geometry) AS total_length_m\nFROM a, b, c;",
+    "skills": ["measurement", "length", "spheroid distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the area in square kilometres of the smallest convex polygon that contains all the cafes?",
+    "sql": "SELECT ST_Area_Spheroid(ST_ConvexHull(ST_Union_Agg(geometry))) / 1000000 AS area_sqkm\nFROM lisbon_places\nWHERE basic_category = 'cafe';",
+    "skills": ["measurement", "area", "spheroid area", "convex hull"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the length in kilometres of the boundary of the smallest convex polygon that contains all the restaurants?",
+    "sql": "SELECT ST_Length_Spheroid(ST_Boundary(ST_ConvexHull(ST_Union_Agg(geometry)))) / 1000 AS perimeter_km\nFROM lisbon_places\nWHERE basic_category = 'restaurant';",
+    "skills": ["measurement", "length", "spheroid length", "convex hull"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the area in square metres of the smallest axis-aligned rectangle that contains all the second-hand stores?",
+    "sql": "SELECT ST_Area_Spheroid(ST_Envelope(ST_Union_Agg(geometry))) AS area_sqm\nFROM lisbon_places\nWHERE basic_category = 'second_hand_store';",
+    "skills": ["measurement", "area", "spheroid area", "envelope"],
+    "difficulty": "medium"
+  }
+]

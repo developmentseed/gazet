@@ -1,0 +1,38 @@
+[
+  {
+    "question": "How many road sections are there of each kind of road in Lisbon, starting with the most common kind?",
+    "sql": "SELECT class AS road_kind, COUNT(*) AS section_count FROM lisbon_roads GROUP BY class ORDER BY section_count DESC, road_kind;",
+    "skills": ["GROUP BY", "ORDER BY"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Which kinds of roads are made up of more than 1,000 separate sections, and how many sections does each of them have?",
+    "sql": "SELECT class AS road_kind, COUNT(*) AS section_count FROM lisbon_roads GROUP BY class HAVING COUNT(*) > 1000 ORDER BY section_count DESC, road_kind;",
+    "skills": ["GROUP BY", "HAVING"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Could you split the roads into three buckets - walking ways (footways, steps, pedestrian streets and paths), cycleways, and everything else for vehicles - and tell me how many sections fall into each bucket?",
+    "sql": "SELECT CASE WHEN class IN ('footway', 'steps', 'pedestrian', 'path') THEN 'walking' WHEN class = 'cycleway' THEN 'cycling' ELSE 'vehicle' END AS bucket, COUNT(*) AS section_count FROM lisbon_roads GROUP BY bucket ORDER BY section_count DESC, bucket;",
+    "skills": ["CASE", "GROUP BY"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Roughly how many kilometres of each kind of road are there in total across Lisbon?",
+    "sql": "SELECT class AS road_kind, ROUND(SUM(ST_Length_Spheroid(geometry)) / 1000.0, 1) AS total_km FROM lisbon_roads GROUP BY class ORDER BY total_km DESC, road_kind;",
+    "skills": ["GROUP BY", "spatial measurement", "ST_Length_Spheroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "For every kind of road, what is the single longest section, how long is it in metres, and what is that section called?",
+    "sql": "SELECT COALESCE(names.\"primary\", 'unnamed') AS road_name, class AS road_kind, ROUND(ST_Length_Spheroid(geometry), 1) AS length_m FROM lisbon_roads QUALIFY ROW_NUMBER() OVER (PARTITION BY class ORDER BY ST_Length_Spheroid(geometry) DESC, id) = 1 ORDER BY length_m DESC, road_kind;",
+    "skills": ["QUALIFY", "window function", "spatial measurement"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "If I add up every piece of Rua Silva Carvalho, how long is the whole street in kilometres?",
+    "sql": "WITH street_pieces AS (SELECT geometry FROM lisbon_roads WHERE names.\"primary\" = 'Rua Silva Carvalho') SELECT ROUND(SUM(ST_Length_Spheroid(geometry)) / 1000.0, 2) AS total_km FROM street_pieces;",
+    "skills": ["CTE", "filter", "spatial measurement"],
+    "difficulty": "easy"
+  }
+]

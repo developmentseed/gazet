@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Show me the shape of Avenida da Torre de Belém as GeoJSON.",
+    "sql": "SELECT ST_AsGeoJSON(geometry) AS geojson FROM lisbon_roads WHERE names.primary = 'Avenida da Torre de Belém' ORDER BY id LIMIT 1;",
+    "skills": ["ST_AsGeoJSON", "ORDER BY", "LIMIT"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "What are the longitude and latitude of the start and end points of Travessa Miguel Verdial?",
+    "sql": "SELECT ROUND(ST_X(ST_StartPoint(geometry)), 6) AS start_lon, ROUND(ST_Y(ST_StartPoint(geometry)), 6) AS start_lat, ROUND(ST_X(ST_EndPoint(geometry)), 6) AS end_lon, ROUND(ST_Y(ST_EndPoint(geometry)), 6) AS end_lat FROM lisbon_roads WHERE names.primary = 'Travessa Miguel Verdial' ORDER BY id LIMIT 1;",
+    "skills": ["ST_X", "ST_Y", "ST_StartPoint", "ST_EndPoint", "ROUND", "ORDER BY", "LIMIT"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Give me the Well-Known Text (WKT) representation of the first road segment named Rua 8.",
+    "sql": "SELECT ST_AsText(geometry) AS wkt FROM lisbon_roads WHERE names.primary = 'Rua 8' ORDER BY id LIMIT 1;",
+    "skills": ["ST_AsText", "ORDER BY", "LIMIT"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "How long is Avenida Raul Lino in metres, rounded to the nearest whole metre?",
+    "sql": "SELECT ROUND(SUM(ST_Length_Spheroid(geometry))) AS total_length_m FROM lisbon_roads WHERE names.primary = 'Avenida Raul Lino';",
+    "skills": ["ST_Length_Spheroid", "SUM", "ROUND"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Show the centroid of Travessa do Espírito Santo as a GeoJSON point.",
+    "sql": "SELECT ST_AsGeoJSON(ST_Centroid(ST_Union_Agg(geometry))) AS centroid_geojson FROM lisbon_roads WHERE names.primary = 'Travessa do Espírito Santo';",
+    "skills": ["ST_AsGeoJSON", "ST_Centroid", "ST_Union_Agg"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Show a label for each road segment whose name begins with 'Travessa', formatted as 'name (class)'.",
+    "sql": "SELECT names.primary || ' (' || class || ')' AS label FROM lisbon_roads WHERE names.primary LIKE 'Travessa%' ORDER BY names.primary, id;",
+    "skills": ["string formatting", "LIKE", "ORDER BY"],
+    "difficulty": "easy"
+  }
+]

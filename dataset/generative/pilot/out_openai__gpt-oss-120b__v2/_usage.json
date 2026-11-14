@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "DekaLLM",
+  "wall_s": 37.6,
+  "prompt_tokens": 1542,
+  "completion_tokens": 1842,
+  "reasoning_tokens": 1100,
+  "cost": 0.00037782
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "AkashML",
+  "wall_s": 40.7,
+  "prompt_tokens": 848,
+  "completion_tokens": 3695,
+  "reasoning_tokens": 2302,
+  "cost": 0.000716405
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "AkashML",
+  "wall_s": 23.6,
+  "prompt_tokens": 1176,
+  "completion_tokens": 2730,
+  "reasoning_tokens": 1723,
+  "cost": 0.00054579
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "Crusoe",
+  "wall_s": 6.0,
+  "prompt_tokens": 1483,
+  "completion_tokens": 1790,
+  "reasoning_tokens": 1244,
+  "cost": 0.00052165
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "DeepInfra",
+  "wall_s": 125.2,
+  "prompt_tokens": 1308,
+  "completion_tokens": 4294,
+  "reasoning_tokens": 3426,
+  "cost": 0.000778376
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "DeepInfra",
+  "wall_s": 136.5,
+  "prompt_tokens": 1019,
+  "completion_tokens": 4525,
+  "reasoning_tokens": 3679,
+  "cost": 0.000806953
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "Crusoe",
+  "wall_s": 8.2,
+  "prompt_tokens": 1125,
+  "completion_tokens": 2964,
+  "reasoning_tokens": 1907,
+  "cost": 0.00079725
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "Mancer 2",
+  "wall_s": 35.6,
+  "prompt_tokens": 1169,
+  "completion_tokens": 2231,
+  "reasoning_tokens": 1452,
+  "cost": 0.000615
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "DekaLLM",
+  "wall_s": 39.0,
+  "prompt_tokens": 1181,
+  "completion_tokens": 3621,
+  "reasoning_tokens": 2001,
+  "cost": 0.00068721
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "AkashML",
+  "wall_s": 15.3,
+  "prompt_tokens": 1104,
+  "completion_tokens": 1812,
+  "reasoning_tokens": 0,
+  "cost": 0.000371964
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "DeepInfra",
+  "wall_s": 127.1,
+  "prompt_tokens": 1626,
+  "completion_tokens": 4174,
+  "reasoning_tokens": 2736,
+  "cost": 0.000769742
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "Mancer 2",
+  "wall_s": 44.6,
+  "prompt_tokens": 1239,
+  "completion_tokens": 3845,
+  "reasoning_tokens": 2765,
+  "cost": 0.0010225
+ }
+]

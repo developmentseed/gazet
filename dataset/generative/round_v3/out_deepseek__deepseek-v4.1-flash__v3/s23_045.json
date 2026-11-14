@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Rua Dona Inês de Castro road class",
+    "sql": "SELECT names.primary, class FROM lisbon_roads WHERE names.primary = 'Rua Dona Inês de Castro';",
+    "skills": ["struct field", "filter"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "roads with max speed 30 km/h",
+    "sql": "SELECT DISTINCT r.id, r.names.primary FROM lisbon_roads r, UNNEST(r.speed_limits) AS t(sl) WHERE sl.max_speed.value = 30 AND sl.max_speed.unit = 'km/h';",
+    "skills": ["UNNEST", "struct field"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "paved roads",
+    "sql": "SELECT DISTINCT r.id, r.names.primary FROM lisbon_roads r, UNNEST(r.road_surface) AS t(rs) WHERE rs.value = 'paved';",
+    "skills": ["UNNEST", "list of structs"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "roads with common name variant",
+    "sql": "SELECT DISTINCT r.id, r.names.primary FROM lisbon_roads r, UNNEST(r.names.rules) AS t(rule) WHERE rule.variant = 'common';",
+    "skills": ["UNNEST", "nested list of structs"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "roads with exactly one speed limit entry",
+    "sql": "SELECT id, names.primary FROM lisbon_roads WHERE list_count(speed_limits) = 1;",
+    "skills": ["list function"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "count roads by surface type",
+    "sql": "SELECT rs.value AS surface, COUNT(DISTINCT r.id) AS road_count FROM lisbon_roads r, UNNEST(r.road_surface) AS t(rs) GROUP BY rs.value ORDER BY road_count DESC, surface;",
+    "skills": ["UNNEST", "aggregation"],
+    "difficulty": "easy"
+  }
+]

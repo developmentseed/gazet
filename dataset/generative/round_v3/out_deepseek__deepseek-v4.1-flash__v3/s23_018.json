@@ -1,0 +1,38 @@
+[
+  {
+    "question": "zones intersecting bbox -74.02 40.70 -73.93 40.80",
+    "sql": "SELECT zone, borough FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.02, 40.70, -73.93, 40.80)) ORDER BY zone, location_id;",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "bbox filter"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "count pickups in bbox -73.87 40.74 -73.77 40.80",
+    "sql": "SELECT count(*) AS trips FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE ST_Intersects(z.geometry, ST_MakeEnvelope(-73.87, 40.74, -73.77, 40.80));",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "bbox filter", "join"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "extent of brooklyn zone polygons",
+    "sql": "SELECT ST_AsGeoJSON(ST_Extent_Agg(geometry)) AS brooklyn_bbox FROM nyc_taxi_zones WHERE borough = 'Brooklyn';",
+    "skills": ["ST_Extent_Agg", "ST_AsGeoJSON", "bbox aggregation"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "zones fully inside bbox -74.30 40.45 -74.00 40.70",
+    "sql": "SELECT zone, borough FROM nyc_taxi_zones WHERE ST_Within(geometry, ST_MakeEnvelope(-74.30, 40.45, -74.00, 40.70)) ORDER BY zone, location_id;",
+    "skills": ["ST_MakeEnvelope", "ST_Within", "bbox filter"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "dropoff zone counts within bbox -74.02 40.70 -73.75 40.82",
+    "sql": "SELECT z.zone, count(*) AS trips FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.DOLocationID = z.location_id WHERE ST_Intersects(z.geometry, ST_MakeEnvelope(-74.02, 40.70, -73.75, 40.82)) GROUP BY z.zone ORDER BY trips DESC, z.zone;",
+    "skills": ["ST_MakeEnvelope", "ST_Intersects", "bbox filter", "join", "group by"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "bounding box of Woodlawn/Wakefield zone",
+    "sql": "SELECT ST_AsGeoJSON(ST_Extent_Agg(geometry)) AS zone_bbox FROM nyc_taxi_zones WHERE zone = 'Woodlawn/Wakefield';",
+    "skills": ["ST_Extent_Agg", "ST_AsGeoJSON", "bbox aggregation"],
+    "difficulty": "easy"
+  }
+]

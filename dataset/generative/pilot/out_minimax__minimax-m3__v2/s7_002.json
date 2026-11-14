@@ -1,0 +1,38 @@
+[
+  {
+    "question": "nearest country to -150 30",
+    "sql": "SELECT name, iso_a3, ST_Distance(ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Transform(ST_Point(-150.0, 30.0), 'EPSG:4326', 'EPSG:3857', always_xy := true)) / 1000 AS dist_km FROM countries ORDER BY dist_km LIMIT 1;",
+    "skills": ["distance", "nearest-neighbour", "ST_Transform", "ORDER BY distance", "LIMIT k"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "5 countries closest to Nile",
+    "sql": "SELECT c.name, ST_Distance(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true)) / 1000 AS dist_km FROM countries c, rivers r WHERE r.name = 'Nile' ORDER BY dist_km LIMIT 5;",
+    "skills": ["distance", "nearest-neighbour", "ST_Transform", "ORDER BY distance", "LIMIT k"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "rivers within 500km Vatican",
+    "sql": "SELECT r.name, ST_Distance(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true)) / 1000 AS dist_km FROM countries c, rivers r WHERE c.name = 'Vatican' AND ST_DWithin(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Transform(r.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), 500000) ORDER BY dist_km;",
+    "skills": ["distance", "ST_DWithin", "ST_Transform", "ORDER BY distance"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "5 nearest countries France",
+    "sql": "SELECT c2.name, ST_Distance_Sphere(ST_Centroid(c1.geometry), ST_Centroid(c2.geometry)) / 1000 AS dist_km FROM countries c1, countries c2 WHERE c1.name = 'France' AND c2.name != 'France' ORDER BY dist_km LIMIT 5;",
+    "skills": ["distance", "nearest-neighbour", "ST_Distance_Sphere", "ORDER BY distance", "LIMIT k"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "longest river per continent",
+    "sql": "SELECT cont.continent, r.name, r.length_km FROM (SELECT DISTINCT continent FROM countries) cont CROSS JOIN LATERAL (SELECT r2.name, ST_Length_Spheroid(r2.geometry) / 1000 AS length_km FROM rivers r2 JOIN countries c2 ON ST_Intersects(r2.geometry, c2.geometry) WHERE c2.continent = cont.continent ORDER BY length_km DESC LIMIT 1) r ORDER BY r.length_km DESC;",
+    "skills": ["LATERAL", "ST_Length_Spheroid", "ST_Intersects", "ORDER BY distance", "LIMIT k"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "country pairs within 100km",
+    "sql": "SELECT c1.name AS country1, c2.name AS country2, ST_Distance(ST_Transform(c1.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Transform(c2.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true)) / 1000 AS dist_km FROM countries c1, countries c2 WHERE c1.iso_a3 < c2.iso_a3 AND ST_DWithin(ST_Transform(c1.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Transform(c2.geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true), 100000) ORDER BY dist_km LIMIT 10;",
+    "skills": ["distance", "ST_DWithin", "ST_Transform", "self-join", "ORDER BY distance"],
+    "difficulty": "hard"
+  }
+]

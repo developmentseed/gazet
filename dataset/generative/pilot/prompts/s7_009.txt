@@ -1,0 +1,29 @@
+You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
+
+Below are the tables available. Each is a DuckDB view with exactly the columns shown.
+
+TABLE lisbon_roads  -- Overture Maps road segments (linestrings) in Lisbon. EPSG:4326. rows=64870
+  id VARCHAR  -- distinct~66224 e.g. ['9e903112-7902-46aa-b26d-972552825416', 'e70b57ea-ce84-4ae6-af57-c33b2cbdff4e']
+  names STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[])  -- example={'primary': 'Passeio Marítimo de Algés', 'common': None, 'rules': [{'variant': 'common', 'language': None, 'perspectives': None, 'value': 'Passeio Marítimo d...
+  subtype VARCHAR  -- distinct~1 top=['road']
+  class VARCHAR  -- distinct~16 top=['footway', 'residential', 'service', 'tertiary', 'steps', 'secondary']
+  subclass VARCHAR  -- distinct~7 top=['sidewalk', 'parking_aisle', 'crosswalk', 'driveway', 'link', 'alley']
+  road_surface STRUCT("value" VARCHAR, "between" DOUBLE[])[]  -- example=[{'value': 'paved', 'between': None}]
+  speed_limits STRUCT(min_speed STRUCT("value" INTEGER, unit VARCHAR), max_speed STRUCT("value" INTEGER, unit VARCHAR), is_max_speed_variable BOOLEAN, "when" STRUCT(during VARCHAR, heading VARCHAR, "using" VARCHAR[], recognized VARCHAR[], "mode" VARCHAR[], vehicle STRUCT(dimension VARCHAR, comparison VARCHAR, "value" DOUBLE, unit VARCHAR)[]), "between" DOUBLE[])[]  -- example=[{'min_speed': None, 'max_speed': {'value': 30, 'unit': 'km/h'}, 'is_max_speed_variable': None, 'when': None, 'between': None}]
+  geometry GEOMETRY('OGC:CRS84')  -- types=['LINESTRING'] extent=[-9.25, 38.68, -9.09, 38.8]
+
+Write 6 diverse (question, sql) pairs for these tables.
+- Focus skill: output shaping: ST_AsGeoJSON, ST_AsText, ST_X/ST_Y, ROUND, string formatting of results
+- Difficulty: easy
+- Question style: terse keyword-style requests a GIS analyst types into a search box
+
+Rules:
+- SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
+- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Only reference values that plausibly exist in the data (use the top values / ranges shown). The query should return at least one row.
+- Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
+- Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
+- Make the 6 pairs differ in intent, not just in literal values.
+
+Return ONLY a JSON array, no markdown fences:
+[{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "easy"}]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "For each continent, count how many airports whose type carries a major designation (the type string contains \"major\") fall inside the continent's countries. Return the continent and that count, keeping only continents with at least 15 such airports, ordered by the count from highest to lowest.",
+    "sql": "SELECT c.continent, COUNT(*) AS major_airports FROM airports a JOIN countries c ON ST_Within(a.geometry, c.geometry) WHERE a.type LIKE '%major%' GROUP BY c.continent HAVING COUNT(*) >= 15 ORDER BY major_airports DESC",
+    "skills": ["spatial join", "ST_Within", "point-in-polygon", "group by aggregation", "HAVING filter"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For every country with a population estimate of at least 5 million, count the airports located inside its borders. Report the country, its population, the airport count, and airport density per million inhabitants, but only for countries containing at least 8 airports, ranked by density descending.",
+    "sql": "WITH per_country AS (SELECT c.name AS country, c.pop_est AS population, COUNT(a.name) AS airports FROM countries c JOIN airports a ON ST_Within(a.geometry, c.geometry) WHERE c.pop_est >= 5000000 GROUP BY c.name, c.pop_est) SELECT country, population, airports, ROUND(airports * 1000000.0 / population, 3) AS airports_per_million FROM per_country WHERE airports >= 8 ORDER BY airports_per_million DESC",
+    "skills": ["spatial join", "ST_Within", "CTE", "per-capita normalization", "aggregation with threshold"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Per continent, report the total number of countries, the number of countries that contain no airport at all, and the total number of airports inside the continent. Only show continents that have at least one airport-free country, ordered by the number of airport-free countries descending.",
+    "sql": "SELECT c.continent, COUNT(DISTINCT c.name) AS countries_total, COUNT(DISTINCT c.name) FILTER (WHERE a.name IS NULL) AS countries_without_airports, COUNT(a.name) AS airports FROM countries c LEFT JOIN airports a ON ST_Within(a.geometry, c.geometry) GROUP BY c.continent HAVING COUNT(DISTINCT c.name) FILTER (WHERE a.name IS NULL) > 0 ORDER BY countries_without_airports DESC",
+    "skills": ["spatial left join", "ST_Within", "anti-join logic", "aggregate FILTER", "group by aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Using great-circle distance, count the airports lying within 400 km of the geographic centre of each South American country. Report the country and the count, keeping only countries with at least 3 such airports, ordered by the count descending.",
+    "sql": "WITH sa AS (SELECT name, ST_Centroid(geometry) AS center FROM countries WHERE continent = 'South America') SELECT sa.name AS country, COUNT(a.name) AS airports_within_400km FROM sa JOIN airports a ON ST_Distance_Sphere(sa.center, a.geometry) <= 400000 GROUP BY sa.name HAVING COUNT(a.name) >= 3 ORDER BY airports_within_400km DESC",
+    "skills": ["ST_Centroid", "ST_Distance_Sphere", "great-circle distance in metres", "spatial join", "CTE"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For European countries, count how many airports lie within each country's territory. Return the country, its land area in square kilometres, the airport count, and airports per 1,000 square kilometres, keeping only countries with at least 2 airports and a density above 0.05 airports per 1,000 km², ordered by density descending.",
+    "sql": "WITH eu AS (SELECT c.name AS country, COUNT(a.name) AS airports, ST_Area_Spheroid(ANY_VALUE(c.geometry)) / 1000000.0 AS area_km2 FROM countries c JOIN airports a ON ST_Within(a.geometry, c.geometry) WHERE c.continent = 'Europe' GROUP BY c.name) SELECT country, ROUND(area_km2, 1) AS area_km2, airports, ROUND(airports * 1000.0 / area_km2, 4) AS airports_per_1000_km2 FROM eu WHERE airports >= 2 AND airports * 1000.0 / area_km2 > 0.05 ORDER BY airports_per_1000_km2 DESC",
+    "skills": ["ST_Area_Spheroid", "ST_Within", "spatial join with aggregation", "area-based density", "CTE"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Group countries by their World Bank income category and, for each category, report the number of countries, the total number of airports inside those countries, and the average number of airports per country. Keep only categories averaging at least 2 airports per country, ordered by that average descending.",
+    "sql": "SELECT c.income_grp AS income_group, COUNT(DISTINCT c.name) AS countries, COUNT(a.name) AS airports, ROUND(COUNT(a.name) * 1.0 / COUNT(DISTINCT c.name), 2) AS airports_per_country FROM countries c LEFT JOIN airports a ON ST_Within(a.geometry, c.geometry) WHERE c.income_grp LIKE '%income%' GROUP BY c.income_grp HAVING COUNT(a.name) * 1.0 / COUNT(DISTINCT c.name) >= 2 ORDER BY airports_per_country DESC",
+    "skills": ["spatial left join", "ST_Within", "group by attribute dimension", "count distinct", "HAVING threshold"],
+    "difficulty": "hard"
+  }
+]

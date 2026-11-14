@@ -1,0 +1,2 @@
+12 scenarios to (re)generate
+qwen/qwen3-coder-30b-a3b-instruct: 12/12 ok, cost $0.0033, providers ['SiliconFlow'], avg completion 680 tok (reasoning 0)

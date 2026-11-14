@@ -1,0 +1,1 @@
+{"id": "s23_002", "tables": ["airports", "populated_places"], "skill": "distance and nearest-neighbour queries (ST_Distance_Sphere / ST_DWithin, ORDER BY distance LIMIT k, LATERAL)", "difficulty": "hard", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}

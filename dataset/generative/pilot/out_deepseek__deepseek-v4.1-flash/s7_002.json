@@ -1,0 +1,38 @@
+[
+  {
+    "question": "nearest river to Egypt excluding lakes",
+    "sql": "WITH egypt AS (SELECT geometry FROM countries WHERE name = 'Egypt') SELECT r.name, ST_Distance_Sphere(r.geometry, egypt.geometry) AS dist_m FROM rivers r, egypt WHERE r.feature_class = 'River' ORDER BY dist_m LIMIT 1;",
+    "skills": ["ST_Distance_Sphere", "ORDER BY distance", "LIMIT", "CTE"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "closest country to Nile river",
+    "sql": "WITH nile AS (SELECT ST_Union_Agg(geometry) AS geom FROM rivers WHERE name = 'Nile') SELECT c.name, ST_Distance_Sphere(c.geometry, nile.geom) AS dist_m FROM countries c, nile ORDER BY dist_m LIMIT 1;",
+    "skills": ["ST_Distance_Sphere", "ST_Union_Agg", "ORDER BY distance", "LIMIT", "CTE"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "countries within 150km of Amazon river",
+    "sql": "WITH amazon AS (SELECT ST_Union_Agg(geometry) AS geom FROM rivers WHERE name = 'Amazon') SELECT c.name, ST_Distance_Sphere(c.geometry, amazon.geom) AS dist_m FROM countries c, amazon WHERE ST_Distance_Sphere(c.geometry, amazon.geom) <= 150000 ORDER BY dist_m;",
+    "skills": ["ST_Distance_Sphere", "ST_Union_Agg", "WHERE distance", "CTE"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "nearest river for each African country",
+    "sql": "SELECT c.name AS country, r.name AS nearest_river, ST_Distance_Sphere(c.geometry, r.geometry) AS dist_m FROM countries c CROSS JOIN LATERAL (SELECT r2.name, r2.geometry FROM rivers r2 ORDER BY ST_Distance_Sphere(c.geometry, r2.geometry) LIMIT 1) r WHERE c.continent = 'Africa' ORDER BY c.name;",
+    "skills": ["ST_Distance_Sphere", "LATERAL", "ORDER BY distance", "LIMIT"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "distance between USA and Russia in km",
+    "sql": "WITH usa AS (SELECT ST_Union_Agg(geometry) AS geom FROM countries WHERE iso_a3 = 'USA'), russia AS (SELECT ST_Union_Agg(geometry) AS geom FROM countries WHERE iso_a3 = 'RUS') SELECT ST_Distance_Sphere(usa.geom, russia.geom) / 1000 AS dist_km FROM usa, russia;",
+    "skills": ["ST_Distance_Sphere", "ST_Union_Agg", "CTE", "unit conversion"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "country closest to centroid of Australia",
+    "sql": "WITH australia AS (SELECT ST_Centroid(geometry) AS centroid FROM countries WHERE name = 'Australia') SELECT c.name, ST_Distance_Sphere(c.geometry, australia.centroid) AS dist_m FROM countries c, australia WHERE c.name != 'Australia' ORDER BY dist_m LIMIT 1;",
+    "skills": ["ST_Distance_Sphere", "ST_Centroid", "ORDER BY distance", "LIMIT", "CTE"],
+    "difficulty": "hard"
+  }
+]

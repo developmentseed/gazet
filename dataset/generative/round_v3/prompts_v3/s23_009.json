@@ -1,0 +1,1 @@
+{"id": "s23_009", "tables": ["lisbon_roads"], "skill": "output shaping: ST_AsGeoJSON, ST_AsText, ST_X/ST_Y, ROUND, string formatting of results", "difficulty": "easy", "style": "full natural sentences from a non-technical user who does not know column names", "k": 6}

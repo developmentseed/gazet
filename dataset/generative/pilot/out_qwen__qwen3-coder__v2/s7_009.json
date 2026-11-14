@@ -1,0 +1,38 @@
+[
+  {
+    "question": "roads with sidewalk subclass",
+    "sql": "SELECT id, names.\"primary\" AS name, subclass FROM lisbon_roads WHERE subclass = 'sidewalk'",
+    "skills": ["filtering", "attribute selection"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "show me road segments near (38.72, -9.14)",
+    "sql": "SELECT id, ST_AsGeoJSON(geometry) AS geom FROM lisbon_roads WHERE ST_DWithin_Spheroid(geometry, ST_Point(-9.14, 38.72), 500)",
+    "skills": ["spatial filtering", "ST_DWithin_Spheroid", "ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "length of tertiary roads in km",
+    "sql": "SELECT id, ROUND(ST_Length_Spheroid(geometry) / 1000, 2) AS length_km FROM lisbon_roads WHERE class = 'tertiary'",
+    "skills": ["ST_Length_Spheroid", "ROUND", "unit conversion"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "residential roads with max speed over 50 km/h",
+    "sql": "SELECT id, names.\"primary\" AS name, speed_limits[1].max_speed.value AS max_speed FROM lisbon_roads WHERE class = 'residential' AND speed_limits[1].max_speed.value > 50",
+    "skills": ["filtering", "nested struct access", "numeric filter"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "get start point of each secondary road as WKT",
+    "sql": "SELECT id, ST_AsText(ST_StartPoint(geometry)) AS start_point FROM lisbon_roads WHERE class = 'secondary'",
+    "skills": ["ST_StartPoint", "ST_AsText", "geometry extraction"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "coordinates of road centroids rounded to 4 decimals",
+    "sql": "SELECT id, ROUND(ST_X(ST_Centroid(geometry)), 4) AS lon, ROUND(ST_Y(ST_Centroid(geometry)), 4) AS lat FROM lisbon_roads LIMIT 10",
+    "skills": ["ST_Centroid", "ST_X/ST_Y", "ROUND", "coordinate extraction"],
+    "difficulty": "easy"
+  }
+]

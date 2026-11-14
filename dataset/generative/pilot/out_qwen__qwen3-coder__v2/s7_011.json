@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which countries have more than 5 major airports within their boundaries, and what is the total estimated population of those countries?",
+    "sql": "SELECT c.name, SUM(c.pop_est) AS total_population FROM countries c JOIN airports a ON ST_Within(a.geometry, c.geometry) WHERE a.type = 'major' GROUP BY c.name HAVING COUNT(a.*) > 5",
+    "skills": ["spatial join", "aggregation", "filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the average GDP (in million USD) of countries in the 'Developed region: G7' economy class that contain at least one airport with an IATA code starting with 'L'?",
+    "sql": "SELECT AVG(c.gdp_md) AS avg_gdp FROM countries c JOIN airports a ON ST_Within(a.geometry, c.geometry) WHERE c.economy = '1. Developed region: G7' AND a.iata_code LIKE 'L%' GROUP BY c.iso_a3",
+    "skills": ["spatial join", "aggregation", "pattern matching"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Identify all European countries where the sum of airport scaleranks exceeds 30, and return their names along with the summed scalerank value.",
+    "sql": "SELECT c.name, SUM(a.scalerank) AS total_scalerank FROM countries c JOIN airports a ON ST_Within(a.geometry, c.geometry) WHERE c.continent = 'Europe' GROUP BY c.name HAVING SUM(a.scalerank) > 30",
+    "skills": ["spatial join", "aggregation", "threshold filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "List the top 3 African countries by number of mid-sized airports, including their names and counts.",
+    "sql": "SELECT c.name, COUNT(*) AS airport_count FROM countries c JOIN airports a ON ST_Within(a.geometry, c.geometry) WHERE c.continent = 'Africa' AND a.type = 'mid' GROUP BY c.name ORDER BY airport_count DESC LIMIT 3",
+    "skills": ["spatial join", "ranking", "limiting results"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Find countries whose area (calculated using spheroidal method in square kilometers) is greater than 500,000 km² and which also host at least two military airports.",
+    "sql": "WITH transformed_countries AS (SELECT iso_a3, name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_transformed FROM countries), large_countries AS (SELECT tc.iso_a3, tc.name FROM transformed_countries tc WHERE ST_Area(tc.geom_transformed) / 1000000 > 500000) SELECT lc.name FROM large_countries lc JOIN airports ap ON ST_Within(ap.geometry, (SELECT geometry FROM countries WHERE iso_a3 = lc.iso_a3)) WHERE ap.type LIKE '%military%' GROUP BY lc.name HAVING COUNT(ap.*) >= 2",
+    "skills": ["spatial transformation", "area calculation", "complex joins"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each income group, calculate the total number of airports located within countries having a population estimate exceeding 10 million.",
+    "sql": "SELECT c.income_grp, COUNT(a.*) AS total_airports FROM countries c JOIN airports a ON ST_Within(a.geometry, c.geometry) WHERE c.pop_est > 10000000 GROUP BY c.income_grp",
+    "skills": ["spatial join", "multi-level grouping", "population-based filtering"],
+    "difficulty": "hard"
+  }
+]

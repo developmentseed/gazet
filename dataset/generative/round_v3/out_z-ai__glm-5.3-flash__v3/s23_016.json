@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Split all airports into 4 quartiles by their great-circle distance in kilometres from a reference point at (39.6991, 24.5442), and for each quartile report the number of airports plus the minimum and maximum distance in km.",
+    "sql": "WITH d AS (SELECT name, iata_code, type, ST_Distance_Spheroid(geometry, ST_Point(39.6991, 24.5442)) AS dist_m FROM airports), q AS (SELECT *, NTILE(4) OVER (ORDER BY dist_m) AS quartile FROM d) SELECT quartile, COUNT(*) AS n_airports, ROUND(MIN(dist_m) / 1000.0, 1) AS min_dist_km, ROUND(MAX(dist_m) / 1000.0, 1) AS max_dist_km FROM q GROUP BY quartile ORDER BY quartile",
+    "skills": ["window functions", "NTILE bucketing", "spheroid distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For airports of type 'major', group them by scalerank tier and show the number of airports per tier, each tier's percentage of all major airports, and a running total of airport counts from the lowest to the highest scalerank.",
+    "sql": "WITH tiers AS (SELECT scalerank, COUNT(*) AS n FROM airports WHERE type = 'major' GROUP BY scalerank) SELECT scalerank, n, ROUND(100.0 * n / SUM(n) OVER (), 2) AS pct_of_major, SUM(n) OVER (ORDER BY scalerank ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total FROM tiers ORDER BY scalerank",
+    "skills": ["window functions", "running totals", "per-group aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Among airports whose type mentions military, list the 3 airports farthest north in the western hemisphere and the 3 farthest north in the eastern hemisphere (split at longitude 0), showing each one's distance from the equator in kilometres, ranked within hemisphere.",
+    "sql": "WITH mil AS (SELECT name, iata_code, type, CASE WHEN ST_X(geometry) < 0 THEN 'western' ELSE 'eastern' END AS hemisphere, ST_Distance_Spheroid(geometry, ST_Point(ST_X(geometry), 0)) AS eq_dist_m FROM airports WHERE type LIKE '%military%'), ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY hemisphere ORDER BY eq_dist_m DESC, iata_code) AS rn FROM mil) SELECT hemisphere, rn, name, iata_code, type, ROUND(eq_dist_m / 1000.0, 1) AS dist_from_equator_km FROM ranked WHERE rn <= 3 ORDER BY hemisphere, rn",
+    "skills": ["window functions", "ROW_NUMBER per partition", "spheroid distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Given a project site at (121.5389, 38.9616), find the single closest airport within each airport type and report its distance in kilometres, ordered from nearest to farthest type winner.",
+    "sql": "WITH d AS (SELECT type, name, iata_code, ST_Distance_Spheroid(geometry, ST_Point(121.5389, 38.9616)) AS dist_m FROM airports), ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY type ORDER BY dist_m, iata_code) AS rn FROM d) SELECT type, name, iata_code, ROUND(dist_m / 1000.0, 2) AS dist_km FROM ranked WHERE rn = 1 ORDER BY dist_km",
+    "skills": ["window functions", "top-1 per group", "spheroid distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Rank 'major' airports by their great-circle distance in kilometres from a point at (-80.279, 25.7949) using a ranking that assigns the same rank to exact ties, and return the 10 closest entries including any ties.",
+    "sql": "WITH d AS (SELECT name, iata_code, ST_Distance_Spheroid(geometry, ST_Point(-80.279, 25.7949)) AS dist_m FROM airports WHERE type = 'major') SELECT RANK() OVER (ORDER BY dist_m) AS rnk, name, iata_code, ROUND(dist_m / 1000.0, 1) AS dist_km FROM d ORDER BY rnk, iata_code LIMIT 10",
+    "skills": ["window functions", "RANK with ties", "spheroid distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Classify every airport by its distance from a hub at (-89.9816, 35.0444) into three bands: within 500 km, 500 to 2000 km, and beyond 2000 km. For each band show the airport count, its share of all airports in percent, and a cumulative count moving outward from the nearest band.",
+    "sql": "WITH d AS (SELECT CASE WHEN ST_DWithin_Spheroid(geometry, ST_Point(-89.9816, 35.0444), 500000) THEN 'within 500 km' WHEN ST_DWithin_Spheroid(geometry, ST_Point(-89.9816, 35.0444), 2000000) THEN '500-2000 km' ELSE 'beyond 2000 km' END AS band FROM airports), agg AS (SELECT band, CASE band WHEN 'within 500 km' THEN 1 WHEN '500-2000 km' THEN 2 ELSE 3 END AS band_order, COUNT(*) AS n FROM d GROUP BY band) SELECT band, n, ROUND(100.0 * n / SUM(n) OVER (), 2) AS pct_of_all, SUM(n) OVER (ORDER BY band_order ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_airports FROM agg ORDER BY band_order",
+    "skills": ["window functions", "running totals", "distance thresholds", "spheroid distance"],
+    "difficulty": "medium"
+  }
+]

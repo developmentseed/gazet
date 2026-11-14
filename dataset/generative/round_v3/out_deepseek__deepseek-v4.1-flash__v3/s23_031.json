@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the top 5 named buildings by the number of other buildings whose centroid is within 50 metres of their centroid, showing the building name and the count.",
+    "sql": "WITH b AS (\n  SELECT id, names.primary AS name,\n         ST_Transform(ST_Centroid(geometry), 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom_metric\n  FROM lisbon_buildings\n)\nSELECT b1.name AS building_name, COUNT(b2.id) AS nearby_buildings\nFROM b AS b1\nJOIN b AS b2\n  ON b1.id <> b2.id\n AND ST_Distance(b1.geom_metric, b2.geom_metric) <= 50\nWHERE b1.name IS NOT NULL\nGROUP BY b1.id, b1.name\nORDER BY nearby_buildings DESC, b1.name ASC, b1.id ASC\nLIMIT 5;",
+    "skills": ["spatial_join", "aggregation", "distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For the building named 'Massimo Dutti', list the number of buildings of each subtype within 200 metres of its centroid, ordered by count descending.",
+    "sql": "WITH anchor AS (\n  SELECT ST_Transform(ST_Centroid(geometry), 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom_metric\n  FROM lisbon_buildings\n  WHERE names.primary = 'Massimo Dutti'\n),\nnearby AS (\n  SELECT b.subtype\n  FROM lisbon_buildings b, anchor a\n  WHERE ST_Distance(\n          ST_Transform(ST_Centroid(b.geometry), 'EPSG:4326', 'EPSG:3763', always_xy := true),\n          a.geom_metric\n        ) <= 200\n)\nSELECT subtype, COUNT(*) AS building_count\nFROM nearby\nGROUP BY subtype\nORDER BY building_count DESC, subtype ASC;",
+    "skills": ["spatial_join", "aggregation", "distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map the total building footprint area in square metres for each subtype within 500 metres of the building named 'Mini Mercado', ordered by area descending.",
+    "sql": "WITH anchor AS (\n  SELECT ST_Transform(ST_Centroid(geometry), 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom_metric\n  FROM lisbon_buildings\n  WHERE names.primary = 'Mini Mercado'\n),\nnearby AS (\n  SELECT b.subtype, ST_Area_Spheroid(b.geometry) AS area_m2\n  FROM lisbon_buildings b, anchor a\n  WHERE ST_Distance(\n          ST_Transform(ST_Centroid(b.geometry), 'EPSG:4326', 'EPSG:3763', always_xy := true),\n          a.geom_metric\n        ) <= 500\n)\nSELECT subtype, SUM(area_m2) AS total_area_m2\nFROM nearby\nGROUP BY subtype\nORDER BY total_area_m2 DESC, subtype ASC;",
+    "skills": ["spatial_join", "aggregation", "area"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare the average height of buildings within 100 metres of Massimo Dutti and within 100 metres of Mini Mercado.",
+    "sql": "WITH anchors AS (\n  SELECT names.primary AS anchor_name,\n         ST_Transform(ST_Centroid(geometry), 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom_metric\n  FROM lisbon_buildings\n  WHERE names.primary IN ('Massimo Dutti', 'Mini Mercado')\n),\nnearby AS (\n  SELECT a.anchor_name, b.height\n  FROM lisbon_buildings b\n  JOIN anchors a\n    ON ST_Distance(\n         ST_Transform(ST_Centroid(b.geometry), 'EPSG:4326', 'EPSG:3763', always_xy := true),\n         a.geom_metric\n       ) <= 100\n)\nSELECT anchor_name, AVG(height) AS avg_height_m\nFROM nearby\nGROUP BY anchor_name\nORDER BY anchor_name ASC;",
+    "skills": ["spatial_join", "aggregation", "comparison"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "For each residential building with a primary name, count how many religious buildings are within 500 metres of its centroid, and list the top 5 by count.",
+    "sql": "WITH residential AS (\n  SELECT id, names.primary AS name,\n         ST_Transform(ST_Centroid(geometry), 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom_metric\n  FROM lisbon_buildings\n  WHERE subtype = 'residential' AND names.primary IS NOT NULL\n),\nreligious AS (\n  SELECT id,\n         ST_Transform(ST_Centroid(geometry), 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom_metric\n  FROM lisbon_buildings\n  WHERE subtype = 'religious'\n)\nSELECT r.name AS residential_building, COUNT(rel.id) AS religious_nearby\nFROM residential r\nJOIN religious rel\n  ON ST_Distance(r.geom_metric, rel.geom_metric) <= 500\nGROUP BY r.id, r.name\nORDER BY religious_nearby DESC, r.name ASC, r.id ASC\nLIMIT 5;",
+    "skills": ["spatial_join", "aggregation", "filtering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Give me the total footprint area in square metres of all buildings within 1 kilometre of the point (-9.1475, 38.7216), grouped by class, ordered by area descending.",
+    "sql": "WITH point_metric AS (\n  SELECT ST_Transform(ST_Point(-9.1475, 38.7216), 'EPSG:4326', 'EPSG:3763', always_xy := true) AS geom\n),\nnearby AS (\n  SELECT b.class, ST_Area_Spheroid(b.geometry) AS area_m2\n  FROM lisbon_buildings b, point_metric p\n  WHERE ST_Distance(\n          ST_Transform(b.geometry, 'EPSG:4326', 'EPSG:3763', always_xy := true),\n          p.geom\n        ) <= 1000\n)\nSELECT class, SUM(area_m2) AS total_area_m2\nFROM nearby\nGROUP BY class\nORDER BY total_area_m2 DESC, class ASC;",
+    "skills": ["spatial_join", "aggregation", "area", "point_distance"],
+    "difficulty": "medium"
+  }
+]

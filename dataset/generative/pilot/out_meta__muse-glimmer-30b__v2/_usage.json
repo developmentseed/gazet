@@ -1,0 +1,110 @@
+[
+ {
+  "scenario": "s7_000",
+  "provider": "DeepInfra",
+  "wall_s": 28.3,
+  "prompt_tokens": 1529,
+  "completion_tokens": 3348,
+  "reasoning_tokens": 3063,
+  "cost": 0.0044763
+ },
+ {
+  "scenario": "s7_001",
+  "provider": "DeepInfra",
+  "wall_s": 41.6,
+  "prompt_tokens": 835,
+  "completion_tokens": 5021,
+  "reasoning_tokens": 4620,
+  "cost": 0.0062757
+ },
+ {
+  "scenario": "s7_002",
+  "provider": "DeepInfra",
+  "wall_s": 39.1,
+  "prompt_tokens": 1162,
+  "completion_tokens": 4751,
+  "reasoning_tokens": 4164,
+  "cost": 0.0059666
+ },
+ {
+  "scenario": "s7_003",
+  "provider": "DeepInfra",
+  "wall_s": 18.2,
+  "prompt_tokens": 1474,
+  "completion_tokens": 2236,
+  "reasoning_tokens": 1900,
+  "cost": 0.0031254
+ },
+ {
+  "scenario": "s7_004",
+  "provider": "DeepInfra",
+  "wall_s": 43.4,
+  "prompt_tokens": 1301,
+  "completion_tokens": 5513,
+  "reasoning_tokens": 4485,
+  "cost": 0.0070059
+ },
+ {
+  "scenario": "s7_005",
+  "provider": "DeepInfra",
+  "wall_s": 82.4,
+  "prompt_tokens": 1017,
+  "completion_tokens": 9231,
+  "reasoning_tokens": 8415,
+  "cost": 0.01124918
+ },
+ {
+  "scenario": "s7_006",
+  "provider": "DeepInfra",
+  "wall_s": 51.5,
+  "prompt_tokens": 1106,
+  "completion_tokens": 6072,
+  "reasoning_tokens": 5688,
+  "cost": 0.00758492
+ },
+ {
+  "scenario": "s7_007",
+  "provider": "DeepInfra",
+  "wall_s": 36.6,
+  "prompt_tokens": 1154,
+  "completion_tokens": 4298,
+  "reasoning_tokens": 3939,
+  "cost": 0.00538732
+ },
+ {
+  "scenario": "s7_008",
+  "provider": "DeepInfra",
+  "wall_s": 44.8,
+  "prompt_tokens": 1166,
+  "completion_tokens": 4855,
+  "reasoning_tokens": 3851,
+  "cost": 0.0061758
+ },
+ {
+  "scenario": "s7_009",
+  "provider": "DeepInfra",
+  "wall_s": 25.8,
+  "prompt_tokens": 1091,
+  "completion_tokens": 2930,
+  "reasoning_tokens": 2532,
+  "cost": 0.0038433
+ },
+ {
+  "scenario": "s7_010",
+  "provider": "DeepInfra",
+  "wall_s": 54.7,
+  "prompt_tokens": 1621,
+  "completion_tokens": 5583,
+  "reasoning_tokens": 5218,
+  "cost": 0.00706942
+ },
+ {
+  "scenario": "s7_011",
+  "provider": "DeepInfra",
+  "wall_s": 86.5,
+  "prompt_tokens": 1224,
+  "completion_tokens": 7068,
+  "reasoning_tokens": 6588,
+  "cost": 0.0087656
+ }
+]

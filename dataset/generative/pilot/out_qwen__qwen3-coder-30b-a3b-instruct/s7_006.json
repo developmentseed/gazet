@@ -1,0 +1,38 @@
+[
+  {
+    "question": "List the top 3 most populous cities in each country based on their maximum population.",
+    "sql": "SELECT country, name, pop_max FROM (SELECT country, name, pop_max, ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn FROM populated_places) ranked WHERE rn <= 3 ORDER BY country, pop_max DESC",
+    "skills": ["window functions", "per-group ranking"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Give me the names of airports ranked by how close they are to the equator (0° latitude).",
+    "sql": "SELECT name FROM (SELECT name, ST_Y(geometry) AS lat, RANK() OVER (ORDER BY ABS(ST_Y(geometry)) ASC) AS rank FROM airports) ranked ORDER BY rank",
+    "skills": ["window functions", "spatial attributes"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Show the cumulative count of airports by type, ordered by scalerank.",
+    "sql": "SELECT type, scalerank, COUNT(*) OVER (ORDER BY scalerank ROWS UNBOUNDED PRECEDING) AS running_count FROM airports ORDER BY scalerank",
+    "skills": ["window functions", "running totals"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Map the top 2 populated places in each administrative region by population.",
+    "sql": "SELECT admin1, name, pop_max FROM (SELECT admin1, name, pop_max, ROW_NUMBER() OVER (PARTITION BY admin1 ORDER BY pop_max DESC) AS rn FROM populated_places) ranked WHERE rn <= 2 ORDER BY admin1, pop_max DESC",
+    "skills": ["window functions", "per-group ranking"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the names of the 5 airports with the lowest scalerank within each type category.",
+    "sql": "SELECT type, name FROM (SELECT type, name, scalerank, RANK() OVER (PARTITION BY type ORDER BY scalerank ASC) AS rank FROM airports) ranked WHERE rank <= 5 ORDER BY type, scalerank",
+    "skills": ["window functions", "per-group ranking"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Show the total population of the top 3 most populous cities in each country using a running sum.",
+    "sql": "SELECT country, name, pop_max, SUM(pop_max) OVER (PARTITION BY country ORDER BY pop_max DESC ROWS UNBOUNDED PRECEDING) AS running_total FROM (SELECT country, name, pop_max, ROW_NUMBER() OVER (PARTITION BY country ORDER BY pop_max DESC) AS rn FROM populated_places) ranked WHERE rn <= 3 ORDER BY country, pop_max DESC",
+    "skills": ["window functions", "running totals"],
+    "difficulty": "easy"
+  }
+]

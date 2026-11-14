@@ -1,0 +1,2 @@
+12 scenarios to (re)generate
+z-ai/glm-5.3-flash: 12/12 ok, cost $0.0614, providers ['Inceptron', 'Morph', 'Novita'], avg completion 14688 tok (reasoning 13626)

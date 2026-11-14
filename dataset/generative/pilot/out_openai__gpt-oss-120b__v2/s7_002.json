@@ -1,0 +1,38 @@
+[
+  {
+    "question": "nearest river to country ZMB",
+    "sql": "WITH c AS (\n  SELECT geometry FROM countries WHERE iso_a3 = 'ZMB'\n), cent AS (\n  SELECT ST_Centroid(geometry) AS pt FROM c\n)\nSELECT r.name,\n       ST_Distance_Sphere(cent.pt, r.geometry) AS dist_m,\n       ST_AsGeoJSON(r.geometry) AS river_geojson\nFROM rivers r, cent\nORDER BY dist_m\nLIMIT 1;",
+    "skills": ["nearest neighbor", "ST_Distance_Sphere", "ST_Centroid"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "countries within 100 km of river Amazon",
+    "sql": "SELECT c.name,\n       c.iso_a3,\n       ST_Distance_Sphere(c.geometry, r.geometry) AS dist_m\nFROM countries c\nJOIN rivers r ON r.name = 'Amazon'\nWHERE ST_Distance_Sphere(c.geometry, r.geometry) <= 100000\nORDER BY dist_m;",
+    "skills": ["distance filter", "ST_Distance_Sphere", "join"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "top 5 longest rivers within 200 km of point (12.5, -8.5)",
+    "sql": "WITH pt AS (SELECT ST_Point(12.5, -8.5) AS geom),\n     r_filtered AS (\n       SELECT r.*, \n              ST_Distance_Sphere(r.geometry, pt.geom) AS dist_m\n       FROM rivers r, pt\n       WHERE ST_Distance_Sphere(r.geometry, pt.geom) <= 200000\n     )\nSELECT name,\n       ST_Length_Spheroid(geometry, 'WGS84') AS length_m,\n       dist_m\nFROM r_filtered\nORDER BY length_m DESC\nLIMIT 5;",
+    "skills": ["spatial filter", "ST_Distance_Sphere", "ST_Length_Spheroid", "order by distance"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "countries with GDP > 1 trillion within 300 km of Nile",
+    "sql": "WITH nile AS (\n  SELECT geometry FROM rivers WHERE name = 'Nile'\n)\nSELECT c.name,\n       c.iso_a3,\n       c.gdp_md,\n       ST_Distance_Sphere(c.geometry, nile.geometry) AS dist_m\nFROM countries c, nile\nWHERE c.gdp_md > 1000000\n  AND ST_Distance_Sphere(c.geometry, nile.geometry) <= 300000\nORDER BY dist_m;",
+    "skills": ["attribute filter", "ST_Distance_Sphere", "numeric condition"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "nearest 3 countries to Danube source point",
+    "sql": "WITH danube AS (\n  SELECT ST_StartPoint(geometry) AS src FROM rivers WHERE name = 'Danube'\n), centroids AS (\n  SELECT iso_a3, name, ST_Centroid(geometry) AS pt FROM countries\n)\nSELECT c.iso_a3,\n       c.name,\n       ST_Distance_Sphere(danube.src, c.pt) AS dist_m\nFROM danube, centroids c\nORDER BY dist_m\nLIMIT 3;",
+    "skills": ["nearest neighbor", "ST_StartPoint", "ST_Centroid", "ST_Distance_Sphere"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "total river length (km) per subregion within 50 km of any coastline",
+    "sql": "WITH countries_metric AS (\n  SELECT subregion,\n         ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_m\n  FROM countries\n),\nbuffers AS (\n  SELECT subregion,\n         ST_Union_Agg(ST_Buffer(geom_m, 50000)) AS buf\n  FROM countries_metric\n  GROUP BY subregion\n),\nriver_metric AS (\n  SELECT name,\n         ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom_m\n  FROM rivers\n)\nSELECT b.subregion,\n       SUM(ST_Length(ST_Intersection(r.geom_m, b.buf))) / 1000.0 AS river_km\nFROM buffers b\nJOIN river_metric r ON ST_Intersects(r.geom_m, b.buf)\nGROUP BY b.subregion\nORDER BY river_km DESC;",
+    "skills": ["buffer", "ST_Transform", "ST_Buffer", "ST_Intersection", "ST_Length", "aggregation"],
+    "difficulty": "hard"
+  }
+]

@@ -1,0 +1,52 @@
+[
+  {
+    "question": "Which taxi pickup zones are within the bounding box defined by longitude -74.01 to -73.98 and latitude 40.7 to 40.75?",
+    "sql": "SELECT location_id, zone, borough FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_MakeEnvelope(-74.01, 40.7, -73.98, 40.75))",
+    "skills": [
+      "bounding-box filtering"
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Find all dropoff locations in Manhattan that fall within the rectangular region bounded by coordinates (-73.99, 40.72) and (-73.96, 40.76).",
+    "sql": "SELECT tz.location_id, tz.zone FROM nyc_taxi_zones AS tz JOIN nyc_taxi_trips AS tt ON tz.location_id = tt.DOLocationID WHERE tz.borough = 'Manhattan' AND ST_Intersects(tz.geometry, ST_MakeEnvelope(-73.99, 40.72, -73.96, 40.76)) LIMIT 100",
+    "skills": [
+      "bounding-box filtering",
+      "spatial join"
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What is the total number of trips where both pickup and dropoff occurred within the geographic area enclosed by longitudes -74.02 to -73.95 and latitudes 40.68 to 40.78?",
+    "sql": "SELECT COUNT(*) AS trip_count FROM nyc_taxi_trips AS t JOIN nyc_taxi_zones AS pu_zone ON t.PULocationID = pu_zone.location_id JOIN nyc_taxi_zones AS do_zone ON t.DOLocationID = do_zone.location_id WHERE ST_Intersects(pu_zone.geometry, ST_MakeEnvelope(-74.02, 40.68, -73.95, 40.78)) AND ST_Intersects(do_zone.geometry, ST_MakeEnvelope(-74.02, 40.68, -73.95, 40.78))",
+    "skills": [
+      "bounding-box filtering",
+      "spatial join"
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Show me the bounding box of all taxi zones located in Queens.",
+    "sql": "SELECT ST_AsText(ST_Extent(geometry)) AS queens_bbox FROM nyc_taxi_zones WHERE borough = 'Queens'",
+    "skills": [
+      "extent calculation"
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Identify taxi zones whose bounding boxes fully contain the point with longitude -73.9 and latitude 40.75.",
+    "sql": "SELECT location_id, zone, borough FROM nyc_taxi_zones WHERE ST_Intersects(geometry, ST_Point(-73.9, 40.75))",
+    "skills": [
+      "point-in-polygon test"
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "question": "List the names of taxi zones in Brooklyn that overlap with the rectangle from (-73.98, 40.6) to (-73.92, 40.66).",
+    "sql": "SELECT zone FROM nyc_taxi_zones WHERE borough = 'Brooklyn' AND ST_Intersects(geometry, ST_MakeEnvelope(-73.98, 40.6, -73.92, 40.66))",
+    "skills": [
+      "bounding-box filtering"
+    ],
+    "difficulty": "hard"
+  }
+]

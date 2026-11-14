@@ -1,0 +1,1316 @@
+## 0 [ghcn_stations, us_counties | hard] rows=1 cols=['geoid', 'namelsad', 'stusps', 'state_name']
+Q: Using us_counties, return the geoid, namelsad, stusps, and state_name of the county that contains the point at longitude -84.8683 and latitude 33.9195. If more than one, return the one with the smallest geoid.
+SELECT c.geoid, c.namelsad, c.stusps, c.state_name FROM us_counties c WHERE ST_Contains(c.geom, ST_Transform(ST_Point(-84.8683, 33.9195), 'EPSG:4326', 'EPSG:5070', always_xy := true)) ORDER BY c.geoid LIMIT 1;
+-> [['13223', 'Paulding County', 'GA', 'Georgia']]
+
+## 1 [ghcn_stations, us_counties | hard] rows=1001 cols=['station_id', 'name', 'namelsad']
+Q: weather stations inside Texas counties
+SELECT s.station_id, s.name, c.namelsad FROM ghcn_stations s JOIN us_counties c ON c.stusps = 'TX' AND ST_Contains(c.geom, ST_Transform(ST_Point(s.longitude, s.latitude), 'EPSG:4326', 'EPSG:5070', always_xy := true)) ORDER BY s.station_id;
+-> [['US1TXAC0002', 'WICHITA FALLS 5.2 SSW', 'Archer County'], ['US1TXAC0003', 'ARCHER CITY 0.7 SSW', 'Archer County'], ['US1TXAC0005', 'WICHITA FALLS 8.5 S', 'Archer County']]
+
+## 2 [fr_departements | easy] rows=7 cols=['code', 'nom']
+Q: Return code and nom of departments whose geom intersects the EPSG:2154 envelope from (850000, 6550000) to (950000, 6700000). Output columns: code, nom, ordered by code.
+SELECT code, nom FROM fr_departements WHERE ST_Intersects(geom, ST_MakeEnvelope(850000, 6550000, 950000, 6700000)) ORDER BY code;
+-> [['01', 'Ain'], ['21', "Côte-d'Or"], ['25', 'Doubs']]
+
+## 3 [fr_departements, eu_nuts_regions | medium] rows=5 cols=['nom', 'centre_lon', 'centre_lat', 'outline_geojson']
+Q: For the French departments Eure-et-Loir, Orne, Pas-de-Calais, Paris and Yonne, show each department's name, its centre longitude and latitude rounded to four decimal places, and its outline as a GeoJSON text.
+SELECT nom, ROUND(ST_X(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)), 4) AS centre_lon, ROUND(ST_Y(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)), 4) AS centre_lat, ST_AsGeoJSON(ST_Transform(geom, 'EPSG:2154', 'EPSG:4326', always_xy := true)) AS outline_geojson FROM fr_departements WHERE nom IN ('Eure-et-Loir', 'Orne', 'Pas-de-Calais', 'Paris', 'Yonne') ORDER BY nom;
+-> [['Eure-et-Loir', '1.3702', '48.3875', '{"type":"Polygon","coordinates":[[[0....'], ['Orne', '0.1287', '48.6236', '{"type":"Polygon","coordinates":[[[-0...'], ['Paris', '2.3428', '48.8566', '{"type":"Polygon","coordinates":[[[2....']]
+
+## 4 [ghcn_stations | hard] rows=1001 cols=['name', 'wmo_id', 'location_geojson']
+Q: For Canadian stations that have a WMO number, show the station name, the WMO number, and the point as GeoJSON, sorted by station name.
+SELECT name, wmo_id, ST_AsGeoJSON(ST_Point(longitude, latitude)) AS location_geojson FROM ghcn_stations WHERE country_code = 'CA' AND wmo_id IS NOT NULL AND wmo_id <> '' ORDER BY name, station_id;
+-> [['AALDERSVILLE', '73081', '{"type":"Point","coordinates":[-64.50...'], ['ABBOTSFORD A', '71108', '{"type":"Point","coordinates":[-122.3...'], ['ABBOTSFORD A', '71108', '{"type":"Point","coordinates":[-122.3...']]
+
+## 5 [fr_departements, geonames_cities | medium] rows=1 cols=['distance_km']
+Q: What is the great-circle distance in kilometres between the cities Dizangué and Stadtallendorf?
+WITH a AS (SELECT geometry::GEOMETRY AS pt FROM geonames_cities WHERE geonameid = 2232997),
+     b AS (SELECT geometry::GEOMETRY AS pt FROM geonames_cities WHERE geonameid = 2829804)
+SELECT ST_Distance_Sphere(a.pt, b.pt) / 1000.0 AS distance_km
+FROM a, b;
+-> [['5233.1685795359635']]
+
+## 6 [fr_departements, eu_nuts_regions | medium] rows=3 cols=['cntr_code', 'n_regions', 'region_ids']
+Q: For each country code in the list ['AT','DE','TR'], count its NUTS level-3 regions and return the region ids as a sorted list, ordered by country code, limit 3.
+WITH countries AS (
+  SELECT unnest(['AT','DE','TR']) AS cntr_code
+)
+SELECT c.cntr_code,
+       count(r.nuts_id) AS n_regions,
+       list_sort(list(r.nuts_id)) AS region_ids
+FROM countries c
+LEFT JOIN eu_nuts_regions r ON r.cntr_code = c.cntr_code AND r.levl_code = 3
+GROUP BY c.cntr_code
+ORDER BY c.cntr_code
+LIMIT 3;
+-> [['AT', '35', "['AT111', 'AT112', 'AT113', 'AT121', ..."], ['DE', '401', "['DE111', 'DE112', 'DE113', 'DE114', ..."], ['TR', '81', "['TR100', 'TR211', 'TR212', 'TR213', ..."]]
+
+## 7 [fr_departements, eu_nuts_regions | medium] rows=33 cols=['cntr_code', 'n_mountainous_level3']
+Q: For each country, count its NUTS level-3 regions that are classified as mountainous (mountain type greater than 0). Return countries with at least 2 such regions, ordered by count descending and country code.
+SELECT cntr_code, count(*) AS n_mountainous_level3 FROM eu_nuts_regions WHERE levl_code = 3 AND mount_type > 0 GROUP BY cntr_code HAVING count(*) >= 2 ORDER BY n_mountainous_level3 DESC, cntr_code;
+-> [['DE', '401'], ['UK', '179'], ['IT', '107']]
+
+## 8 [fr_departements, geonames_cities | medium] rows=1 cols=['area_km2']
+Q: How many square kilometres of the Landes department lie outside a 25 km circle around the department's centre?
+WITH d AS (
+  SELECT geom FROM fr_departements WHERE nom = 'Landes'
+), b AS (
+  SELECT ST_Buffer(ST_Centroid(geom), 25000) AS geom FROM d
+), diff AS (
+  SELECT ST_Difference(d.geom, b.geom) AS geom FROM d, b
+)
+SELECT ST_Area(geom) / 1000000 AS area_km2 FROM diff;
+-> [['7401.699342990203']]
+
+## 9 [ghcn_stations, countries | easy] rows=1 cols=['station_names']
+Q: List the names of weather stations in the country with FIPS code AS as a sorted array.
+SELECT list_sort(list(name)) AS station_names FROM ghcn_stations WHERE country_code = 'AS';
+-> [['[\'"HOME" MONOGORILBY\', \'"KAGEON" DAWE...']]
+
+## 10 [fr_departements | easy] rows=1 cols=['code', 'nom']
+Q: Using the fr_departements table, return the code and nom of the department whose polygon contains the point at longitude 0.2018, latitude 45.7181. Output columns: code, nom.
+SELECT code, nom FROM fr_departements WHERE ST_Contains(geom, ST_Transform(ST_Point(0.2018, 45.7181), 'EPSG:4326', 'EPSG:2154', always_xy := true)) ORDER BY code;
+-> [['16', 'Charente']]
+
+## 11 [fr_departements, geonames_cities | medium] rows=1 cols=['code', 'nom']
+Q: Which department contains the city of Libourne? Return the department code and name.
+SELECT d.code, d.nom FROM fr_departements d JOIN geonames_cities c ON c.geonameid = 2998517 WHERE ST_Contains(d.geom, ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true))
+-> [['33', 'Gironde']]
+
+## 12 [ghcn_stations, countries | easy] rows=10 cols=['name', 'station_count']
+Q: Count weather stations per country for African countries, showing country name and station count, ordered by station count descending then country name, limit 10.
+SELECT c.name, count(*) AS station_count FROM countries c JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE c.continent = 'Africa' GROUP BY c.iso_a3, c.name ORDER BY station_count DESC, c.name, c.iso_a3 LIMIT 10;
+-> [['South Africa', '1153'], ['Namibia', '282'], ['Algeria', '80']]
+
+## 13 [fr_departements, geonames_cities | medium] rows=1 cols=['area_km2']
+Q: If the Landes and Pyrénées-Orientales departments were merged into one area, how many square kilometres would that combined area cover?
+WITH d AS (
+  SELECT geom FROM fr_departements WHERE nom IN ('Landes', 'Pyrénées-Orientales')
+), u AS (
+  SELECT ST_Union_Agg(geom) AS geom FROM d
+)
+SELECT ST_Area(geom) / 1000000 AS area_km2 FROM u;
+-> [['13502.823088945806']]
+
+## 14 [fr_departements | easy] rows=1 cols=['code', 'nom', 'buffer_area_km2']
+Q: Using fr_departements, for the département with code '32' (Gers), return code, nom, and the area in square kilometres of a 10,000 metre buffer around its geometry. Name the output column buffer_area_km2.
+SELECT code, nom, ST_Area(ST_Buffer(geom, 10000)) / 1000000.0 AS buffer_area_km2 FROM fr_departements WHERE code = '32';
+-> [['32', 'Gers', '10449.321810579777']]
+
+## 15 [fr_departements | easy] rows=1 cols=['code', 'nom', 'centroid_lon', 'centroid_lat']
+Q: Using the fr_departements table, for the département with code '26' (Drôme), return code, nom, and the centroid longitude and latitude in EPSG:4326. Name the output columns code, nom, centroid_lon, centroid_lat.
+SELECT code, nom, ST_X(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)) AS centroid_lon, ST_Y(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)) AS centroid_lat FROM fr_departements WHERE code = '26';
+-> [['26', 'Drôme', '5.168010712256485', '44.6839893699805']]
+
+## 16 [ghcn_stations, countries | easy] rows=2 cols=['name', 'iso_a3', 'centroid_wkt']
+Q: From the countries table, for the countries named 'Anguilla' and 'Montserrat', return name, iso_a3, and the centroid as WKT in centroid_wkt, ordered by name.
+SELECT name, iso_a3, ST_AsText(ST_Centroid(geometry)) AS centroid_wkt FROM countries WHERE name IN ('Anguilla', 'Montserrat') ORDER BY name
+-> [['Anguilla', 'AIA', 'POINT (-63.06498926535687 18.22395950...'], ['Montserrat', 'MSR', 'POINT (-62.18518545624981 16.73941405...']]
+
+## 17 [fr_departements | easy] rows=1 cols=['code', 'nom']
+Q: Using fr_departements, return code and nom for the department whose polygon contains the point at longitude 5.3817, latitude 48.9898. Use ST_Within with the point as the first argument and the department geometry as the second. Output columns: code, nom.
+SELECT code, nom FROM fr_departements WHERE ST_Within(ST_Transform(ST_Point(5.3817, 48.9898), 'EPSG:4326', 'EPSG:2154', always_xy := true), geom) ORDER BY code;
+-> [['55', 'Meuse']]
+
+## 18 [ghcn_stations, us_counties | hard] rows=1001 cols=['station_id', 'name', 'latitude', 'longitude']
+Q: weather stations in bbox 118.9 -34.2 149.8 -22.0
+SELECT station_id, name, latitude, longitude FROM ghcn_stations WHERE ST_Intersects(ST_Point(longitude, latitude), ST_MakeEnvelope(118.9, -34.2, 149.8, -22.0)) ORDER BY station_id;
+-> [['ASN00004003', 'BALFOUR DOWNS', '-22.8', '120.8625'], ['ASN00004005', 'BAMBOO SPRINGS', '-22.0517', '119.6325'], ['ASN00004006', 'BONNEY DOWNS', '-22.1828', '119.935']]
+
+## 19 [fr_departements | easy] rows=10 cols=['code_prefix', 'code', 'nom', 'centroid_lon', 'west_rank']
+Q: For all departments, group by the first digit of the department number, identify the westernmost department by centroid longitude in degrees per group, and return group digit, department number, department name, centroid longitude in degrees and row number, ordered by group digit, limit 10.
+WITH metrics AS (SELECT left(code, 1) AS code_prefix, code, nom, ST_X(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)) AS centroid_lon FROM fr_departements), ranked AS (SELECT code_prefix, code, nom, centroid_lon, ROW_NUMBER() OVER (PARTITION BY code_prefix ORDER BY centroid_lon, code) AS west_rank FROM metrics) SELECT code_prefix, code, nom, centroid_lon, west_rank FROM ranked WHERE west_rank = 1 ORDER BY code_prefix LIMIT 10;
+-> [['0', '09', 'Ariège', '1.5038516817061662', '1'], ['1', '17', 'Charente-Maritime', '-0.677695524586324', '1'], ['2', '29', 'Finistère', '-4.059273448549366', '1']]
+
+## 20 [ghcn_stations, countries | easy] rows=5 cols=['name', 'area_km2']
+Q: List the five largest countries in the Southern Asia subregion by spheroid area in km², ordered from largest to smallest.
+SELECT name, ROUND(ST_Area_Spheroid(geometry::GEOMETRY) / 1e6) AS area_km2 FROM countries WHERE subregion = 'Southern Asia' ORDER BY area_km2 DESC, name LIMIT 5
+-> [['India', '3148250.0'], ['Iran', '1621856.0'], ['Pakistan', '872783.0']]
+
+## 21 [ghcn_stations | hard] rows=10 cols=['name', 'station_id', 'distance_km']
+Q: List up to 10 GHCN stations with FIPS country code AS within 500 km of SOUTH JOHNSTONE SUGAR MILL, with their spheroidal distance in kilometers, ordered by distance and station identifier.
+WITH origin AS (SELECT latitude, longitude FROM ghcn_stations WHERE station_id = 'ASN00032072') SELECT s.name, s.station_id, ST_Distance_Spheroid(ST_Point(s.longitude, s.latitude)::GEOMETRY, ST_Point(o.longitude, o.latitude)::GEOMETRY)/1000 AS distance_km FROM ghcn_stations s, origin o WHERE s.country_code = 'AS' AND ST_DWithin_Spheroid(ST_Point(s.longitude, s.latitude)::GEOMETRY, ST_Point(o.longitude, o.latitude)::GEOMETRY, 500000) ORDER BY distance_km, s.station_id LIMIT 10;
+-> [['SOUTH JOHNSTONE POST OFFICE', 'ASN00032038', '0.0'], ['SOUTH JOHNSTONE SUGAR MILL', 'ASN00032072', '0.0'], ['SOUTH JOHNSTONE HYNE ST', 'ASN00032151', '0.49290250356924725']]
+
+## 22 [ghcn_stations, countries | easy] rows=1 cols=['station_id', 'name', 'lon_rounded', 'lat_rounded', 'lon_lat_text']
+Q: For GHCN station BR000947001, return station_id, name, longitude and latitude rounded to 3 decimals using ST_X/ST_Y on a constructed point, plus a formatted 'lon,lat' string with 3 decimals. Output columns: station_id, name, lon_rounded, lat_rounded, lon_lat_text.
+SELECT station_id, name, ROUND(ST_X(ST_Point(longitude, latitude)), 3) AS lon_rounded, ROUND(ST_Y(ST_Point(longitude, latitude)), 3) AS lat_rounded, printf('%.3f,%.3f', ST_X(ST_Point(longitude, latitude)), ST_Y(ST_Point(longitude, latitude))) AS lon_lat_text FROM ghcn_stations WHERE station_id = 'BR000947001';
+-> [['BR000947001', 'MANSINHA', '-47.33', '-9.46', '-47.330,-9.460']]
+
+## 23 [fr_departements | easy] rows=5 cols=['code', 'nom']
+Q: From fr_departements, list code and nom for every department that intersects the rectangle with corners longitude 2.0, latitude 43.0 and longitude 3.0, latitude 44.0. Output columns: code, nom, ordered by code.
+SELECT code, nom FROM fr_departements WHERE ST_Intersects(geom, ST_Transform(ST_MakeEnvelope(2.0, 43.0, 3.0, 44.0), 'EPSG:4326', 'EPSG:2154', always_xy := true)) ORDER BY code;
+-> [['11', 'Aude'], ['12', 'Aveyron'], ['31', 'Haute-Garonne']]
+
+## 24 [fr_departements | easy] rows=20 cols=['code_prefix', 'code', 'nom', 'area_km2', 'area_rank']
+Q: For all departments, group by the first digit of the department number, rank by area in square kilometres descending, keep the top 3 per group, and return group digit, department number, department name, area in square kilometres and row number, ordered by group digit, row number and department number, limit 20.
+WITH ranked AS (SELECT left(code, 1) AS code_prefix, code, nom, ST_Area(geom) / 1000000.0 AS area_km2, ROW_NUMBER() OVER (PARTITION BY left(code, 1) ORDER BY ST_Area(geom) DESC, code) AS area_rank FROM fr_departements) SELECT code_prefix, code, nom, area_km2, area_rank FROM ranked WHERE area_rank <= 3 ORDER BY code_prefix, area_rank, code LIMIT 20;
+-> [['0', '02', 'Aisne', '7419.546298821792', '1'], ['0', '03', 'Allier', '7365.400368604299', '2'], ['0', '04', 'Alpes-de-Haute-Provence', '6994.23513764455', '3']]
+
+## 25 [fr_departements | easy] rows=3 cols=['code', 'nom']
+Q: departements within 50 km of 7.1162,43.9376
+SELECT code, nom FROM fr_departements WHERE ST_Distance(geom, ST_Transform(ST_Point(7.1162, 43.9376), 'EPSG:4326', 'EPSG:2154', always_xy := true)) <= 50000 ORDER BY code;
+-> [['04', 'Alpes-de-Haute-Provence'], ['06', 'Alpes-Maritimes'], ['83', 'Var']]
+
+## 26 [ghcn_stations, us_counties | hard] rows=6 cols=['geoid', 'namelsad', 'stusps', 'state_name']
+Q: Using us_counties, list the geoid, namelsad, stusps, and state_name of all counties that share a boundary with Pickett County, Tennessee (geoid '47137'). Order by geoid.
+SELECT b.geoid, b.namelsad, b.stusps, b.state_name FROM us_counties a JOIN us_counties b ON ST_Touches(a.geom, b.geom) WHERE a.geoid = '47137' ORDER BY b.geoid;
+-> [['21053', 'Clinton County', 'KY', 'Kentucky'], ['21231', 'Wayne County', 'KY', 'Kentucky'], ['47027', 'Clay County', 'TN', 'Tennessee']]
+
+## 27 [ghcn_stations, us_counties | hard] rows=5 cols=['geoid', 'namelsad', 'station_count']
+Q: Using us_counties and ghcn_stations, for each Texas county that shares a boundary with Comanche County, Texas (geoid '48093'), return the neighbor county's geoid, namelsad, and the count of GHCN stations (country_code = 'US', state = 'TX') that lie within that neighbor county. Include neighbors even if they have zero stations. Order by station_count descending, then geoid.
+WITH neighbors AS (SELECT b.geoid, b.namelsad, b.geom FROM us_counties a JOIN us_counties b ON ST_Touches(a.geom, b.geom) WHERE a.geoid = '48093'), station_points AS (SELECT ST_Transform(ST_Point(longitude, latitude), 'EPSG:4326', 'EPSG:5070', always_xy := true) AS geom FROM ghcn_stations WHERE country_code = 'US' AND state = 'TX') SELECT n.geoid, n.namelsad, COUNT(s.geom) AS station_count FROM neighbors n LEFT JOIN station_points s ON ST_Within(s.geom, n.geom) GROUP BY n.geoid, n.namelsad ORDER BY station_count DESC, n.geoid;
+-> [['48143', 'Erath County', '18'], ['48049', 'Brown County', '11'], ['48133', 'Eastland County', '11']]
+
+## 28 [fr_departements, geonames_cities | medium] rows=1 cols=['code', 'nom', 'distance_km']
+Q: For the point at longitude 2.35, latitude 48.85, which French department has the nearest centroid, and what is the great-circle distance in kilometres?
+WITH pt AS (SELECT ST_Point(2.35, 48.85) AS pt),
+dept_centroids AS (
+  SELECT code, nom,
+         ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true) AS centroid
+  FROM fr_departements
+)
+SELECT d.code, d.nom,
+       ST_Distance_Sphere(d.centroid::GEOMETRY, p.pt::GEOMETRY) / 1000.0 AS distance_km
+FROM dept_centroids d, pt p
+ORDER BY distance_km ASC, d.code ASC
+LIMIT 1;
+-> [['75', 'Paris', '0.9022891702283273']]
+
+## 29 [ghcn_stations, countries | easy] rows=1 cols=['distance_km']
+Q: How far apart are the SILVAN and ROSEWORTHY AWS weather stations in kilometres, rounded to one decimal place?
+SELECT ROUND(ST_Distance_Spheroid((SELECT ST_Point(longitude, latitude)::GEOMETRY FROM ghcn_stations WHERE station_id = 'ASN00086106'), (SELECT ST_Point(longitude, latitude)::GEOMETRY FROM ghcn_stations WHERE station_id = 'ASN00023122')) / 1000, 1) AS distance_km;
+-> [['710.9']]
+
+## 30 [fr_departements, eu_nuts_regions | medium] rows=22 cols=['nuts_name', 'area_km2']
+Q: Compare French NUTS 2 regions by the total area in square kilometres of their departments; list the region name and area.
+SELECT r.nuts_name, sum(ST_Area(d.geom)) / 1000000 AS area_km2 FROM fr_departements d JOIN eu_nuts_regions r ON r.cntr_code = 'FR' AND r.levl_code = 2 AND ST_Contains(r.geometry, ST_Centroid(ST_Transform(d.geom, 'EPSG:2154', 'EPSG:4326', always_xy := true))) GROUP BY r.nuts_id, r.nuts_name ORDER BY area_km2 DESC, r.nuts_id
+-> [['Midi-Pyrénées', '45625.33084994145'], ['Rhône-Alpes', '44664.88395896495'], ['Aquitaine', '42017.36629999946']]
+
+## 31 [ghcn_stations, us_counties | hard] rows=1 cols=['west', 'south', 'east', 'north']
+Q: What is the smallest rectangle in longitude and latitude that contains all weather stations in Brazil? Report its western, southern, eastern, and northern limits in degrees.
+SELECT ST_XMin(e) AS west, ST_YMin(e) AS south, ST_XMax(e) AS east, ST_YMax(e) AS north FROM (SELECT ST_Extent_Agg(ST_Point(longitude, latitude)) AS e FROM ghcn_stations WHERE country_code = 'BR') AS b;
+-> [['-73.65', '-33.517', '-32.417', '4.63']]
+
+## 32 [ghcn_stations, countries | easy] rows=1 cols=['length_km']
+Q: What is the length in kilometers of the straight line between COTONOU and INDAIAL?
+WITH stations AS (SELECT station_id, longitude, latitude FROM ghcn_stations WHERE station_id IN ('BN000005344', 'BR002649005')) SELECT ST_Length_Spheroid(ST_GeomFromText('LINESTRING(' || MAX(CASE WHEN station_id = 'BN000005344' THEN longitude || ' ' || latitude END) || ', ' || MAX(CASE WHEN station_id = 'BR002649005' THEN longitude || ' ' || latitude END) || ')'))/1000 AS length_km FROM stations;
+-> [['6663.545620823687']]
+
+## 33 [fr_departements, eu_nuts_regions | medium] rows=22 cols=['nuts_name', 'dept_count']
+Q: Give me the number of French departments in each NUTS 2 region, ordered by the count descending.
+SELECT r.nuts_name, count(*) AS dept_count FROM fr_departements d JOIN eu_nuts_regions r ON r.cntr_code = 'FR' AND r.levl_code = 2 AND ST_Contains(r.geometry, ST_Centroid(ST_Transform(d.geom, 'EPSG:2154', 'EPSG:4326', always_xy := true))) GROUP BY r.nuts_id, r.nuts_name ORDER BY dept_count DESC, r.nuts_id
+-> [['Ile-de-France', '8'], ['Midi-Pyrénées', '8'], ['Rhône-Alpes', '8']]
+
+## 34 [ghcn_stations, countries | easy] rows=3 cols=['country_code', 'station_count']
+Q: Using the ghcn_stations table, return country_code and station_count for stations whose country_code is in ('AS', 'BR', 'CA'), grouped by country_code, ordered by country_code. Only include country_code values that have at least one station.
+SELECT country_code, COUNT(*) AS station_count FROM ghcn_stations WHERE country_code IN ('AS','BR','CA') GROUP BY country_code ORDER BY country_code;
+-> [['AS', '17088'], ['BR', '5989'], ['CA', '9906']]
+
+## 35 [fr_departements, eu_nuts_regions | medium] rows=1 cols=['distance_km']
+Q: Using eu_nuts_regions, return the spheroid distance in kilometres (rounded to 2 decimals) between the centroids of the NUTS regions with nuts_id 'EE00' and 'DEA2C'.
+WITH p1 AS (SELECT ST_Centroid(geometry::GEOMETRY) AS c FROM eu_nuts_regions WHERE nuts_id = 'EE00'), p2 AS (SELECT ST_Centroid(geometry::GEOMETRY) AS c FROM eu_nuts_regions WHERE nuts_id = 'DEA2C') SELECT ROUND(ST_Distance_Spheroid(p1.c, p2.c)/1000.0, 2) AS distance_km FROM p1, p2;
+-> [['1464.96']]
+
+## 36 [fr_departements | easy] rows=7 cols=['code', 'nom']
+Q: Using fr_departements, return the code and nom of departments whose geometry is completely within a 200 km buffer around the Haute-Savoie centroid (longitude 6.428, latitude 46.0345). Output columns: code, nom ordered by code.
+SELECT code, nom FROM fr_departements WHERE ST_Within(geom, ST_Buffer(ST_Transform(ST_Point(6.428, 46.0345), 'EPSG:4326', 'EPSG:2154', always_xy := true), 200000)) ORDER BY code;
+-> [['01', 'Ain'], ['25', 'Doubs'], ['38', 'Isère']]
+
+## 37 [fr_departements, eu_nuts_regions | medium] rows=2 cols=['nom', 'centre_geojson']
+Q: For Paris and Yonne, give me a GeoJSON point for each department centre and the department name.
+SELECT nom, ST_AsGeoJSON(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)) AS centre_geojson FROM fr_departements WHERE nom IN ('Paris', 'Yonne') ORDER BY nom;
+-> [['Paris', '{"type":"Point","coordinates":[2.3428...'], ['Yonne', '{"type":"Point","coordinates":[3.5644...']]
+
+## 38 [fr_departements, eu_nuts_regions | medium] rows=5 cols=['cntr_code', 'point_count']
+Q: For each country, count how many of these five sample points fall inside its territory: Salzburg (13.0774, 47.393), Slovensko (19.4864, 48.7063), Norra Sverige (17.3871, 64.4146), Bamberg (10.9086, 49.8896), Bristol (-2.6145, 51.4722).
+SELECT r.cntr_code, count(*) AS point_count FROM (VALUES ('Salzburg', 13.0774, 47.393), ('Slovensko', 19.4864, 48.7063), ('Norra Sverige', 17.3871, 64.4146), ('Bamberg', 10.9086, 49.8896), ('Bristol', -2.6145, 51.4722)) AS t(name, lon, lat) JOIN eu_nuts_regions r ON r.levl_code = 0 AND ST_Contains(r.geometry, ST_Point(t.lon, t.lat)) GROUP BY r.cntr_code ORDER BY point_count DESC, r.cntr_code
+-> [['AT', '1'], ['DE', '1'], ['SE', '1']]
+
+## 39 [fr_departements, geonames_cities | medium] rows=189 cols=['name', 'population']
+Q: Which cities with population over 20,000 intersect a 25 km buffer around the Paris department boundary?
+SELECT c.name, c.population FROM geonames_cities c JOIN fr_departements d ON d.code = '75' WHERE c.population > 20000 AND ST_Intersects(ST_Buffer(d.geom, 25000), ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true)) ORDER BY c.population DESC, c.geonameid
+-> [['Paris', '2138551'], ['Marne La Vallée', '318325'], ['Paris 15 Vaugirard', '229713']]
+
+## 40 [fr_departements, geonames_cities | medium] rows=5 cols=['dept_name', 'name', 'population', 'distance_km']
+Q: For Aube, Maine-et-Loire, Haute-Marne, Haut-Rhin and Sarthe, give me the most populous city in each department and its distance from the department's centroid in kilometres.
+WITH depts AS (SELECT code, nom, geom, ST_Centroid(geom) AS centroid_geom FROM fr_departements WHERE nom IN ('Aube','Maine-et-Loire','Haute-Marne','Haut-Rhin','Sarthe')), city_dept AS (SELECT d.code AS dept_code, d.nom AS dept_name, c.geonameid, c.name, c.population, ST_Distance(d.centroid_geom, ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true)) / 1000 AS distance_km, ROW_NUMBER() OVER (PARTITION BY d.code ORDER BY c.population DESC, c.geonameid) AS rn FROM depts d JOIN geonames_cities c ON ST_Within(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true), d.geom)) SELECT dept_name, name, population, distance_km FROM city_dept WHERE rn = 1 ORDER BY dept_name;
+-> [['Aube', 'Troyes', '60785', '5.701156793187205'], ['Haut-Rhin', 'Mulhouse', '111430', '12.533228871490367'], ['Haute-Marne', 'Saint-Dizier', '31918', '62.21052834361565']]
+
+## 41 [ghcn_stations, countries | easy] rows=1 cols=['name', 'area_km2']
+Q: Compute the area of Iran's country polygon in square kilometres using the spheroid function, returning the name and area rounded to the nearest whole km².
+SELECT name, ROUND(ST_Area_Spheroid(geometry::GEOMETRY) / 1e6) AS area_km2 FROM countries WHERE name = 'Iran'
+-> [['Iran', '1621856.0']]
+
+## 42 [fr_departements, eu_nuts_regions | medium] rows=18 cols=['cntr_code', 'total_regions', 'urban_regions', 'intermediate_regions', 'rural_regions']
+Q: For each country, how many level-3 statistical regions are there, and how many of them are predominantly urban, intermediate, or rural? Use the urban-rural classification where 1 means predominantly urban, 2 means intermediate, and 3 means predominantly rural. Show only countries with more than 20 such regions, ordered by total number of regions from largest to smallest, then by country code.
+WITH level3 AS (SELECT cntr_code, urbn_type FROM eu_nuts_regions WHERE levl_code = 3) SELECT cntr_code, count(*) AS total_regions, sum(CASE WHEN urbn_type = 1 THEN 1 ELSE 0 END) AS urban_regions, sum(CASE WHEN urbn_type = 2 THEN 1 ELSE 0 END) AS intermediate_regions, sum(CASE WHEN urbn_type = 3 THEN 1 ELSE 0 END) AS rural_regions FROM level3 GROUP BY cntr_code HAVING count(*) > 20 ORDER BY total_regions DESC, cntr_code;
+-> [['DE', '401', '95', '196', '110'], ['UK', '179', '122', '39', '18'], ['IT', '107', '30', '56', '21']]
+
+## 43 [ghcn_stations, countries | easy] rows=4 cols=['country_name', 'station_count']
+Q: For the countries Italy, Lithuania, Estonia, and Haiti, count how many ghcn_stations points lie inside each country. Return the country name and station count, ordered by country name ascending.
+SELECT c.name AS country_name, COUNT(s.station_id) AS station_count FROM countries c LEFT JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE c.name IN ('Italy', 'Lithuania', 'Estonia', 'Haiti') GROUP BY c.name ORDER BY country_name ASC;
+-> [['Estonia', '30'], ['Haiti', '0'], ['Italy', '96']]
+
+## 44 [fr_departements, eu_nuts_regions | medium] rows=1 cols=['difference_km2']
+Q: How much larger is the Marne department than the Calvados department in square kilometres?
+SELECT (SELECT ST_Area(geom) FROM fr_departements WHERE nom = 'Marne') / 1000000 - (SELECT ST_Area(geom) FROM fr_departements WHERE nom = 'Calvados') / 1000000 AS difference_km2;
+-> [['2604.269188704895']]
+
+## 45 [ghcn_stations, us_counties | hard] rows=14 cols=['geoid', 'namelsad', 'stusps', 'state_name']
+Q: Using us_counties, list the geoid, namelsad, stusps, and state_name of all counties that intersect the straight line from longitude -84.8683, latitude 33.9195 to longitude -84.1939, latitude 31.2248. Order by geoid.
+SELECT c.geoid, c.namelsad, c.stusps, c.state_name FROM us_counties c WHERE ST_Intersects(c.geom, ST_Transform(ST_GeomFromText('LINESTRING(-84.8683 33.9195, -84.1939 31.2248)'), 'EPSG:4326', 'EPSG:5070', always_xy := true)) ORDER BY c.geoid;
+-> [['13007', 'Baker County', 'GA', 'Georgia'], ['13077', 'Coweta County', 'GA', 'Georgia'], ['13095', 'Dougherty County', 'GA', 'Georgia']]
+
+## 46 [fr_departements | easy] rows=23 cols=['code', 'nom']
+Q: List the departments that intersect the boundary of the rectangle from longitude -1.0 to 3.0 and latitude 45.0 to 49.0.
+SELECT code, nom FROM fr_departements WHERE ST_Intersects(geom, ST_Boundary(ST_Transform(ST_MakeEnvelope(-1.0, 45.0, 3.0, 49.0), 'EPSG:4326', 'EPSG:2154', always_xy := true))) ORDER BY code;
+-> [['03', 'Allier'], ['14', 'Calvados'], ['15', 'Cantal']]
+
+## 47 [ghcn_stations | hard] rows=2 cols=['country_code', 'station_count']
+Q: Give me the count of stations per country code that fall inside the triangle with vertices (130, -40), (155, -10), and (130, -10). Order by count descending.
+WITH region AS (
+  SELECT ST_GeomFromText('POLYGON((130 -40, 155 -10, 130 -10, 130 -40))') AS geom
+)
+SELECT s.country_code, COUNT(*) AS station_count
+FROM ghcn_stations s
+JOIN region r ON ST_Within(ST_Point(s.longitude, s.latitude), r.geom)
+GROUP BY s.country_code
+ORDER BY station_count DESC, s.country_code;
+-> [['AS', '1834'], ['PP', '2']]
+
+## 48 [fr_departements, geonames_cities | medium] rows=2 cols=['name', 'population']
+Q: Which cities with population above 15,000 fall inside the bounding box of the Haute-Saône department?
+SELECT c.name, c.population FROM geonames_cities c JOIN fr_departements d ON d.code = '70' WHERE c.population > 15000 AND ST_Intersects(c.geometry, ST_Envelope(ST_Transform(d.geom, 'EPSG:2154', 'EPSG:4326', always_xy := true))) ORDER BY c.population DESC, c.geonameid
+-> [['Montbéliard', '28865'], ['Vesoul', '19892']]
+
+## 49 [fr_departements, geonames_cities | medium] rows=1 cols=['bbox_geojson', 'city_count']
+Q: Compute the bounding box of all cities in Japan (country_code 'JP') as a GeoJSON polygon using ST_Extent_Agg, and return it alongside the total number of cities, as a single row.
+SELECT ST_AsGeoJSON(ST_Extent_Agg(geometry)) AS bbox_geojson, COUNT(*) AS city_count FROM geonames_cities WHERE country_code = 'JP';
+-> [['{"type":"Polygon","coordinates":[[[12...', '1300']]
+
+## 50 [ghcn_stations, countries | easy] rows=1 cols=['name', 'continent', 'geometry_wkt']
+Q: For the country named Czechia in the countries table, return its name, continent, and country polygon as WKT. Output columns: name, continent, geometry_wkt.
+SELECT name, continent, ST_AsText(geometry) AS geometry_wkt FROM countries WHERE name = 'Czechia';
+-> [['Czechia', 'Europe', 'POLYGON ((18.83222656250001 49.510791...']]
+
+## 51 [ghcn_stations, countries | easy] rows=5 cols=['continent', 'country_count', 'total_pop_est']
+Q: Using the countries table, group by continent and return continent, country_count, and total_pop_est. Keep only continents with at least 20 countries, and order by country_count descending, then continent ascending.
+SELECT continent, COUNT(*) AS country_count, SUM(pop_est) AS total_pop_est FROM countries GROUP BY continent HAVING COUNT(*) >= 20 ORDER BY country_count DESC, continent ASC;
+-> [['Africa', '54', '1307986092'], ['Asia', '53', '4565778126'], ['Europe', '50', '746437653']]
+
+## 52 [fr_departements, geonames_cities | medium] rows=1 cols=['city_count']
+Q: How many cities in the same province as Pemalang are within 100 km of Pemalang?
+WITH pemalang AS (
+  SELECT ST_Transform(ST_Point(109.3826, -6.8919), 'EPSG:4326', 'EPSG:32749', always_xy := true) AS geom
+), cities AS (
+  SELECT geonameid, ST_Transform(geometry, 'EPSG:4326', 'EPSG:32749', always_xy := true) AS geom
+  FROM geonames_cities
+  WHERE country_code = 'ID' AND admin1_code = '07'
+), buf AS (
+  SELECT ST_Buffer(geom, 100000) AS geom FROM pemalang
+)
+SELECT COUNT(*) AS city_count
+FROM cities, buf
+WHERE ST_Intersects(cities.geom, buf.geom)
+  AND cities.geonameid <> 1631648;
+-> [['29']]
+
+## 53 [ghcn_stations, countries | easy] rows=1 cols=['geometry_type']
+Q: Give me the GeoJSON geometry type for Spain.
+SELECT json_extract(ST_AsGeoJSON(geometry), '$.type') AS geometry_type FROM countries WHERE name = 'Spain';
+-> [['"MultiPolygon"']]
+
+## 54 [fr_departements, eu_nuts_regions | medium] rows=101 cols=['nuts_id', 'nuts_name', 'department_count']
+Q: For each NUTS level 3 region in France, give me the region ID, name, and the number of French departments that intersect it.
+SELECT e.nuts_id, e.nuts_name, COUNT(f.code) AS department_count FROM eu_nuts_regions e LEFT JOIN fr_departements f ON ST_Intersects(f.geom, ST_Transform(e.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true)) WHERE e.cntr_code = 'FR' AND e.levl_code = 3 GROUP BY e.nuts_id, e.nuts_name ORDER BY department_count DESC, e.nuts_id
+-> [['FR102', 'Seine-et-Marne', '11'], ['FRG02', 'Maine-et-Loire', '9'], ['FRB02', 'Eure-et-Loir', '8']]
+
+## 55 [fr_departements | easy] rows=5 cols=['code', 'nom']
+Q: From fr_departements, list code and nom of departments that intersect the straight line from longitude 2.4138, latitude 43.1033 to longitude 3.1409, latitude 45.7257. Output columns: code, nom, ordered by code.
+SELECT code, nom FROM fr_departements WHERE ST_Intersects(geom, ST_Transform(ST_GeomFromText('LINESTRING(2.4138 43.1033, 3.1409 45.7257)'), 'EPSG:4326', 'EPSG:2154', always_xy := true)) ORDER BY code;
+-> [['11', 'Aude'], ['12', 'Aveyron'], ['15', 'Cantal']]
+
+## 56 [fr_departements | easy] rows=1 cols=['code', 'nom', 'outside_area_km2']
+Q: Using fr_departements, for the département with code '89' (Yonne), return code, nom, and the area in square kilometres of the part of its geometry that lies outside a 30,000 metre buffer around its centroid. Name the output column outside_area_km2.
+WITH c AS (SELECT ST_Centroid(geom) AS geom FROM fr_departements WHERE code = '89') SELECT d.code, d.nom, ST_Area(ST_Difference(d.geom, ST_Buffer(c.geom, 30000))) / 1000000.0 AS outside_area_km2 FROM fr_departements d, c WHERE d.code = '89';
+-> [['89', 'Yonne', '4658.241854757206']]
+
+## 57 [ghcn_stations, countries | easy] rows=1 cols=['country_gdp']
+Q: For Southern Europe, give me a sorted array of country names paired with their GDP as strings.
+WITH country_data AS (SELECT list(struct_pack(name := name, gdp := gdp_md)) AS countries FROM countries WHERE subregion = 'Southern Europe') SELECT list_sort(list_transform(countries, lambda x: concat(struct_extract(x, 'name'), ': ', struct_extract(x, 'gdp')))) AS country_gdp FROM country_data;
+-> [["['Albania: 15279', 'Andorra: 3154', '..."]]
+
+## 58 [fr_departements, geonames_cities | medium] rows=5 cols=['name', 'population', 'distance_km', 'geojson']
+Q: Map the five closest cities to Var's centroid, returning each city's name, population, distance in kilometres and point as GeoJSON.
+SELECT c.name, c.population, ST_Distance_Spheroid(c.geometry::GEOMETRY, ST_Transform(ST_Centroid(d.geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)::GEOMETRY) / 1000.0 AS distance_km, ST_AsGeoJSON(c.geometry) AS geojson FROM geonames_cities c, fr_departements d WHERE d.code = '83' ORDER BY distance_km, c.geonameid LIMIT 5;
+-> [['Brignoles', '15027', '15.29125916621647', '{"type":"Point","coordinates":[6.0617...'], ['Draguignan', '38573', '20.751302090284653', '{"type":"Point","coordinates":[6.4645...'], ['Saint-Maximin-la-Sainte-Baume', '15225', '31.037984855252382', '{"type":"Point","coordinates":[5.8608...']]
+
+## 59 [fr_departements, eu_nuts_regions | medium] rows=10 cols=['code', 'nom', 'nuts_count']
+Q: Using fr_departements and eu_nuts_regions, for each French departement (code, nom) count how many NUTS 3 regions (levl_code = 3 and cntr_code = 'FR') contain the departement's centroid. Return code, nom, and nuts_count, ordered by nuts_count descending then code, limit 10.
+WITH dept_centroids AS (SELECT code, nom, ST_Centroid(geom) AS centroid_2154 FROM fr_departements), nuts3_2154 AS (SELECT nuts_id, ST_Transform(geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true) AS geom_2154 FROM eu_nuts_regions WHERE levl_code = 3 AND cntr_code = 'FR') SELECT d.code, d.nom, COUNT(n.nuts_id) AS nuts_count FROM dept_centroids d LEFT JOIN nuts3_2154 n ON ST_Contains(n.geom_2154, d.centroid_2154) GROUP BY d.code, d.nom ORDER BY nuts_count DESC, d.code LIMIT 10;
+-> [['01', 'Ain', '1'], ['02', 'Aisne', '1'], ['03', 'Allier', '1']]
+
+## 60 [fr_departements | easy] rows=1 cols=['code', 'nom']
+Q: Give me the department that contains the point at longitude -0.3619, latitude 49.1001.
+SELECT code, nom FROM fr_departements WHERE ST_Contains(geom, ST_Transform(ST_Point(-0.3619, 49.1001), 'EPSG:4326', 'EPSG:2154', always_xy := true)) ORDER BY code;
+-> [['14', 'Calvados']]
+
+## 61 [ghcn_stations | hard] rows=1 cols=['x', 'y', 'point_wkt']
+Q: For the station named GOVERNADOR VALADARE, show its coordinates as separate X and Y values rounded to five decimals, and also as a well-known text point.
+SELECT ROUND(ST_X(ST_Point(longitude, latitude)), 5) AS x, ROUND(ST_Y(ST_Point(longitude, latitude)), 5) AS y, ST_AsText(ST_Point(longitude, latitude)) AS point_wkt FROM ghcn_stations WHERE name = 'GOVERNADOR VALADARE' ORDER BY station_id LIMIT 1;
+-> [['-41.933', '-18.85', 'POINT (-41.933 -18.85)']]
+
+## 62 [fr_departements, eu_nuts_regions | medium] rows=10 cols=['nuts_id', 'area_km2']
+Q: For Swedish NUTS level-3 regions, return the region code and area in square kilometres rounded to one decimal, but only for regions larger than 5000 square kilometres, ordered by area descending, limit 10.
+SELECT nuts_id, ROUND(ST_Area_Spheroid(geometry::GEOMETRY) / 1000000, 1) AS area_km2
+FROM eu_nuts_regions
+WHERE cntr_code = 'SE' AND levl_code = 3
+  AND ST_Area_Spheroid(geometry::GEOMETRY) / 1000000 > 5000
+ORDER BY area_km2 DESC, nuts_id
+LIMIT 10;
+-> [['SE332', '106235.6'], ['SE331', '59212.9'], ['SE322', '54075.7']]
+
+## 63 [fr_departements | easy] rows=1 cols=['code', 'nom']
+Q: Using the fr_departements table, return the code and nom of the department whose geometry contains the point at longitude 2.4138 and latitude 43.1033. Output columns: code, nom.
+SELECT code, nom FROM fr_departements WHERE ST_Contains(geom, ST_Transform(ST_Point(2.4138, 43.1033), 'EPSG:4326', 'EPSG:2154', always_xy := true));
+-> [['11', 'Aude']]
+
+## 64 [fr_departements, eu_nuts_regions | medium] rows=1 cols=['total_area_km2']
+Q: Using eu_nuts_regions, return the total spheroid area in square kilometres (rounded to 2 decimals) of all level-3 NUTS regions in France (cntr_code = 'FR').
+SELECT ROUND(SUM(ST_Area_Spheroid(geometry::GEOMETRY))/1000000.0, 2) AS total_area_km2 FROM eu_nuts_regions WHERE cntr_code = 'FR' AND levl_code = 3;
+-> [['638732.77']]
+
+## 65 [fr_departements | easy] rows=7 cols=['code', 'nom']
+Q: List the departments that intersect the rectangle from longitude 1.3 to 2.5 and latitude 44.8 to 45.8.
+SELECT code, nom FROM fr_departements WHERE ST_Intersects(geom, ST_Transform(ST_MakeEnvelope(1.3, 44.8, 2.5, 45.8), 'EPSG:4326', 'EPSG:2154', always_xy := true)) ORDER BY code;
+-> [['15', 'Cantal'], ['19', 'Corrèze'], ['23', 'Creuse']]
+
+## 66 [ghcn_stations, us_counties | hard] rows=10 cols=['geoid', 'namelsad', 'station_count']
+Q: Using ghcn_stations and us_counties, list up to 10 Texas counties (stusps = 'TX') that contain at least one GHCN station with country_code = 'US' and state = 'TX'. Return geoid, namelsad, and the number of such stations as station_count. Order by station_count descending, then geoid.
+WITH station_points AS (SELECT ST_Transform(ST_Point(longitude, latitude), 'EPSG:4326', 'EPSG:5070', always_xy := true) AS geom FROM ghcn_stations WHERE country_code = 'US' AND state = 'TX') SELECT c.geoid, c.namelsad, COUNT(*) AS station_count FROM us_counties c JOIN station_points s ON ST_Within(s.geom, c.geom) WHERE c.stusps = 'TX' GROUP BY c.geoid, c.namelsad ORDER BY station_count DESC, c.geoid LIMIT 10;
+-> [['48029', 'Bexar County', '278'], ['48453', 'Travis County', '268'], ['48091', 'Comal County', '230']]
+
+## 67 [ghcn_stations, countries | easy] rows=5 cols=['name', 'gsn_station_count']
+Q: For Asian countries, count weather stations flagged GSN, showing country name and count, ordered by count descending then country name, limit 5.
+SELECT c.name, count(*) AS gsn_station_count FROM countries c JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE c.continent = 'Asia' AND s.gsn_flag = 'GSN' GROUP BY c.iso_a3, c.name ORDER BY gsn_station_count DESC, c.name, c.iso_a3 LIMIT 5;
+-> [['China', '32'], ['India', '20'], ['Indonesia', '14']]
+
+## 68 [ghcn_stations, countries | easy] rows=5 cols=['name', 'avg_elevation_m', 'station_count']
+Q: For South American countries, compute average weather station elevation in metres for countries with at least 3 stations, ordered by average elevation descending then country name, limit 5.
+SELECT c.name, avg(s.elevation_m) AS avg_elevation_m, count(*) AS station_count FROM countries c JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE c.continent = 'South America' GROUP BY c.iso_a3, c.name HAVING count(*) >= 3 ORDER BY avg_elevation_m DESC NULLS LAST, c.name, c.iso_a3 LIMIT 5;
+-> [['Ecuador', '1061.2307692307693', '13'], ['Peru', '1037.658333333333', '25'], ['Bolivia', '968.95', '35']]
+
+## 69 [fr_departements | easy] rows=7 cols=['code', 'nom']
+Q: From fr_departements, list code and nom of every department whose geometry intersects the geometry of the department named 'Gers'. Output columns: code, nom, ordered by code.
+SELECT d.code, d.nom FROM fr_departements d JOIN fr_departements g ON ST_Intersects(d.geom, g.geom) WHERE g.nom = 'Gers' ORDER BY d.code;
+-> [['31', 'Haute-Garonne'], ['32', 'Gers'], ['40', 'Landes']]
+
+## 70 [ghcn_stations, countries | easy] rows=34 cols=['country_name', 'station_count']
+Q: Count the number of ghcn_stations points inside each country whose income group is '1. High income: OECD'. Return the country name and station count, ordered by station count descending and country name ascending.
+SELECT c.name AS country_name, COUNT(*) AS station_count FROM countries c JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE c.income_grp = '1. High income: OECD' GROUP BY c.name ORDER BY station_count DESC, country_name ASC;
+-> [['United States of America', '77353'], ['Australia', '16628'], ['Canada', '9319']]
+
+## 71 [fr_departements, geonames_cities | medium] rows=66 cols=['code', 'nom']
+Q: Which French departments have at least one city with more than 50,000 inhabitants?
+SELECT DISTINCT d.code, d.nom FROM fr_departements d JOIN geonames_cities c ON ST_Within(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true), d.geom) WHERE c.country_code = 'FR' AND c.population > 50000 ORDER BY d.code;
+-> [['02', 'Aisne'], ['06', 'Alpes-Maritimes'], ['08', 'Ardennes']]
+
+## 72 [ghcn_stations, us_counties | hard] rows=1 cols=['station_count']
+Q: For Winkler County in Texas, how many weather stations fall inside the county’s rectangular extent (the smallest north-south/east-west rectangle that contains the county)?
+SELECT count(*) AS station_count FROM ghcn_stations AS s CROSS JOIN (SELECT geom FROM us_counties WHERE geoid = '48495') AS c WHERE ST_Within(ST_Transform(ST_Point(s.longitude, s.latitude), 'EPSG:4326', 'EPSG:5070', always_xy := true), ST_Envelope(c.geom));
+-> [['6']]
+
+## 73 [ghcn_stations, countries | easy] rows=43 cols=['country_name', 'station_count']
+Q: Using the countries and ghcn_stations tables, count the number of weather stations whose longitude and latitude fall inside each country polygon in Europe. Return the country name and the station count, ordered by station count descending and then country name ascending.
+SELECT c.name AS country_name, COUNT(*) AS station_count FROM countries c JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE c.continent = 'Europe' GROUP BY c.name ORDER BY station_count DESC, country_name ASC;
+-> [['Sweden', '1586'], ['Germany', '1089'], ['Russia', '1068']]
+
+## 74 [ghcn_stations | hard] rows=4 cols=['station_id', 'name', 'point_wkt', 'longitude_x', 'latitude_y']
+Q: For the stations named WARWICK ALERT, PAUPONG STATION, GERANG GERUNG, and BURNIE (ROUND HILL), return station_id, name, the point as WKT, and its longitude and latitude extracted with ST_X and ST_Y, ordered by station_id.
+SELECT station_id, name, ST_AsText(ST_Point(longitude, latitude)) AS point_wkt, ST_X(ST_Point(longitude, latitude)) AS longitude_x, ST_Y(ST_Point(longitude, latitude)) AS latitude_y FROM ghcn_stations WHERE name IN ('WARWICK ALERT', 'PAUPONG STATION', 'GERANG GERUNG', 'BURNIE (ROUND HILL)') ORDER BY station_id, name;
+-> [['ASN00041534', 'WARWICK ALERT', 'POINT (152.0275 -28.2111)', '152.0275', '-28.2111'], ['ASN00071014', 'PAUPONG STATION', 'POINT (148.6684 -36.6235)', '148.6684', '-36.6235'], ['ASN00078013', 'GERANG GERUNG', 'POINT (141.8797 -36.3986)', '141.8797', '-36.3986']]
+
+## 75 [ghcn_stations | hard] rows=4 cols=['country_code', 'state', 'station_count', 'avg_elevation_m']
+Q: For US and Canadian stations with a non-null state, return the top 2 states per country by station count, including average elevation in metres, considering only states with at least 3 stations and ordering by country then descending count then state, limited to 4 rows.
+WITH state_counts AS (SELECT country_code, state, count(*) AS station_count, avg(elevation_m) AS avg_elevation_m FROM ghcn_stations WHERE country_code IN ('US','CA') AND state IS NOT NULL GROUP BY country_code, state HAVING count(*) >= 3) SELECT country_code, state, station_count, round(avg_elevation_m, 1) AS avg_elevation_m FROM state_counts QUALIFY ROW_NUMBER() OVER (PARTITION BY country_code ORDER BY station_count DESC, state) <= 2 ORDER BY country_code, station_count DESC, state LIMIT 4;
+-> [['CA', 'ON', '2145', '226.7'], ['CA', 'BC', '1845', '426.9'], ['US', 'TX', '6791', '316.3']]
+
+## 76 [ghcn_stations, countries | easy] rows=1 cols=['station_id', 'name', 'latitude', 'longitude', 'geojson_point']
+Q: Using the ghcn_stations table, for the station with station_id 'AM000037713', return station_id, name, latitude, longitude, and a GeoJSON point built from longitude and latitude as geojson_point. Order by station_id.
+SELECT station_id, name, latitude, longitude, ST_AsGeoJSON(ST_Point(longitude, latitude)) AS geojson_point FROM ghcn_stations WHERE station_id = 'AM000037713' ORDER BY station_id
+-> [['AM000037713', 'BERD', '40.9', '45.5', '{"type":"Point","coordinates":[45.5,4...']]
+
+## 77 [ghcn_stations | hard] rows=2 cols=['state', 'area_km2']
+Q: Compare the spheroidal area in square kilometers of the convex hull of all GHCN stations in states TX and CA; list the state and area from largest to smallest.
+WITH hulls AS (SELECT state, ST_ConvexHull(ST_Union_Agg(ST_Point(longitude, latitude))) AS hull FROM ghcn_stations WHERE state IN ('TX', 'CA') GROUP BY state) SELECT state, ST_Area_Spheroid(hull)/1e6 AS area_km2 FROM hulls ORDER BY area_km2 DESC, state;
+-> [['TX', '932107.5022161641'], ['CA', '530419.9791586366']]
+
+## 78 [ghcn_stations | hard] rows=1 cols=['country_code', 'status', 'station_count']
+Q: Within 500 km of longitude 151.2019 and latitude -27.5356, count stations by country and HCN/CRN status, treating missing status as none, and return only groups with at least 2 stations ordered by country then status, limited to 10 rows.
+SELECT country_code, CASE WHEN hcn_crn_flag IS NULL THEN 'none' ELSE hcn_crn_flag END AS status, count(*) AS station_count FROM ghcn_stations WHERE ST_DWithin_Spheroid(ST_Point(longitude, latitude)::GEOMETRY, ST_Point(151.2019, -27.5356)::GEOMETRY, 500000) GROUP BY country_code, CASE WHEN hcn_crn_flag IS NULL THEN 'none' ELSE hcn_crn_flag END HAVING count(*) >= 2 ORDER BY country_code, status LIMIT 10;
+-> [['AS', 'none', '3714']]
+
+## 79 [fr_departements | easy] rows=2 cols=['code', 'nom']
+Q: From fr_departements, return code and nom for departments that are completely within the rectangle spanning longitude 1.5 to 3.5 and latitude 42.5 to 44.5. Output columns: code, nom, ordered by code.
+SELECT code, nom FROM fr_departements WHERE ST_Within(geom, ST_Transform(ST_MakeEnvelope(1.5, 42.5, 3.5, 44.5), 'EPSG:4326', 'EPSG:2154', always_xy := true)) ORDER BY code;
+-> [['11', 'Aude'], ['81', 'Tarn']]
+
+## 80 [ghcn_stations, countries | easy] rows=1 cols=['station_id', 'name', 'elevation_rounded', 'point_wkt']
+Q: For GHCN station ASN00075063, return station_id, name, elevation_m rounded to the nearest integer, and its location as a WKT point. Output columns: station_id, name, elevation_rounded, point_wkt.
+SELECT station_id, name, ROUND(elevation_m) AS elevation_rounded, ST_AsText(ST_Point(longitude, latitude)) AS point_wkt FROM ghcn_stations WHERE station_id = 'ASN00075063';
+-> [['ASN00075063', 'THELANGERIN EAST', '79.0', 'POINT (144.5 -34.2)']]
+
+## 81 [ghcn_stations, countries | easy] rows=5 cols=['name', 'high_station_count']
+Q: For European countries, count weather stations above 1000 metres elevation, showing country name and count, ordered by count descending then country name, limit 5.
+SELECT c.name, count(*) AS high_station_count FROM countries c JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE c.continent = 'Europe' AND s.elevation_m > 1000 GROUP BY c.iso_a3, c.name ORDER BY high_station_count DESC, c.name, c.iso_a3 LIMIT 5;
+-> [['Italy', '40'], ['Russia', '26'], ['Spain', '26']]
+
+## 82 [ghcn_stations, countries | easy] rows=8 cols=['continent', 'countries']
+Q: Countries grouped by continent as name list
+SELECT continent, list(name ORDER BY name) AS countries FROM countries GROUP BY continent ORDER BY continent
+-> [['Africa', "['Algeria', 'Angola', 'Benin', 'Botsw..."], ['Antarctica', "['Antarctica']"], ['Asia', "['Afghanistan', 'Armenia', 'Azerbaija..."]]
+
+## 83 [fr_departements, eu_nuts_regions | medium] rows=96 cols=['code', 'nom', 'nuts_count']
+Q: For each French department, count how many NUTS level 3 regions its centroid falls inside.
+WITH dept_centroids AS (SELECT code, nom, ST_Centroid(geom) AS centroid FROM fr_departements) SELECT f.code, f.nom, COUNT(e.nuts_id) AS nuts_count FROM dept_centroids f LEFT JOIN eu_nuts_regions e ON e.cntr_code = 'FR' AND e.levl_code = 3 AND ST_Contains(ST_Transform(e.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true), f.centroid) GROUP BY f.code, f.nom ORDER BY nuts_count DESC, f.code
+-> [['01', 'Ain', '1'], ['02', 'Aisne', '1'], ['03', 'Allier', '1']]
+
+## 84 [fr_departements, geonames_cities | medium] rows=5 cols=['geonameid', 'name']
+Q: List the geonameid and name of cities in India (country_code 'IN') that are inside the bounding box (70.0, 20.0) to (80.0, 30.0) and within 200 km of the point (74.3203, 26.1012), ordered by spheroid distance ascending, limit 5.
+SELECT geonameid, name FROM geonames_cities WHERE country_code = 'IN' AND ST_Within(geometry::GEOMETRY, ST_MakeEnvelope(70.0, 20.0, 80.0, 30.0)) AND ST_DWithin_Spheroid(geometry::GEOMETRY, ST_Point(74.3203, 26.1012), 200000) ORDER BY ST_Distance_Spheroid(geometry::GEOMETRY, ST_Point(74.3203, 26.1012)) LIMIT 5;
+-> [['1276634', 'Beāwar'], ['1258972', 'Raipur'], ['1261378', 'Nīmāj']]
+
+## 85 [ghcn_stations, countries | easy] rows=1 cols=['station_id', 'name', 'point_wkt', 'lon_lat_text']
+Q: Using the ghcn_stations table, for station_id 'ASN00025004', return station_id, name, the point as WKT in point_wkt, and a formatted string 'lon, lat' with both coordinates rounded to 2 decimals in lon_lat_text. Order by station_id.
+SELECT station_id, name, ST_AsText(ST_Point(longitude, latitude)) AS point_wkt, printf('%.2f, %.2f', ROUND(longitude, 2), ROUND(latitude, 2)) AS lon_lat_text FROM ghcn_stations WHERE station_id = 'ASN00025004' ORDER BY station_id
+-> [['ASN00025004', 'GALGA', 'POINT (139.9602 -34.6961)', '139.96, -34.70']]
+
+## 86 [ghcn_stations, countries | easy] rows=10 cols=['country_code', 'station_name', 'elevation_m']
+Q: For each country code, return the highest-elevation weather station, showing the country code, station name, and elevation in metres; order by elevation descending then country code ascending, and limit to 10 rows.
+SELECT country_code, name AS station_name, elevation_m FROM ghcn_stations WHERE elevation_m IS NOT NULL QUALIFY ROW_NUMBER() OVER (PARTITION BY country_code ORDER BY elevation_m DESC, station_id ASC) = 1 ORDER BY elevation_m DESC, country_code ASC LIMIT 10;
+-> [['GG', 'KAZBEK MOUNTAIN', '5033.0'], ['IN', 'PENDRAS         OBSY', '4880.0'], ['CH', 'BAINGOIN', '4701.0']]
+
+## 87 [fr_departements, eu_nuts_regions | medium] rows=3 cols=['cntr_code', 'n']
+Q: For the countries Sweden, Germany, Ireland, Iceland, and Norway, count how many NUTS level-3 regions have mountain type 4 and coastal type 3. Return one row per country with the country code and count, ordered by country code.
+WITH countries AS (
+  SELECT UNNEST(['SE','DE','IE','IS','NO']) AS cntr_code
+)
+SELECT c.cntr_code, COUNT(*) AS n
+FROM countries c
+JOIN eu_nuts_regions r ON r.cntr_code = c.cntr_code
+WHERE r.levl_code = 3 AND r.mount_type = 4 AND r.coast_type = 3
+GROUP BY c.cntr_code
+ORDER BY c.cntr_code;
+-> [['DE', '317'], ['IE', '1'], ['SE', '7']]
+
+## 88 [ghcn_stations, us_counties | hard] rows=1 cols=['hull_geojson', 'hull_area_sq_km']
+Q: For GHCN stations with country_code BR and elevation 0 m, build a 25 km buffer around each station, union them, and return the union's convex hull as GeoJSON plus area in square kilometres.
+WITH b AS (SELECT ST_ConvexHull(ST_Union_Agg(ST_Buffer(ST_Transform(ST_Point(longitude, latitude), 'EPSG:4326', 'EPSG:5880', always_xy := true), 25000))) AS hull FROM ghcn_stations WHERE country_code = 'BR' AND elevation_m = 0) SELECT ST_AsGeoJSON(ST_Transform(hull, 'EPSG:5880', 'EPSG:4326', always_xy := true)) AS hull_geojson, ROUND(ST_Area(hull) / 1000000.0, 2) AS hull_area_sq_km FROM b
+-> [['{"type":"Polygon","coordinates":[[[-5...', '10569188.48']]
+
+## 89 [fr_departements, geonames_cities | medium] rows=1 cols=['name', 'population']
+Q: Which cities in Angola (country code AO) with population at least 40,000 have longitude between 14.0°E and 15.0°E and latitude between 9.0°S and 8.0°S? Return name and population, ordered by population descending.
+SELECT name, population FROM geonames_cities WHERE country_code = 'AO' AND population >= 40000 AND ST_X(geometry) BETWEEN 14.0 AND 15.0 AND ST_Y(geometry) BETWEEN -9.0 AND -8.0 ORDER BY population DESC, name, geonameid LIMIT 10;
+-> [['Úcua', '41654']]
+
+## 90 [fr_departements, geonames_cities | medium] rows=1 cols=['city_count']
+Q: How many cities with population above 15000 are located within 10 km of the centroid of the Val-de-Marne departement (94)?
+WITH dept AS (SELECT ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true) AS center FROM fr_departements WHERE code = '94') SELECT COUNT(*) AS city_count FROM geonames_cities c, dept d WHERE ST_DWithin_Spheroid(c.geometry::GEOMETRY, d.center::GEOMETRY, 10000);
+-> [['46']]
+
+## 91 [fr_departements | easy] rows=2 cols=['code', 'nom', 'distance_km', 'distance_rank']
+Q: For departments numbered 07 and 57, rank centroid distance in kilometres to the centroid of department 82 (Tarn-et-Garonne) nearest first, return department number, department name, distance in kilometres and row number, ordered by row number, limit 2.
+WITH target AS (SELECT ST_Centroid(geom) AS geom FROM fr_departements WHERE code = '82'), candidates AS (SELECT d.code, d.nom, ST_Distance(ST_Centroid(d.geom), t.geom) / 1000.0 AS distance_km FROM fr_departements d CROSS JOIN target t WHERE d.code IN ('07','57')), ranked AS (SELECT code, nom, distance_km, ROW_NUMBER() OVER (ORDER BY distance_km, code) AS distance_rank FROM candidates) SELECT code, nom, distance_km, distance_rank FROM ranked ORDER BY distance_rank LIMIT 2;
+-> [['07', 'Ardèche', '260.9170507663484', '1'], ['57', 'Moselle', '687.0919204064734', '2']]
+
+## 92 [ghcn_stations, us_counties | hard] rows=1 cols=['station_count']
+Q: How many weather stations in Australia are located inside the rectangle bounded by 136 degrees east, 36 degrees south, 152 degrees east, and 24 degrees south?
+SELECT count(*) AS station_count FROM ghcn_stations WHERE country_code = 'AS' AND ST_Within(ST_Point(longitude, latitude), ST_MakeEnvelope(136.0, -36.0, 152.0, -24.0));
+-> [['7052']]
+
+## 93 [ghcn_stations | hard] rows=1 cols=['buffer_area_km2']
+Q: Give me the area in square kilometres of a 50 km buffer around the station named GUAXUPE ANEEL/CESP.
+WITH pt AS (
+  SELECT ST_Point(longitude, latitude) AS geom
+  FROM ghcn_stations
+  WHERE name = 'GUAXUPE ANEEL/CESP'
+)
+SELECT ST_Area(ST_Buffer(ST_Transform(geom, 'EPSG:4326', 'EPSG:31983', always_xy := true), 50000)) / 1000000.0 AS buffer_area_km2
+FROM pt;
+-> [['7803.6128806451525']]
+
+## 94 [ghcn_stations, us_counties | hard] rows=1 cols=['area_km2']
+Q: Whatcom County area within 20 km of -121.7534 48.8247
+WITH p AS (SELECT ST_Buffer(ST_Transform(ST_Point(-121.7534, 48.8247), 'EPSG:4326', 'EPSG:5070', always_xy := true), 20000) AS geom), i AS (SELECT ST_Intersection(c.geom, p.geom) AS geom FROM us_counties c, p WHERE c.geoid = '53073') SELECT ST_Area(geom) / 1000000.0 AS area_km2 FROM i;
+-> [['1241.323845559642']]
+
+## 95 [fr_departements, eu_nuts_regions | medium] rows=10 cols=['nuts_id', 'nuts_name', 'total_dept_area_km2']
+Q: Using fr_departements and eu_nuts_regions, for each French NUTS 3 region (levl_code = 3 and cntr_code = 'FR'), sum the area in square kilometres of all French departements whose centroid falls within that NUTS 3 region. Return nuts_id, nuts_name, and total_dept_area_km2, ordered by total_dept_area_km2 descending then nuts_id, limit 10.
+WITH nuts3_2154 AS (SELECT nuts_id, nuts_name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true) AS geom_2154 FROM eu_nuts_regions WHERE levl_code = 3 AND cntr_code = 'FR'), dept_centroids AS (SELECT code, ST_Centroid(geom) AS centroid_2154, ST_Area(geom) / 1000000.0 AS area_km2 FROM fr_departements) SELECT n.nuts_id, n.nuts_name, COALESCE(SUM(d.area_km2), 0) AS total_dept_area_km2 FROM nuts3_2154 n LEFT JOIN dept_centroids d ON ST_Contains(n.geom_2154, d.centroid_2154) GROUP BY n.nuts_id, n.nuts_name ORDER BY total_dept_area_km2 DESC, n.nuts_id LIMIT 10;
+-> [['FRI12', 'Gironde', '10374.431284007862'], ['FRI13', 'Landes', '9352.602563151515'], ['FRI11', 'Dordogne', '9210.880030943155']]
+
+## 96 [ghcn_stations | hard] rows=1 cols=['length_km']
+Q: Give me the spheroid length in kilometres of the straight line between MUSWELLBROOK (LINDISFARNE) and HORSHAM POLKEMMET RD.
+WITH a AS (
+  SELECT ST_Point(longitude, latitude) AS geom
+  FROM ghcn_stations
+  WHERE name = 'MUSWELLBROOK (LINDISFARNE)'
+),
+b AS (
+  SELECT ST_Point(longitude, latitude) AS geom
+  FROM ghcn_stations
+  WHERE name = 'HORSHAM POLKEMMET RD'
+)
+SELECT ST_Length_Spheroid(ST_MakeLine(a.geom, b.geom)) / 1000.0 AS length_km
+FROM a, b;
+-> [['931.6535781433765']]
+
+## 97 [fr_departements | easy] rows=10 cols=['leading_digit', 'code', 'nom', 'distance_km']
+Q: For each leading digit of the department number, find the department whose centroid is closest to the point at longitude 2.3522, latitude 48.8566, measuring distance in kilometres. Use ROW_NUMBER partitioned by the leading digit.
+WITH dept_dist AS (SELECT code, nom, substr(code, 1, 1) AS leading_digit, ST_Distance(ST_Centroid(geom), ST_Transform(ST_Point(2.3522, 48.8566), 'EPSG:4326', 'EPSG:2154', always_xy := true)) / 1000.0 AS distance_km FROM fr_departements), ranked AS (SELECT leading_digit, code, nom, distance_km, ROW_NUMBER() OVER (PARTITION BY leading_digit ORDER BY distance_km ASC, code ASC) AS rn FROM dept_dist) SELECT leading_digit, code, nom, ROUND(distance_km, 2) AS distance_km FROM ranked WHERE rn = 1 ORDER BY leading_digit, code;
+-> [['0', '02', 'Aisne', '117.66'], ['1', '10', 'Aube', '146.92'], ['2', '28', 'Eure-et-Loir', '89.21']]
+
+## 98 [fr_departements, eu_nuts_regions | medium] rows=1 cols=['nuts_name', 'area_km2']
+Q: What is the area of the Dibër region in square kilometres?
+SELECT nuts_name, ST_Area_Spheroid(geometry::GEOMETRY) / 1000000 AS area_km2 FROM eu_nuts_regions WHERE nuts_name = 'Dibër';
+-> [['Dibër', '2463.3413492893324']]
+
+## 99 [fr_departements, eu_nuts_regions | medium] rows=1 cols=['code', 'nom', 'lon', 'lat']
+Q: For the department Aveyron, return its code, name, and centroid longitude and latitude rounded to 4 decimal places, ordered by code, limit 1.
+SELECT code, nom, ROUND(ST_X(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)), 4) AS lon, ROUND(ST_Y(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)), 4) AS lat FROM fr_departements WHERE nom = 'Aveyron' ORDER BY code LIMIT 1;
+-> [['12', 'Aveyron', '2.6797', '44.2803']]
+
+## 100 [fr_departements | easy] rows=6 cols=['code', 'nom']
+Q: Which departments share a border with Corrèze? List their codes and names.
+SELECT b.code, b.nom FROM fr_departements a JOIN fr_departements b ON a.code != b.code AND ST_Touches(a.geom, b.geom) WHERE a.nom = 'Corrèze' ORDER BY b.code;
+-> [['15', 'Cantal'], ['23', 'Creuse'], ['24', 'Dordogne']]
+
+## 101 [ghcn_stations | hard] rows=6 cols=['country_code', 'station_count']
+Q: Using the bounding box that covers all weather stations with country code AS, count how many stations from each country code fall inside that box. Return country code and count, ordered by count descending.
+WITH as_extent AS (
+  SELECT MIN(longitude) AS min_lon, MAX(longitude) AS max_lon,
+         MIN(latitude) AS min_lat, MAX(latitude) AS max_lat
+  FROM ghcn_stations
+  WHERE country_code = 'AS'
+),
+region AS (
+  SELECT ST_MakeEnvelope(min_lon, min_lat, max_lon, max_lat) AS geom
+  FROM as_extent
+)
+SELECT s.country_code, COUNT(*) AS station_count
+FROM ghcn_stations s
+JOIN region r ON ST_Within(ST_Point(s.longitude, s.latitude), r.geom)
+GROUP BY s.country_code
+ORDER BY station_count DESC, s.country_code;
+-> [['AS', '17084'], ['ID', '4'], ['PP', '3']]
+
+## 102 [ghcn_stations, countries | easy] rows=8 cols=['continent', 'country_names', 'country_count']
+Q: For each continent, list the country names as a sorted array and count how many countries are in it.
+SELECT continent, list_sort(list(name)) AS country_names, count(*) AS country_count FROM countries GROUP BY continent ORDER BY continent;
+-> [['Africa', "['Algeria', 'Angola', 'Benin', 'Botsw...", '54'], ['Antarctica', "['Antarctica']", '1'], ['Asia', "['Afghanistan', 'Armenia', 'Azerbaija...", '53']]
+
+## 103 [ghcn_stations, us_counties | hard] rows=1 cols=['hull_area_sq_km', 'centroid_lon', 'centroid_lat']
+Q: Give me the convex hull of all GHCN stations with country_code AS and elevation above 300 m, and report its area in square kilometres and centroid longitude/latitude.
+WITH pts AS (SELECT ST_ConvexHull(ST_Collect(list(ST_Point(longitude, latitude)))) AS hull FROM ghcn_stations WHERE country_code = 'AS' AND elevation_m > 300) SELECT ROUND(ST_Area_Spheroid(hull) / 1000000.0, 2) AS hull_area_sq_km, ROUND(ST_X(ST_Centroid(hull)), 5) AS centroid_lon, ROUND(ST_Y(ST_Centroid(hull)), 5) AS centroid_lat FROM pts
+-> [['8934667.55', '134.94436', '-27.52764']]
+
+## 104 [ghcn_stations, countries | easy] rows=5 cols=['country_code', 'station_count']
+Q: Count the weather stations per country code, keep only country codes with at least 2 stations, and return the top 5 by station count descending then country code ascending.
+SELECT country_code, COUNT(*) AS station_count FROM ghcn_stations GROUP BY country_code HAVING COUNT(*) >= 2 ORDER BY station_count DESC, country_code ASC LIMIT 5;
+-> [['US', '78570'], ['AS', '17088'], ['CA', '9906']]
+
+## 105 [fr_departements | easy] rows=1 cols=['centroid_geojson']
+Q: For Var (code '83'), return the GeoJSON of its centroid in EPSG:4326, ordered by code, limit 1.
+SELECT ST_AsGeoJSON(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)) AS centroid_geojson FROM fr_departements WHERE code = '83' ORDER BY code LIMIT 1;
+-> [['{"type":"Point","coordinates":[6.2441...']]
+
+## 106 [fr_departements, geonames_cities | medium] rows=1 cols=['min_lon', 'min_lat', 'max_lon', 'max_lat']
+Q: Compute the longitude/latitude bounding box of the departments named Creuse, Jura, and Sarthe. Return the minimum and maximum longitude and latitude in degrees.
+WITH dept AS (SELECT ST_Transform(geom, 'EPSG:2154', 'EPSG:4326', always_xy := true) AS g FROM fr_departements WHERE nom IN ('Creuse', 'Jura', 'Sarthe')) SELECT ST_XMin(ext) AS min_lon, ST_YMin(ext) AS min_lat, ST_XMax(ext) AS max_lon, ST_YMax(ext) AS max_lat FROM (SELECT ST_Extent_Agg(g) AS ext FROM dept);
+-> [['-0.44786000000000054', '45.66336', '6.20724', '48.484700000000004']]
+
+## 107 [fr_departements, eu_nuts_regions | medium] rows=27 cols=['nuts_id', 'nuts_name', 'total_dept_area_km2']
+Q: For each NUTS level 2 region in France, calculate the total area in square kilometres of the French departments that intersect it.
+SELECT e.nuts_id, e.nuts_name, COALESCE(SUM(ST_Area(f.geom)) / 1000000.0, 0) AS total_dept_area_km2 FROM eu_nuts_regions e LEFT JOIN fr_departements f ON ST_Intersects(f.geom, ST_Transform(e.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true)) WHERE e.cntr_code = 'FR' AND e.levl_code = 2 GROUP BY e.nuts_id, e.nuts_name ORDER BY total_dept_area_km2 DESC, e.nuts_id
+-> [['FRJ2', 'Midi-Pyrénées', '116712.03126420944'], ['FRB0', 'Centre — Val de Loire', '114937.5478408682'], ['FRK2', 'Rhône-Alpes', '105974.2614829619']]
+
+## 108 [fr_departements, eu_nuts_regions | medium] rows=10 cols=['code', 'nom', 'intersecting_nuts2_count']
+Q: Using fr_departements and eu_nuts_regions, for each French departement (code, nom) count how many French NUTS 2 regions (levl_code = 2 and cntr_code = 'FR') intersect the departement geometry. Return code, nom, and intersecting_nuts2_count, ordered by intersecting_nuts2_count descending then code, limit 10.
+WITH nuts2_2154 AS (SELECT nuts_id, ST_Transform(geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true) AS geom_2154 FROM eu_nuts_regions WHERE levl_code = 2 AND cntr_code = 'FR') SELECT d.code, d.nom, COUNT(n.nuts_id) AS intersecting_nuts2_count FROM fr_departements d LEFT JOIN nuts2_2154 n ON ST_Intersects(d.geom, n.geom_2154) GROUP BY d.code, d.nom ORDER BY intersecting_nuts2_count DESC, d.code LIMIT 10;
+-> [['03', 'Allier', '5'], ['27', 'Eure', '5'], ['28', 'Eure-et-Loir', '5']]
+
+## 109 [fr_departements, eu_nuts_regions | medium] rows=5 cols=['code', 'nom', 'area_km2']
+Q: From the French departments whose names are in the list ['Isère','Jura','Lot','Lozère','Val-de-Marne'], return code, name, and area in square kilometres, ordered by area descending, limit 5.
+WITH names AS (
+  SELECT unnest(['Isère','Jura','Lot','Lozère','Val-de-Marne']) AS nom
+)
+SELECT d.code, d.nom, ST_Area(d.geom)/1000000.0 AS area_km2
+FROM fr_departements d
+JOIN names n USING (nom)
+ORDER BY area_km2 DESC, d.code
+LIMIT 5;
+-> [['38', 'Isère', '7868.215104623138'], ['46', 'Lot', '5221.9320884360495'], ['48', 'Lozère', '5172.255178219169']]
+
+## 110 [ghcn_stations | hard] rows=164 cols=['country_code', 'gsn_stations', 'hcn_stations']
+Q: For each country that has at least one GSN station or at least one HCN station, give me the country code and two alphabetically sorted lists: one of its GSN station names and one of its HCN station names.
+SELECT country_code, list(name ORDER BY name) FILTER (WHERE gsn_flag = 'GSN') AS gsn_stations, list(name ORDER BY name) FILTER (WHERE hcn_crn_flag = 'HCN') AS hcn_stations FROM ghcn_stations GROUP BY country_code HAVING count(*) FILTER (WHERE gsn_flag = 'GSN') > 0 OR count(*) FILTER (WHERE hcn_crn_flag = 'HCN') > 0 ORDER BY country_code;
+-> [['AE', "['SHARJAH INTER. AIRP']", 'None'], ['AF', "['NORTH-SALANG']", 'None'], ['AG', "['ALGER-DAR EL BEIDA', 'EL-GOLEA', 'I...", 'None']]
+
+## 111 [fr_departements, geonames_cities | medium] rows=1 cols=['name', 'population']
+Q: Which cities with a population above 15,000 are located inside the Indre department?
+SELECT c.name, c.population FROM geonames_cities c JOIN fr_departements d ON d.code = '36' WHERE c.population > 15000 AND ST_Within(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true), d.geom) ORDER BY c.population DESC, c.geonameid
+-> [['Châteauroux', '53301']]
+
+## 112 [ghcn_stations | hard] rows=3 cols=['lon', 'lat', 'station_id', 'name', 'distance_km']
+Q: For the three reference points (longitude, latitude) (131.1475, -12.5446), (138.5274, -35.1351), and (142.2, -35.1), list the nearest weather station to each point with station_id, name, and distance in km. Return one row per reference point.
+WITH refs AS (SELECT unnest([struct_pack(lon := 131.1475, lat := -12.5446), struct_pack(lon := 138.5274, lat := -35.1351), struct_pack(lon := 142.2, lat := -35.1)]) AS ref), ranked AS (SELECT r.ref.lon AS lon, r.ref.lat AS lat, s.station_id, s.name, ST_Distance_Spheroid(ST_Point(s.longitude, s.latitude), ST_Point(r.ref.lon, r.ref.lat)) / 1000 AS distance_km, row_number() OVER (PARTITION BY r.ref.lon, r.ref.lat ORDER BY ST_Distance_Spheroid(ST_Point(s.longitude, s.latitude), ST_Point(r.ref.lon, r.ref.lat)), s.station_id) AS rn FROM refs r CROSS JOIN ghcn_stations s) SELECT lon, lat, station_id, name, distance_km FROM ranked WHERE rn = 1 ORDER BY lon, lat;
+-> [['131.1475', '-12.5446', 'ASN00014269', 'HUMPTY DOO EVAN ROAD', '0.0'], ['138.5274', '-35.1351', 'ASN00023732', 'ADELAIDE (MORPHETT VALE)', '0.0'], ['142.2000', '-35.1000', 'ASN00076054', 'TIEGA', '0.0']]
+
+## 113 [ghcn_stations, us_counties | hard] rows=5 cols=['station_id', 'name', 'country_code', 'distance_km']
+Q: Map the five closest GHCN weather stations to the centroid of Philadelphia County, Pennsylvania (FIPS 42101), by great-circle distance; return station ID, name, country, and distance in kilometres.
+WITH target AS (SELECT ST_Transform(ST_Centroid(geom), 'EPSG:5070', 'EPSG:4326', always_xy := true) AS geom FROM us_counties WHERE geoid = '42101') SELECT s.station_id, s.name, s.country_code, ST_Distance_Spheroid(t.geom::GEOMETRY, ST_Point(s.longitude, s.latitude)::GEOMETRY) / 1000.0 AS distance_km FROM target t CROSS JOIN ghcn_stations s ORDER BY distance_km ASC, s.station_id ASC LIMIT 5;
+-> [['USC00366901', 'PHILA GERMANTOWN', 'US', '2.9654993002473744'], ['US1PAPH0012', 'PHILADELPHIA 2.1 NE', 'US', '3.3763422823437184'], ['US1PAPH0007', 'PHILADELPHIA 2.4 SSE', 'US', '3.83551967815058']]
+
+## 114 [ghcn_stations, us_counties | hard] rows=1 cols=['station_id', 'name', 'distance_m']
+Q: Find the closest GHCN weather station in the United States to the point at longitude -79.8811, latitude 36.9942, measuring distance in metres using the spheroid, and return the station's ID, name, and distance in metres, ordered by distance ascending, limited to 1 row.
+SELECT station_id, name, ST_Distance_Spheroid(ST_Point(longitude, latitude), ST_Point(-79.8811, 36.9942)) AS distance_m
+FROM ghcn_stations
+WHERE country_code = 'US'
+ORDER BY distance_m
+LIMIT 1;
+-> [['US1VAFR0012', 'ROCKY MOUNT 0.2 N', '951.3150913371528']]
+
+## 115 [fr_departements | easy] rows=4 cols=['code', 'nom', 'distance_km', 'within_100km', 'distance_rank', 'running_within_100km']
+Q: For departments numbered 07, 18, 57 and 82, rank centroid distance in kilometres to the centroid of department 21 (Côte-d'Or) nearest first, keep a running count of those within 100 km, return department number, department name, distance in kilometres, within-100-km flag, row number and running count, ordered by row number, limit 4.
+WITH selected AS (SELECT code, nom, ST_Centroid(geom) AS geom FROM fr_departements WHERE code IN ('07','18','57','82')), target AS (SELECT ST_Centroid(geom) AS geom FROM fr_departements WHERE code = '21'), calc AS (SELECT s.code, s.nom, ST_Distance(s.geom, t.geom) / 1000.0 AS distance_km, CASE WHEN ST_Distance(s.geom, t.geom) <= 100000.0 THEN 1 ELSE 0 END AS within_100km FROM selected s CROSS JOIN target t), ranked AS (SELECT code, nom, distance_km, within_100km, ROW_NUMBER() OVER (ORDER BY distance_km, code) AS distance_rank, SUM(within_100km) OVER (ORDER BY distance_km, code ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_within_100km FROM calc) SELECT code, nom, distance_km, within_100km, distance_rank, running_within_100km FROM ranked ORDER BY distance_rank LIMIT 4;
+-> [['18', 'Cher', '177.13104182896774', '0', '1', '0'], ['57', 'Moselle', '227.65573213278472', '0', '2', '0'], ['07', 'Ardèche', '298.0794274915941', '0', '3', '0']]
+
+## 116 [fr_departements | easy] rows=1 cols=['code', 'nom', 'intersection_area_km2']
+Q: Using fr_departements, for the département with code '26' (Drôme), intersect its geometry with a 50,000 metre buffer around the point at longitude 5.168, latitude 44.684. Return code, nom, and the intersection area in square kilometres as intersection_area_km2.
+WITH p AS (SELECT ST_Transform(ST_Point(5.168, 44.684), 'EPSG:4326', 'EPSG:2154', always_xy := true) AS geom) SELECT d.code, d.nom, ST_Area(ST_Intersection(d.geom, ST_Buffer(p.geom, 50000))) / 1000000.0 AS intersection_area_km2 FROM fr_departements d, p WHERE d.code = '26';
+-> [['26', 'Drôme', '5367.236481003363']]
+
+## 117 [ghcn_stations, us_counties | hard] rows=5 cols=['name', 'stusps', 'land_km2']
+Q: List the 5 counties with the largest land area that intersect the bounding box from longitude -85 to -84 and latitude 34 to 35, returning county name, state abbreviation, and land area in square kilometres, ordered by land area descending then geoid ascending.
+SELECT name, stusps, ROUND(aland / 1000000.0, 2) AS land_km2 FROM us_counties WHERE ST_Intersects(geom, ST_Transform(ST_MakeEnvelope(-85, 34, -84, 35), 'EPSG:4326', 'EPSG:5070', always_xy := true)) ORDER BY aland DESC, geoid ASC LIMIT 5;
+-> [['Hamilton', 'TN', '1404.2'], ['Fulton', 'GA', '1364.25'], ['Bartow', 'GA', '1188.58']]
+
+## 118 [fr_departements, eu_nuts_regions | medium] rows=1 cols=['nuts_id', 'nuts_name', 'wkt']
+Q: For the NUTS region with nuts_id DE73, return its name and the boundary as WKT text, ordered by nuts_id, limit 1.
+SELECT nuts_id, nuts_name, ST_AsText(geometry) AS wkt FROM eu_nuts_regions WHERE nuts_id = 'DE73' ORDER BY nuts_id LIMIT 1;
+-> [['DE73', 'Kassel', 'MULTIPOLYGON (((9.61073946700003 51.5...']]
+
+## 119 [fr_departements, eu_nuts_regions | medium] rows=5 cols=['nuts_id', 'name_latn', 'type_codes_plus_one']
+Q: For the NUTS regions with ids ['AT333','AT335','DEA32','DEA37','TR906'], return the region id, name, and a list of the three type codes (mountain, urban, coastal) each incremented by 1, ordered by id, limit 5.
+WITH ids AS (
+  SELECT unnest(['AT333','AT335','DEA32','DEA37','TR906']) AS nuts_id
+)
+SELECT r.nuts_id, r.name_latn,
+       list_transform([r.mount_type, r.urbn_type, r.coast_type], lambda x: x + 1) AS type_codes_plus_one
+FROM eu_nuts_regions r
+JOIN ids i USING (nuts_id)
+ORDER BY r.nuts_id
+LIMIT 5;
+-> [['AT333', 'Osttirol', '[4, 4, 4]'], ['AT335', 'Tiroler Unterland', '[4, 4, 4]'], ['DEA32', 'Gelsenkirchen, Kreisfreie Stadt', '[5, 2, 4]']]
+
+## 120 [fr_departements | easy] rows=5 cols=['code', 'nom', 'area_km2', 'running_area_km2']
+Q: For departments numbered 07, 18, 21, 57 and 82, compute a running total of area in square kilometres ordered by centroid longitude west-to-east, return department number, department name, area in square kilometres and running area in square kilometres, ordered by centroid longitude then department number, limit 5.
+WITH selected AS (SELECT code, nom, ST_Area(geom) / 1000000.0 AS area_km2, ST_X(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)) AS centroid_lon FROM fr_departements WHERE code IN ('07','18','21','57','82')), ordered AS (SELECT code, nom, area_km2, centroid_lon, SUM(area_km2) OVER (ORDER BY centroid_lon, code ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_area_km2 FROM selected) SELECT code, nom, area_km2, running_area_km2 FROM ordered ORDER BY centroid_lon, code LIMIT 5;
+-> [['82', 'Tarn-et-Garonne', '3730.153895681956', '3730.153895681956'], ['18', 'Cher', '7292.877291241489', '11023.031186923445'], ['07', 'Ardèche', '5560.555988717103', '16583.587175640547']]
+
+## 121 [fr_departements, eu_nuts_regions | medium] rows=5 cols=['json_row', 'extracted_mountain_type']
+Q: For NUTS level-3 regions in Germany, return a JSON object with keys id, name, and mountain_type, plus the extracted mountain_type value, ordered by id, limit 5.
+SELECT to_json(struct_pack(id := nuts_id, name := name_latn, mountain_type := mount_type)) AS json_row,
+       json_extract(to_json(struct_pack(id := nuts_id, name := name_latn, mountain_type := mount_type)), '$.mountain_type') AS extracted_mountain_type
+FROM eu_nuts_regions
+WHERE levl_code = 3 AND cntr_code = 'DE'
+ORDER BY nuts_id
+LIMIT 5;
+-> [['{"id":"DE111","name":"Stuttgart, Stad...', '4'], ['{"id":"DE112","name":"Böblingen","mou...', '4'], ['{"id":"DE113","name":"Esslingen","mou...', '4']]
+
+## 122 [ghcn_stations, countries | easy] rows=3 cols=['name', 'subregion', 'country_geojson']
+Q: From the countries table, list the first 3 Caribbean countries alphabetically by name, returning name, subregion, and the country polygon as GeoJSON in country_geojson.
+SELECT name, subregion, ST_AsGeoJSON(geometry) AS country_geojson FROM countries WHERE subregion = 'Caribbean' ORDER BY name LIMIT 3
+-> [['Anguilla', 'Caribbean', '{"type":"Polygon","coordinates":[[[-6...'], ['Antigua and Barb.', 'Caribbean', '{"type":"MultiPolygon","coordinates":...'], ['Aruba', 'Caribbean', '{"type":"Polygon","coordinates":[[[-6...']]
+
+## 123 [ghcn_stations, us_counties | hard] rows=13 cols=['name', 'stusps', 'distance_m']
+Q: Find all US counties whose boundary is within 50 km of the point at longitude -79.8811, latitude 36.9942, measuring distance in metres using EPSG:5070, and return the county name, state abbreviation, and distance in metres, ordered by distance ascending.
+WITH point AS (
+  SELECT ST_Transform(ST_Point(-79.8811, 36.9942), 'EPSG:4326', 'EPSG:5070', always_xy := true) AS geom
+)
+SELECT c.name, c.stusps, ST_Distance(point.geom, c.geom) AS distance_m
+FROM us_counties c, point
+WHERE ST_Distance(point.geom, c.geom) <= 50000
+ORDER BY distance_m;
+-> [['Franklin', 'VA', '0.0'], ['Roanoke', 'VA', '17573.648207972205'], ['Henry', 'VA', '20168.49153498967']]
+
+## 124 [fr_departements | easy] rows=1 cols=['code', 'nom']
+Q: Give me the departements that intersect a 10 km by 10 km box centered on the centroid of Haute-Marne.
+WITH c AS (SELECT ST_Centroid(geom) AS pt FROM fr_departements WHERE nom = 'Haute-Marne') SELECT d.code, d.nom FROM fr_departements d, c WHERE ST_Intersects(ST_Transform(d.geom, 'EPSG:2154', 'EPSG:4326', always_xy := true), ST_Transform(ST_MakeEnvelope(ST_X(c.pt)-5000, ST_Y(c.pt)-5000, ST_X(c.pt)+5000, ST_Y(c.pt)+5000), 'EPSG:2154', 'EPSG:4326', always_xy := true)) ORDER BY d.code;
+-> [['52', 'Haute-Marne']]
+
+## 125 [fr_departements | easy] rows=2 cols=['code', 'nom']
+Q: Using fr_departements, return the code and nom of departments that intersect the straight line between the centroids of Mayenne (longitude -0.6581, latitude 48.1467) and Ille-et-Vilaine (longitude -1.6385, latitude 48.1544). Output columns: code, nom ordered by code.
+SELECT code, nom FROM fr_departements WHERE ST_Intersects(geom, ST_Transform(ST_MakeLine(ST_Point(-0.6581, 48.1467), ST_Point(-1.6385, 48.1544)), 'EPSG:4326', 'EPSG:2154', always_xy := true)) ORDER BY code;
+-> [['35', 'Ille-et-Vilaine'], ['53', 'Mayenne']]
+
+## 126 [fr_departements, eu_nuts_regions | medium] rows=5 cols=['nuts_id', 'name_latn', 'attrs']
+Q: From the NUTS level-3 regions whose country code is in the list ['AT','DE','TR'], return the region id, name, and a JSON object with keys mountain_type, urban_type, coastal_type, ordered by region id, limit 5.
+WITH countries AS (
+  SELECT unnest(['AT','DE','TR']) AS cntr_code
+)
+SELECT r.nuts_id, r.name_latn,
+       to_json(struct_pack(mountain_type := r.mount_type, urban_type := r.urbn_type, coastal_type := r.coast_type)) AS attrs
+FROM eu_nuts_regions r
+JOIN countries c USING (cntr_code)
+WHERE r.levl_code = 3
+ORDER BY r.nuts_id
+LIMIT 5;
+-> [['AT111', 'Mittelburgenland', '{"mountain_type":4,"urban_type":3,"co...'], ['AT112', 'Nordburgenland', '{"mountain_type":4,"urban_type":3,"co...'], ['AT113', 'Südburgenland', '{"mountain_type":4,"urban_type":3,"co...']]
+
+## 127 [fr_departements, geonames_cities | medium] rows=4 cols=['name', 'country_code', 'population']
+Q: Which cities with population at least 100,000 lie inside the longitude/latitude rectangle from 76.0°E to 78.0°E and 8.0°N to 9.0°N? Return name, country code, and population, ordered by population descending.
+SELECT name, country_code, population FROM geonames_cities WHERE feature_class = 'P' AND population >= 100000 AND ST_Intersects(geometry, ST_Transform(ST_MakeEnvelope(76.0, 8.0, 78.0, 9.0), 'EPSG:4326', 'EPSG:4326', always_xy := true)) ORDER BY population DESC, name, geonameid LIMIT 10;
+-> [['Tirunelveli', 'IN', '1435844'], ['Thiruvananthapuram', 'IN', '788271'], ['Kollam', 'IN', '367107']]
+
+## 128 [fr_departements, eu_nuts_regions | medium] rows=39 cols=['code', 'name_parts']
+Q: For French departments whose name contains a hyphen, return the department code and the list of name parts split on the hyphen, ordered by code.
+SELECT code, string_split(nom, '-') AS name_parts
+FROM fr_departements
+WHERE nom LIKE '%-%'
+ORDER BY code;
+-> [['04', "['Alpes', 'de', 'Haute', 'Provence']"], ['05', "['Hautes', 'Alpes']"], ['06', "['Alpes', 'Maritimes']"]]
+
+## 129 [fr_departements, geonames_cities | medium] rows=2 cols=['code', 'nom']
+Q: Using a longitude/latitude envelope from 4.8°E to 5.4°E and 43.3°N to 43.8°N, which French departments intersect that area? Return the department code and name, ordered by code.
+SELECT code, nom FROM fr_departements WHERE ST_Intersects(geom, ST_Transform(ST_MakeEnvelope(4.8, 43.3, 5.4, 43.8), 'EPSG:4326', 'EPSG:2154', always_xy := true)) ORDER BY code;
+-> [['13', 'Bouches-du-Rhône'], ['84', 'Vaucluse']]
+
+## 130 [ghcn_stations, countries | easy] rows=5 cols=['subregion', 'station_count']
+Q: For countries in the Americas region, count the number of ghcn_stations points inside each subregion. Return the subregion and station count, ordered by station count descending and subregion ascending.
+SELECT c.subregion, COUNT(*) AS station_count FROM countries c JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE c.region_un = 'Americas' GROUP BY c.subregion ORDER BY station_count DESC, c.subregion ASC;
+-> [['Northern America', '86713'], ['South America', '6438'], ['Central America', '5256']]
+
+## 131 [fr_departements | easy] rows=10 cols=['leading_digit', 'code', 'nom', 'area_km2']
+Q: For each leading digit of the department number, list the department with the largest area in km², using ROW_NUMBER partitioned by that leading digit and ordered by area descending. Return the leading digit, department number, name and area in km².
+WITH dept AS (SELECT code, nom, ST_Area(geom)/1000000.0 AS area_km2, substr(code, 1, 1) AS leading_digit FROM fr_departements), ranked AS (SELECT leading_digit, code, nom, area_km2, ROW_NUMBER() OVER (PARTITION BY leading_digit ORDER BY area_km2 DESC, code ASC) AS rn FROM dept) SELECT leading_digit, code, nom, ROUND(area_km2, 2) AS area_km2 FROM ranked WHERE rn = 1 ORDER BY leading_digit, code;
+-> [['0', '02', 'Aisne', '7419.55'], ['1', '12', 'Aveyron', '8770.22'], ['2', '24', 'Dordogne', '9210.88']]
+
+## 132 [ghcn_stations, countries | easy] rows=1 cols=['distance_km']
+Q: Give me the distance in kilometers between KOOLATAH STATION and LANGLO DOWNS.
+WITH s1 AS (SELECT ST_Point(longitude, latitude) AS geom FROM ghcn_stations WHERE station_id = 'ASN00029029'), s2 AS (SELECT ST_Point(longitude, latitude) AS geom FROM ghcn_stations WHERE station_id = 'ASN00044149') SELECT ST_Distance_Spheroid(s1.geom, s2.geom)/1000 AS distance_km FROM s1, s2;
+-> [['1122.3903560816373']]
+
+## 133 [fr_departements | easy] rows=1 cols=['hull_geojson']
+Q: For departments '12', '60', and '83', return the GeoJSON of the convex hull of their combined geometry in EPSG:4326, ordered by the minimum code, limit 1.
+SELECT ST_AsGeoJSON(ST_Transform(ST_ConvexHull(ST_Union_Agg(geom)), 'EPSG:2154', 'EPSG:4326', always_xy := true)) AS hull_geojson FROM fr_departements WHERE code IN ('12', '60', '83') ORDER BY MIN(code) LIMIT 1;
+-> [['{"type":"Polygon","coordinates":[[[6....']]
+
+## 134 [fr_departements, eu_nuts_regions | medium] rows=3 cols=['cntr_code', 'n_urban3_level3']
+Q: Rank countries by the number of NUTS level-3 regions classified with urban type 3. Return the top three countries, with ties broken by country code, showing the country code and the count.
+WITH counts AS (SELECT cntr_code, count(*) AS n_urban3_level3 FROM eu_nuts_regions WHERE levl_code = 3 AND urbn_type = 3 GROUP BY cntr_code) SELECT cntr_code, n_urban3_level3 FROM counts QUALIFY row_number() OVER (ORDER BY n_urban3_level3 DESC, cntr_code) <= 3 ORDER BY n_urban3_level3 DESC, cntr_code;
+-> [['DE', '110'], ['FR', '53'], ['PL', '32']]
+
+## 135 [fr_departements, geonames_cities | medium] rows=10 cols=['name', 'population']
+Q: List the 10 most populous cities within 30 km of the centroid of the Val-de-Marne departement (94), ordered by population descending.
+WITH dept AS (SELECT ST_Centroid(geom) AS center FROM fr_departements WHERE code = '94'), cities AS (SELECT c.geonameid, c.name, c.population, ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true) AS geom_2154 FROM geonames_cities c) SELECT name, population FROM cities, dept WHERE ST_Intersects(geom_2154, ST_Buffer(center, 30000)) ORDER BY population DESC, geonameid LIMIT 10;
+-> [['Paris', '2138551'], ['Marne La Vallée', '318325'], ['Paris 15 Vaugirard', '229713']]
+
+## 136 [fr_departements, eu_nuts_regions | medium] rows=102 cols=['nuts_name', 'cntr_code', 'centre_geojson']
+Q: Show the most detailed statistical regions of Croatia and Turkey with their names, country code, and a GeoJSON point for the centre, using four decimal places for the coordinates.
+SELECT nuts_name, cntr_code, ST_AsGeoJSON(ST_Point(ROUND(ST_X(ST_Centroid(geometry)), 4), ROUND(ST_Y(ST_Centroid(geometry)), 4))) AS centre_geojson FROM eu_nuts_regions WHERE cntr_code IN ('HR', 'TR') AND levl_code = 3 ORDER BY cntr_code, nuts_id;
+-> [['Bjelovarsko-bilogorska županija', 'HR', '{"type":"Point","coordinates":[16.993...'], ['Virovitičko-podravska županija', 'HR', '{"type":"Point","coordinates":[17.613...'], ['Požeško-slavonska županija', 'HR', '{"type":"Point","coordinates":[17.566...']]
+
+## 137 [ghcn_stations | hard] rows=2 cols=['country_code', 'station_count']
+Q: Give me the number of weather stations inside the rectangle spanning longitude 130 to 155 and latitude -40 to -10, grouped by country code, ordered by count descending.
+WITH region AS (
+  SELECT ST_MakeEnvelope(130, -40, 155, -10) AS geom
+)
+SELECT s.country_code, COUNT(*) AS station_count
+FROM ghcn_stations s
+JOIN region r ON ST_Within(ST_Point(s.longitude, s.latitude), r.geom)
+GROUP BY s.country_code
+ORDER BY station_count DESC, s.country_code;
+-> [['AS', '13270'], ['PP', '2']]
+
+## 138 [fr_departements, eu_nuts_regions | medium] rows=5 cols=['code', 'nom', 'lon', 'lat']
+Q: From the French departments, using the code list ['38','39','46','48','94'], expand that list and return each matching department's code, name, and centroid longitude/latitude in EPSG:4326, ordered by code, limit 5.
+WITH codes AS (
+  SELECT unnest(['38','39','46','48','94']) AS code
+)
+SELECT d.code, d.nom,
+       ST_X(ST_Centroid(ST_Transform(d.geom, 'EPSG:2154', 'EPSG:4326', always_xy := true))) AS lon,
+       ST_Y(ST_Centroid(ST_Transform(d.geom, 'EPSG:2154', 'EPSG:4326', always_xy := true))) AS lat
+FROM fr_departements d
+JOIN codes c USING (code)
+ORDER BY d.code
+LIMIT 5;
+-> [['38', 'Isère', '5.574188640611603', '45.2638887468058'], ['39', 'Jura', '5.6973518795791325', '46.72933655065202'], ['46', 'Lot', '1.6055243009073634', '44.62458350633725']]
+
+## 139 [ghcn_stations, countries | easy] rows=1 cols=['name', 'continent', 'centroid_lon', 'centroid_lat', 'centroid_geojson']
+Q: From the countries table, for the country named 'Chad', return name, continent, the centroid longitude and latitude rounded to 3 decimals as centroid_lon and centroid_lat, and the centroid as GeoJSON in centroid_geojson. Order by name.
+SELECT name, continent, ROUND(ST_X(ST_Centroid(geometry)), 3) AS centroid_lon, ROUND(ST_Y(ST_Centroid(geometry)), 3) AS centroid_lat, ST_AsGeoJSON(ST_Centroid(geometry)) AS centroid_geojson FROM countries WHERE name = 'Chad' ORDER BY name
+-> [['Chad', 'Africa', '18.645', '15.333', '{"type":"Point","coordinates":[18.644...']]
+
+## 140 [ghcn_stations | hard] rows=1 cols=['east_west_km']
+Q: Give me the east-west span in kilometres between the westernmost and easternmost US weather stations.
+WITH west AS (
+  SELECT ST_Point(longitude, latitude) AS geom
+  FROM ghcn_stations
+  WHERE country_code = 'US'
+  ORDER BY longitude ASC, station_id
+  LIMIT 1
+),
+east AS (
+  SELECT ST_Point(longitude, latitude) AS geom
+  FROM ghcn_stations
+  WHERE country_code = 'US'
+  ORDER BY longitude DESC, station_id
+  LIMIT 1
+)
+SELECT ST_Distance_Spheroid(west.geom, east.geom) / 1000.0 AS east_west_km
+FROM west, east;
+-> [['190.4732668539668']]
+
+## 141 [ghcn_stations, countries | easy] rows=1 cols=['iso_a3', 'area_km2']
+Q: Compute Lesotho's polygon area in km² by transforming its geometry to the local UTM zone 35S (EPSG:32735) and taking ST_Area, returning the iso_a3 and area rounded to the nearest whole km².
+SELECT iso_a3, ROUND(ST_Area(ST_Transform(geometry, 'EPSG:4326', 'EPSG:32735', always_xy := true)) / 1e6) AS area_km2 FROM countries WHERE iso_a3 = 'LSO'
+-> [['LSO', '29980.0']]
+
+## 142 [ghcn_stations, countries | easy] rows=5 cols=['name', 'total_elevation_m']
+Q: For North American countries, sum weather station elevations in metres for stations between 0 and 500 metres, showing country name and total elevation, ordered by total elevation descending then country name, limit 5.
+SELECT c.name, sum(s.elevation_m) AS total_elevation_m FROM countries c JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE c.continent = 'North America' AND s.elevation_m BETWEEN 0 AND 500 GROUP BY c.iso_a3, c.name ORDER BY total_elevation_m DESC, c.name, c.iso_a3 LIMIT 5;
+-> [['United States of America', '10955533.899999978'], ['Canada', '1210638.2999999973'], ['Mexico', '272171.7999999967']]
+
+## 143 [fr_departements, geonames_cities | medium] rows=1 cols=['area_km2']
+Q: What is the area in square kilometres of the smallest convex shape that contains the Ardennes, Meurthe-et-Moselle and Tarn-et-Garonne departments?
+WITH d AS (
+  SELECT geom FROM fr_departements WHERE nom IN ('Ardennes', 'Meurthe-et-Moselle', 'Tarn-et-Garonne')
+), hull AS (
+  SELECT ST_ConvexHull(ST_Union_Agg(geom)) AS geom FROM d
+)
+SELECT ST_Area(geom) / 1000000 AS area_km2 FROM hull;
+-> [['123961.66422407987']]
+
+## 144 [fr_departements | easy] rows=1 cols=['convex_hull_area_km2']
+Q: Using fr_departements, compute the convex hull of the combined geometries of the départements with codes '28', '52', and '89'. Return the area of that convex hull in square kilometres as convex_hull_area_km2.
+WITH h AS (SELECT ST_ConvexHull(ST_Union_Agg(geom)) AS geom FROM fr_departements WHERE code IN ('28', '52', '89')) SELECT ST_Area(geom) / 1000000.0 AS convex_hull_area_km2 FROM h;
+-> [['47156.848524089844']]
+
+## 145 [fr_departements, eu_nuts_regions | medium] rows=32 cols=['cntr_code', 'coastal_area_km2']
+Q: For each country, compute the total land area in km² of its NUTS level-3 regions that have coastal type greater than 0. Return countries whose total coastal-region area exceeds 20,000 km², ordered by total area descending and country code.
+SELECT cntr_code, round(sum(ST_Area_Spheroid(geometry::GEOMETRY)) / 1000000.0, 0) AS coastal_area_km2 FROM eu_nuts_regions WHERE levl_code = 3 AND coast_type > 0 GROUP BY cntr_code HAVING sum(ST_Area_Spheroid(geometry::GEOMETRY)) / 1000000.0 > 20000 ORDER BY coastal_area_km2 DESC, cntr_code;
+-> [['TR', '779858.0'], ['FR', '638733.0'], ['ES', '505992.0']]
+
+## 146 [ghcn_stations, countries | easy] rows=1 cols=['station_id', 'name', 'elevation_rounded', 'point_wkt_rounded']
+Q: Using the ghcn_stations table, for station_id 'BR001645007', return station_id, name, elevation_m rounded to the nearest integer as elevation_rounded, and a point WKT built from longitude and latitude rounded to 2 decimals as point_wkt_rounded. Order by station_id.
+SELECT station_id, name, ROUND(elevation_m) AS elevation_rounded, ST_AsText(ST_Point(ROUND(longitude, 2), ROUND(latitude, 2))) AS point_wkt_rounded FROM ghcn_stations WHERE station_id = 'BR001645007' ORDER BY station_id
+-> [['BR001645007', 'PORTO ALEGRE', '499.0', 'POINT (-45.38 -16.91)']]
+
+## 147 [ghcn_stations, us_counties | hard] rows=1 cols=['buffer_area_km2']
+Q: GSN stations Australia union 50 km buffers area
+WITH pts AS (SELECT ST_Transform(ST_Point(longitude, latitude), 'EPSG:4326', 'EPSG:3577', always_xy := true) AS geom FROM ghcn_stations WHERE country_code = 'AS' AND gsn_flag = 'GSN'), u AS (SELECT ST_Union_Agg(ST_Buffer(geom, 50000)) AS geom FROM pts) SELECT ST_Area(geom) / 1000000.0 AS buffer_area_km2 FROM u;
+-> [['483823.9985999987']]
+
+## 148 [ghcn_stations, countries | easy] rows=339 cols=['country_code', 'station_id', 'name', 'elevation_m', 'elevation_rank']
+Q: Using ghcn_stations, for stations with gsn_flag = 'GSN', return the top 3 highest-elevation stations per country_code with columns country_code, station_id, name, elevation_m, and elevation_rank. Break ties by station_id ascending, and order the final result by country_code ascending, elevation_rank ascending.
+SELECT country_code, station_id, name, elevation_m, ROW_NUMBER() OVER (PARTITION BY country_code ORDER BY elevation_m DESC, station_id ASC) AS elevation_rank FROM ghcn_stations WHERE gsn_flag = 'GSN' QUALIFY ROW_NUMBER() OVER (PARTITION BY country_code ORDER BY elevation_m DESC, station_id ASC) <= 3 ORDER BY country_code ASC, elevation_rank ASC;
+-> [['AE', 'AE000041196', 'SHARJAH INTER. AIRP', '34.0', '1'], ['AF', 'AF000040930', 'NORTH-SALANG', '3366.0', '1'], ['AG', 'AG000060680', 'TAMANRASSET', '1362.0', '1']]
+
+## 149 [fr_departements | easy] rows=96 cols=['leading_digit', 'code', 'nom', 'area_km2', 'group_cumulative_area_km2']
+Q: Within each leading digit of the department number, list departments by area descending and compute the running total area in km² within that group.
+WITH dept AS (SELECT code, nom, ST_Area(geom)/1000000.0 AS area_km2, substr(code, 1, 1) AS leading_digit FROM fr_departements) SELECT leading_digit, code, nom, ROUND(area_km2, 2) AS area_km2, ROUND(SUM(area_km2) OVER (PARTITION BY leading_digit ORDER BY area_km2 DESC, code ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 2) AS group_cumulative_area_km2 FROM dept ORDER BY leading_digit, area_km2 DESC, code;
+-> [['0', '02', 'Aisne', '7419.55', '7419.55'], ['0', '03', 'Allier', '7365.4', '14784.95'], ['0', '04', 'Alpes-de-Haute-Provence', '6994.24', '21779.18']]
+
+## 150 [fr_departements, eu_nuts_regions | medium] rows=5 cols=['label']
+Q: For French departments, return a formatted label combining the department code and name as 'code - name', ordered by code, limit 5.
+SELECT code || ' - ' || nom AS label FROM fr_departements ORDER BY code LIMIT 5;
+-> [['01 - Ain'], ['02 - Aisne'], ['03 - Allier']]
+
+## 151 [ghcn_stations, countries | easy] rows=4 cols=['economy', 'station_count']
+Q: For countries in Europe, count the number of ghcn_stations points inside each economy category. Return the economy category and station count, ordered by station count descending and economy category ascending.
+SELECT c.economy, COUNT(*) AS station_count FROM countries c JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE c.continent = 'Europe' GROUP BY c.economy ORDER BY station_count DESC, c.economy ASC;
+-> [['2. Developed region: nonG7', '3665'], ['1. Developed region: G7', '1421'], ['3. Emerging region: BRIC', '1068']]
+
+## 152 [ghcn_stations, us_counties | hard] rows=10 cols=['station_id', 'name', 'latitude', 'longitude', 'geoid', 'namelsad', 'stusps']
+Q: Using ghcn_stations and us_counties, list up to 10 GHCN stations with country_code = 'US' and state = 'TX'. For each, return station_id, name, latitude, longitude, and the geoid, namelsad, and stusps of the county that contains the station point. Order by station_id.
+WITH station_points AS (SELECT station_id, name, latitude, longitude, ST_Transform(ST_Point(longitude, latitude), 'EPSG:4326', 'EPSG:5070', always_xy := true) AS geom FROM ghcn_stations WHERE country_code = 'US' AND state = 'TX') SELECT s.station_id, s.name, s.latitude, s.longitude, c.geoid, c.namelsad, c.stusps FROM station_points s JOIN us_counties c ON ST_Within(s.geom, c.geom) ORDER BY s.station_id LIMIT 10;
+-> [['US1TXAC0002', 'WICHITA FALLS 5.2 SSW', '33.8281', '-98.5492', '48009', 'Archer County', 'TX'], ['US1TXAC0003', 'ARCHER CITY 0.7 SSW', '33.5838', '-98.6298', '48009', 'Archer County', 'TX'], ['US1TXAC0005', 'WICHITA FALLS 8.5 S', '33.7762', '-98.535', '48009', 'Archer County', 'TX']]
+
+## 153 [fr_departements, geonames_cities | medium] rows=1 cols=['name', 'distance_km']
+Q: Find the city nearest to the point at longitude 2.6797, latitude 44.2803, and return its name and distance in kilometres. Return only the single closest city.
+SELECT name, ST_Distance_Sphere(geometry::GEOMETRY, ST_Point(2.6797, 44.2803)) / 1000.0 AS distance_km
+FROM geonames_cities
+ORDER BY distance_km ASC, geonameid ASC
+LIMIT 1;
+-> [['Rodez', '11.668164948380719']]
+
+## 154 [ghcn_stations, countries | easy] rows=2 cols=['hemisphere', 'station_count']
+Q: Classify each weather station as Northern when its latitude is at least 0 and Southern otherwise, count the stations in each hemisphere, and return both rows ordered by station count descending then hemisphere name ascending.
+SELECT CASE WHEN latitude >= 0 THEN 'Northern' ELSE 'Southern' END AS hemisphere, COUNT(*) AS station_count FROM ghcn_stations GROUP BY hemisphere ORDER BY station_count DESC, hemisphere ASC;
+-> [['Northern', '107684'], ['Southern', '25357']]
+
+## 155 [ghcn_stations | hard] rows=2 cols=['country_code', 'station_count', 'centroid_geojson', 'station_names']
+Q: Compare the countries 'AS' and 'BR' by station count, the centroid of their stations as GeoJSON, and an alphabetically sorted list of station names. Return one row per country.
+SELECT country_code, count(*) AS station_count, ST_AsGeoJSON(ST_Centroid(ST_Collect(list(ST_Point(longitude, latitude))))) AS centroid_geojson, list(name ORDER BY name) AS station_names FROM ghcn_stations WHERE country_code IN ('AS', 'BR') GROUP BY country_code ORDER BY country_code;
+-> [['AS', '17088', '{"type":"Point","coordinates":[141.62...', '[\'"HOME" MONOGORILBY\', \'"KAGEON" DAWE...'], ['BR', '5989', '{"type":"Point","coordinates":[-45.71...', "['ABADIA DOS DOURADOS', 'ABAETE', 'AB..."]]
+
+## 156 [ghcn_stations, countries | easy] rows=3 cols=['elevation_band', 'station_count']
+Q: Using ghcn_stations, classify stations in country_code 'AS' or 'BR' into elevation_band as 'low' when elevation_m < 100, 'medium' when elevation_m >= 100 and < 1000, and 'high' when elevation_m >= 1000. Return elevation_band and station_count, grouped by elevation_band, ordered by elevation_band.
+SELECT CASE WHEN elevation_m < 100 THEN 'low' WHEN elevation_m < 1000 THEN 'medium' ELSE 'high' END AS elevation_band, COUNT(*) AS station_count FROM ghcn_stations WHERE country_code IN ('AS','BR') GROUP BY 1 ORDER BY elevation_band;
+-> [['high', '4233'], ['low', '5829'], ['medium', '13015']]
+
+## 157 [fr_departements | easy] rows=5 cols=['code', 'nom', 'centroid_lon', 'centroid_lat', 'lat_rank']
+Q: For the departments numbered 07, 18, 21, 57 and 82, rank north-to-south by centroid latitude, return department number, department name, centroid longitude in degrees, centroid latitude in degrees and row number, ordered by row number, limit 5.
+WITH selected AS (SELECT code, nom, ST_X(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)) AS centroid_lon, ST_Y(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)) AS centroid_lat FROM fr_departements WHERE code IN ('07','18','21','57','82')), ranked AS (SELECT *, ROW_NUMBER() OVER (ORDER BY centroid_lat DESC, code) AS lat_rank FROM selected) SELECT code, nom, centroid_lon, centroid_lat, lat_rank FROM ranked ORDER BY lat_rank LIMIT 5;
+-> [['57', 'Moselle', '6.663147205232068', '49.03734186324945', '1'], ['21', "Côte-d'Or", '4.772333149491348', '47.42481177078343', '2'], ['18', 'Cher', '2.491013813379532', '47.06476349741292', '3']]
+
+## 158 [ghcn_stations | hard] rows=1 cols=['route_length_km']
+Q: Give the total spheroidal length in kilometers of the route connecting AUSTINS FERRY to TALLAWARRA POWER STATION to BUDDAH GROVE to SOUTH JOHNSTONE SUGAR MILL, in that order.
+WITH seg AS (SELECT 'ASN00094208' AS from_id, 'ASN00068104' AS to_id UNION ALL SELECT 'ASN00068104', 'ASN00052044' UNION ALL SELECT 'ASN00052044', 'ASN00032072') SELECT SUM(ST_Distance_Spheroid(ST_Point(a.longitude, a.latitude)::GEOMETRY, ST_Point(b.longitude, b.latitude)::GEOMETRY))/1000 AS route_length_km FROM seg s JOIN ghcn_stations a ON a.station_id = s.from_id JOIN ghcn_stations b ON b.station_id = s.to_id;
+-> [['2908.1713544852155']]
+
+## 159 [ghcn_stations, us_counties | hard] rows=1 cols=['station_id', 'name', 'distance_km']
+Q: Which weather station in Australia is closest to the point at 150.0° east and 35.0° south? Show the station identifier, station name, and distance in kilometres.
+SELECT station_id, name, ST_Distance_Sphere(ST_Point(longitude, latitude)::GEOMETRY, ST_Point(150.0, -35.0)::GEOMETRY) / 1000 AS distance_km FROM ghcn_stations WHERE country_code = 'AS' ORDER BY distance_km, station_id LIMIT 1;
+-> [['ASN00068183', 'NERRIGA (TOUGA)', '9.408239932809279']]
+
+## 160 [fr_departements, geonames_cities | medium] rows=2 cols=['name', 'population']
+Q: Which cities are inside the Corrèze department?
+SELECT c.name, c.population FROM geonames_cities c JOIN fr_departements d ON ST_Within(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true), d.geom) WHERE d.nom = 'Corrèze' ORDER BY c.population DESC, c.geonameid;
+-> [['Brive-la-Gaillarde', '53466'], ['Tulle', '16969']]
+
+## 161 [ghcn_stations, us_counties | hard] rows=1 cols=['country_code', 'station_count']
+Q: Count the weather stations whose longitude/latitude point lies inside the bounding box from longitude 140 to 155 and latitude -32 to -22, grouped by country code, ordered by count descending then country code ascending, limit 10.
+SELECT country_code, COUNT(*) AS station_count FROM ghcn_stations WHERE ST_Within(ST_Point(longitude, latitude), ST_MakeEnvelope(140, -32, 155, -22)) GROUP BY country_code ORDER BY station_count DESC, country_code ASC LIMIT 10;
+-> [['AS', '4783']]
+
+## 162 [ghcn_stations, countries | easy] rows=81 cols=['name', 'income_grp']
+Q: High income countries by list of income groups
+SELECT name, income_grp FROM countries WHERE list_contains(['1. High income: OECD', '2. High income: nonOECD'], income_grp) ORDER BY name
+-> [['Andorra', '2. High income: nonOECD'], ['Antarctica', '2. High income: nonOECD'], ['Aruba', '2. High income: nonOECD']]
+
+## 163 [fr_departements, geonames_cities | medium] rows=13 cols=['dept_name', 'name', 'population', 'running_population', 'city_geojson']
+Q: For the departments Aube, Maine-et-Loire, Haute-Marne, Haut-Rhin and Sarthe, list the cities within them in descending population order with a running total of population, and return each city's location as GeoJSON.
+WITH depts AS (SELECT code, nom, geom FROM fr_departements WHERE nom IN ('Aube','Maine-et-Loire','Haute-Marne','Haut-Rhin','Sarthe')), city_dept AS (SELECT d.code AS dept_code, d.nom AS dept_name, c.geonameid, c.name, c.population, c.geometry, SUM(c.population) OVER (PARTITION BY d.code ORDER BY c.population DESC, c.geonameid) AS running_population FROM depts d JOIN geonames_cities c ON ST_Within(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true), d.geom)) SELECT dept_name, name, population, running_population, ST_AsGeoJSON(geometry) AS city_geojson FROM city_dept ORDER BY dept_name, population DESC, geonameid;
+-> [['Aube', 'Troyes', '60785', '60785', '{"type":"Point","coordinates":[4.0852...'], ['Haut-Rhin', 'Mulhouse', '111430', '111430', '{"type":"Point","coordinates":[7.3286...'], ['Haut-Rhin', 'Colmar', '65405', '176835', '{"type":"Point","coordinates":[7.3558...']]
+
+## 164 [ghcn_stations, countries | easy] rows=4 cols=['country_code', 'station_count', 'avg_elevation_m']
+Q: Using ghcn_stations, first keep stations with elevation_m is not null and country_code in ('US','CA','AS','BR'), then return country_code, station_count, and avg_elevation_m for each country_code, ordered by station_count descending, then country_code ascending.
+WITH filtered AS (SELECT country_code, elevation_m FROM ghcn_stations WHERE country_code IN ('US','CA','AS','BR') AND elevation_m IS NOT NULL) SELECT country_code, COUNT(*) AS station_count, AVG(elevation_m) AS avg_elevation_m FROM filtered GROUP BY country_code ORDER BY station_count DESC, country_code ASC;
+-> [['US', '77756', '541.8982650856544'], ['AS', '13303', '264.4785988122984'], ['CA', '9788', '386.0936759297132']]
+
+## 165 [fr_departements, geonames_cities | medium] rows=1 cols=['min_lon', 'min_lat', 'max_lon', 'max_lat']
+Q: For Indonesian cities (country code ID) with population over 100,000, what is the longitude/latitude bounding box in degrees? Return the minimum and maximum longitude and latitude.
+SELECT ST_XMin(ext) AS min_lon, ST_YMin(ext) AS min_lat, ST_XMax(ext) AS max_lon, ST_YMax(ext) AS max_lat FROM (SELECT ST_Extent_Agg(geometry) AS ext FROM geonames_cities WHERE country_code = 'ID' AND population > 100000);
+-> [['95.33333', '-10.17083', '140.71813', '5.54167']]
+
+## 166 [fr_departements | easy] rows=3 cols=['code', 'nom', 'area_km2', 'rn']
+Q: List the three largest French departments by area in square kilometres, with their department number, name and area in km². Rank them from 1 to 3 using a window function.
+WITH dept AS (SELECT code, nom, ST_Area(geom)/1000000.0 AS area_km2 FROM fr_departements), ranked AS (SELECT code, nom, area_km2, ROW_NUMBER() OVER (ORDER BY area_km2 DESC, code ASC) AS rn FROM dept) SELECT code, nom, ROUND(area_km2, 2) AS area_km2, rn FROM ranked WHERE rn <= 3 ORDER BY rn;
+-> [['33', 'Gironde', '10374.43', '1'], ['40', 'Landes', '9352.6', '2'], ['24', 'Dordogne', '9210.88', '3']]
+
+## 167 [fr_departements, geonames_cities | medium] rows=1 cols=['city_count']
+Q: How many cities are inside the Meuse department?
+SELECT count(*) AS city_count FROM geonames_cities c JOIN fr_departements d ON ST_Within(ST_Transform(c.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true), d.geom) WHERE d.nom = 'Meuse';
+-> [['2']]
+
+## 168 [ghcn_stations, us_counties | hard] rows=12 cols=['target_id', 'neighbor_id', 'neighbor_name', 'distance_km']
+Q: For each of the four Australian stations ASN00031002, ASN00042070, ASN00073127, and ASN00091146, list the three nearest other GHCN stations by great-circle distance, with distance in kilometres.
+WITH targets AS (SELECT station_id, ST_Point(longitude, latitude) AS geom FROM ghcn_stations WHERE station_id IN ('ASN00031002','ASN00042070','ASN00073127','ASN00091146')) SELECT t.station_id AS target_id, s.station_id AS neighbor_id, s.name AS neighbor_name, ST_Distance_Spheroid(t.geom::GEOMETRY, ST_Point(s.longitude, s.latitude)::GEOMETRY) / 1000.0 AS distance_km FROM targets t, LATERAL (SELECT s.station_id, s.name, s.longitude, s.latitude FROM ghcn_stations s WHERE s.station_id <> t.station_id ORDER BY ST_Distance_Spheroid(t.geom::GEOMETRY, ST_Point(s.longitude, s.latitude)::GEOMETRY) LIMIT 3) s ORDER BY t.station_id, distance_km, s.station_id;
+-> [['ASN00031002', 'ASN00031161', 'ATHERTON CSIRO', '1.1987209855798726'], ['ASN00031002', 'ASN00031193', 'ATHERTON', '1.3335819057832488'], ['ASN00031002', 'ASN00031057', 'TOLGA POST OFFICE', '4.787957842787512']]
+
+## 169 [fr_departements, geonames_cities | medium] rows=12 cols=['code', 'nom']
+Q: Find the code and name of departments whose geometry intersects the bounding box defined by lon/lat corners (2.0, 45.0) and (5.0, 46.0), after transforming that envelope to EPSG:2154, ordered by code.
+SELECT code, nom FROM fr_departements WHERE ST_Intersects(geom, ST_Transform(ST_MakeEnvelope(2.0, 45.0, 5.0, 46.0), 'EPSG:4326', 'EPSG:2154', always_xy := true)) ORDER BY code;
+-> [['01', 'Ain'], ['03', 'Allier'], ['07', 'Ardèche']]
+
+## 170 [fr_departements, eu_nuts_regions | medium] rows=1 cols=['total_area_km2']
+Q: What is the total area of all level 3 regions in Germany in square kilometres?
+SELECT SUM(ST_Area_Spheroid(geometry::GEOMETRY)) / 1000000 AS total_area_km2 FROM eu_nuts_regions WHERE cntr_code = 'DE' AND levl_code = 3;
+-> [['357363.51904038514']]
+
+## 171 [fr_departements | easy] rows=41 cols=['code', 'nom']
+Q: List code and nom from fr_departements where the geometry's bounding box is entirely south of y=6600000 in EPSG:2154. Output columns: code, nom, ordered by code.
+SELECT code, nom FROM fr_departements WHERE ST_YMax(geom) < 6600000 ORDER BY code;
+-> [['04', 'Alpes-de-Haute-Provence'], ['05', 'Hautes-Alpes'], ['06', 'Alpes-Maritimes']]
+
+## 172 [ghcn_stations | hard] rows=1 cols=['total_length_km']
+Q: Give me the total spheroid distance in kilometres along the chain of these stations when ordered by their station identifier: ASN00030010, ASN00061168, ASN00068071, ASN00079023.
+WITH pts AS (
+  SELECT station_id, ST_Point(longitude, latitude) AS geom
+  FROM ghcn_stations
+  WHERE station_id IN ('ASN00030010', 'ASN00061168', 'ASN00068071', 'ASN00079023')
+),
+ordered AS (
+  SELECT station_id,
+         geom,
+         LAG(geom) OVER (ORDER BY station_id) AS prev_geom
+  FROM pts
+)
+SELECT SUM(ST_Distance_Spheroid(geom, prev_geom)) / 1000.0 AS total_length_km
+FROM ordered
+WHERE prev_geom IS NOT NULL;
+-> [['2522.8342267050284']]
+
+## 173 [fr_departements, eu_nuts_regions | medium] rows=1 cols=['nuts_id', 'nuts_name', 'perimeter_km']
+Q: Using eu_nuts_regions, for the NUTS region with nuts_id = 'FRI11' (Dordogne), return nuts_id, nuts_name, and the perimeter in kilometres using the Lambert-93 metric CRS (EPSG:2154), rounded to 2 decimals.
+SELECT nuts_id, nuts_name, ROUND(ST_Perimeter(ST_Transform(geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true))/1000.0, 2) AS perimeter_km FROM eu_nuts_regions WHERE nuts_id = 'FRI11';
+-> [['FRI11', 'Dordogne', '384.47']]
+
+## 174 [fr_departements, eu_nuts_regions | medium] rows=19 cols=['initial', 'total_area_km2']
+Q: For each initial letter, what is the combined area of French departments whose names start with that letter, in square kilometres? Only show letters where the combined area is more than 5,000 square kilometres, ordered from largest to smallest combined area, then by initial letter.
+SELECT upper(substr(nom, 1, 1)) AS initial, round(sum(ST_Area(geom)) / 1000000.0, 0) AS total_area_km2 FROM fr_departements GROUP BY initial HAVING sum(ST_Area(geom)) / 1000000.0 > 5000 ORDER BY total_area_km2 DESC, initial;
+-> [['A', '68728.0'], ['C', '62949.0'], ['H', '58014.0']]
+
+## 175 [fr_departements, eu_nuts_regions | medium] rows=1 cols=['total_area_km2']
+Q: What is the total area of all French departments in square kilometres?
+SELECT SUM(ST_Area(geom)) / 1000000 AS total_area_km2 FROM fr_departements;
+-> [['548874.7226840953']]
+
+## 176 [ghcn_stations, countries | easy] rows=8 cols=['continent', 'station_count']
+Q: Count the number of GSN-flagged ghcn_stations points inside each continent. Return the continent and station count, ordered by station count descending and continent ascending.
+SELECT c.continent, COUNT(*) AS station_count FROM countries c JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE s.gsn_flag = 'GSN' GROUP BY c.continent ORDER BY station_count DESC, c.continent ASC;
+-> [['Europe', '190'], ['Asia', '166'], ['North America', '150']]
+
+## 177 [fr_departements | easy] rows=3 cols=['code', 'nom', 'dist_m']
+Q: nearest 3 departments to 2.3443,47.9119
+SELECT code, nom, ST_Distance(geom, ST_Transform(ST_Point(2.3443, 47.9119), 'EPSG:4326', 'EPSG:2154', always_xy := true)) AS dist_m FROM fr_departements ORDER BY dist_m, code LIMIT 3;
+-> [['45', 'Loiret', '0.0'], ['77', 'Seine-et-Marne', '24744.916837752764'], ['41', 'Loir-et-Cher', '28021.88254763972']]
+
+## 178 [ghcn_stations | hard] rows=1 cols=['distance_km']
+Q: List the spheroidal distance in kilometers between the GHCN stations SOUTH JOHNSTONE SUGAR MILL and AUSTINS FERRY.
+SELECT ST_Distance_Spheroid(ST_Point(a.longitude, a.latitude)::GEOMETRY, ST_Point(b.longitude, b.latitude)::GEOMETRY)/1000 AS distance_km FROM ghcn_stations a, ghcn_stations b WHERE a.station_id = 'ASN00032072' AND b.station_id = 'ASN00094208';
+-> [['2794.1749254034607']]
+
+## 179 [fr_departements, eu_nuts_regions | medium] rows=5 cols=['code', 'nom', 'area_km2']
+Q: Using fr_departements, return code, nom, and area in square kilometres (rounded to 2 decimals) for the departments named Cantal, Creuse, Lozère, Orne, and Deux-Sèvres, ordered by area descending.
+SELECT code, nom, ROUND(ST_Area(geom)/1000000.0, 2) AS area_km2 FROM fr_departements WHERE nom IN ('Cantal','Creuse','Lozère','Orne','Deux-Sèvres') ORDER BY area_km2 DESC, code;
+-> [['61', 'Orne', '6143.34'], ['79', 'Deux-Sèvres', '6028.93'], ['15', 'Cantal', '5767.19']]
+
+## 180 [ghcn_stations, us_counties | hard] rows=1 cols=['west', 'south', 'east', 'north']
+Q: What is the overall bounding rectangle of all counties in New Mexico? Give its western, southern, eastern, and northern limits in longitude and latitude.
+SELECT ST_XMin(e) AS west, ST_YMin(e) AS south, ST_XMax(e) AS east, ST_YMax(e) AS north FROM (SELECT ST_Extent_Agg(ST_Transform(geom, 'EPSG:5070', 'EPSG:4326', always_xy := true)) AS e FROM us_counties WHERE state_name = 'New Mexico') AS b;
+-> [['-109.050044', '31.332315000000005', '-103.001964', '37.00013899999997']]
+
+## 181 [fr_departements, geonames_cities | medium] rows=6 cols=['code', 'nom']
+Q: Which departments share a border with Lot?
+SELECT d2.code, d2.nom FROM fr_departements d1 JOIN fr_departements d2 ON ST_Touches(d1.geom, d2.geom) WHERE d1.nom = 'Lot' ORDER BY d2.code;
+-> [['12', 'Aveyron'], ['15', 'Cantal'], ['19', 'Corrèze']]
+
+## 182 [ghcn_stations, countries | easy] rows=1 cols=['name', 'summary', 'geojson']
+Q: For the country named Micronesia in the countries table, return its name, a formatted summary string 'Population: <pop_est>; GDP (million): <gdp_md>', and its country polygon as GeoJSON. Output columns: name, summary, geojson.
+SELECT name, printf('Population: %d; GDP (million): %d', pop_est, gdp_md) AS summary, ST_AsGeoJSON(geometry) AS geojson FROM countries WHERE name = 'Micronesia';
+-> [['Micronesia', 'Population: 113815; GDP (million): 401', '{"type":"MultiPolygon","coordinates":...']]
+
+## 183 [fr_departements | easy] rows=5 cols=['code', 'nom']
+Q: From fr_departements, list code and nom of all departments that touch the department named 'Aude'. Output columns: code, nom, ordered by code.
+SELECT d.code, d.nom FROM fr_departements d JOIN fr_departements a ON ST_Touches(d.geom, a.geom) WHERE a.nom = 'Aude' ORDER BY d.code;
+-> [['09', 'Ariège'], ['31', 'Haute-Garonne'], ['34', 'Hérault']]
+
+## 184 [ghcn_stations, countries | easy] rows=10 cols=['name', 'station_count']
+Q: For countries in the '5. Low income' income group, count weather stations per country, showing country name and station count, ordered by station count descending then country name, limit 10.
+SELECT c.name, count(*) AS station_count FROM countries c JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE c.income_grp = '5. Low income' GROUP BY c.iso_a3, c.name ORDER BY station_count DESC, c.name, c.iso_a3 LIMIT 10;
+-> [['Kyrgyzstan', '73'], ['Tajikistan', '59'], ['Madagascar', '22']]
+
+## 185 [ghcn_stations, countries | easy] rows=1 cols=['name', 'centroid_lon', 'centroid_lat', 'centroid_geojson']
+Q: For the country named Bahamas in the countries table, return its name, centroid longitude and latitude rounded to 4 decimals, and the centroid as GeoJSON. Output columns: name, centroid_lon, centroid_lat, centroid_geojson.
+SELECT name, ROUND(ST_X(ST_Centroid(geometry)), 4) AS centroid_lon, ROUND(ST_Y(ST_Centroid(geometry)), 4) AS centroid_lat, ST_AsGeoJSON(ST_Centroid(geometry)) AS centroid_geojson FROM countries WHERE name = 'Bahamas';
+-> [['Bahamas', '-76.6284', '24.2904', '{"type":"Point","coordinates":[-76.62...']]
+
+## 186 [ghcn_stations | hard] rows=2 cols=['hcn_crn_flag', 'station_count', 'total_elevation_m']
+Q: Within the box from longitude -125 to -66 and latitude 24 to 50, for US stations (country code US) carrying HCN or CRN flags with elevation above 0 m, count stations and sum elevation in metres by flag, sorted by flag.
+WITH region AS (SELECT ST_MakeEnvelope(-125, 24, -66, 50) AS geom) SELECT s.hcn_crn_flag, COUNT(*) AS station_count, SUM(s.elevation_m) AS total_elevation_m FROM ghcn_stations s, region r WHERE ST_Intersects(ST_Point(s.longitude, s.latitude), r.geom) AND s.country_code = 'US' AND s.hcn_crn_flag IN ('HCN', 'CRN') AND s.elevation_m > 0 GROUP BY s.hcn_crn_flag ORDER BY s.hcn_crn_flag;
+-> [['CRN', '207', '203366.0'], ['HCN', '1215', '624388.7000000002']]
+
+## 187 [ghcn_stations, countries | easy] rows=1 cols=['total_area_km2']
+Q: What is the total area in square kilometers of all countries in the Caribbean subregion?
+SELECT SUM(ST_Area_Spheroid(geometry))/1e6 AS total_area_km2 FROM countries WHERE subregion = 'Caribbean';
+-> [['226538.20225219298']]
+
+## 188 [ghcn_stations | hard] rows=3 cols=['country_code', 'total_stations', 'high_elevation_stations', 'high_elevation_pct']
+Q: Across countries with at least 5 stations, rank by the percentage of stations above 1000 m elevation, returning the top 3 countries with total station count, high-elevation count, and percentage rounded to 2 decimals, ordered by percentage descending then country.
+WITH country_stats AS (SELECT country_code, count(*) AS total_stations, sum(CASE WHEN elevation_m > 1000 THEN 1 ELSE 0 END) AS high_elevation_stations FROM ghcn_stations GROUP BY country_code HAVING count(*) >= 5) SELECT country_code, total_stations, high_elevation_stations, round(100.0 * high_elevation_stations / total_stations, 2) AS high_elevation_pct FROM country_stats WHERE high_elevation_stations > 0 ORDER BY high_elevation_pct DESC, country_code LIMIT 3;
+-> [['ET', '18', '16', '88.89'], ['UG', '8', '7', '87.5'], ['AM', '53', '46', '86.79']]
+
+## 189 [ghcn_stations, countries | easy] rows=1 cols=['dist_km']
+Q: Compute the spheroid distance in kilometres between station YAAMBA ('ASN00033076') and station BAERAMI CREEK (BOREEWAN) ('ASN00061264'), rounded to one decimal place.
+SELECT ROUND(ST_Distance_Spheroid(ST_Point(a.longitude, a.latitude), ST_Point(b.longitude, b.latitude)) / 1000, 1) AS dist_km FROM ghcn_stations a, ghcn_stations b WHERE a.station_id = 'ASN00033076' AND b.station_id = 'ASN00061264'
+-> [['1032.5']]
+
+## 190 [fr_departements, geonames_cities | medium] rows=1 cols=['area_km2']
+Q: What is the area in square kilometres of the part of the Vosges departement (88) that lies within a 15 km buffer of its centroid?
+WITH dept AS (SELECT geom, ST_Centroid(geom) AS center FROM fr_departements WHERE code = '88'), clipped AS (SELECT ST_Intersection(geom, ST_Buffer(center, 15000)) AS part FROM dept) SELECT ST_Area(part) / 1000000 AS area_km2 FROM clipped;
+-> [['702.3251592580676']]
+
+## 191 [ghcn_stations, countries | easy] rows=10 cols=['name', 'station_count']
+Q: Using countries and ghcn_stations, count GHCN stations located inside each country polygon for countries in continent 'Oceania'. Return country name and station_count, keep only countries with at least one station, order by station_count descending then name ascending, and return at most 10 rows.
+SELECT c.name, COUNT(*) AS station_count FROM countries c JOIN ghcn_stations s ON ST_Contains(c.geometry, ST_Point(s.longitude, s.latitude)) WHERE c.continent = 'Oceania' GROUP BY c.name HAVING COUNT(*) > 0 ORDER BY station_count DESC, c.name ASC LIMIT 10;
+-> [['Australia', '16628'], ['Guam', '24'], ['Fiji', '16']]
+
+## 192 [fr_departements, eu_nuts_regions | medium] rows=5 cols=['nuts_id', 'nuts_name', 'area_km2']
+Q: Using eu_nuts_regions, return nuts_id, nuts_name, and spheroid area in square kilometres (rounded to 2 decimals) for the NUTS regions with nuts_id in ('EE00','TRC3','DEA2C','FRI11','RS221'), ordered by area descending.
+SELECT nuts_id, nuts_name, ROUND(ST_Area_Spheroid(geometry::GEOMETRY)/1000000.0, 2) AS area_km2 FROM eu_nuts_regions WHERE nuts_id IN ('EE00','TRC3','DEA2C','FRI11','RS221') ORDER BY area_km2 DESC, nuts_id;
+-> [['EE00', 'Eesti', '45237.83'], ['TRC3', 'Mardin, Batman, Şırnak, Siirt', '25751.07'], ['FRI11', 'Dordogne', '9205.13']]
+
+## 193 [ghcn_stations | hard] rows=1 cols=['name', 'elevation_m', 'location_geojson']
+Q: Among the Australian weather stations, which one sits highest above sea level? Give its name, its elevation rounded to one decimal place, and its position as a GeoJSON point.
+SELECT name, ROUND(elevation_m, 1) AS elevation_m, ST_AsGeoJSON(ST_Point(longitude, latitude)) AS location_geojson FROM ghcn_stations WHERE country_code = 'AS' AND elevation_m IS NOT NULL ORDER BY elevation_m DESC, station_id LIMIT 1;
+-> [['THREDBO AWS', '1957.0', '{"type":"Point","coordinates":[148.28...']]
+
+## 194 [ghcn_stations, us_counties | hard] rows=5 cols=['station_id', 'name', 'country_code', 'distance_km']
+Q: Give me the five closest GHCN weather stations to station ASN00031002 by great-circle distance, showing station ID, name, country, and distance in kilometres.
+WITH target AS (SELECT station_id, ST_Point(longitude, latitude) AS geom FROM ghcn_stations WHERE station_id = 'ASN00031002') SELECT s.station_id, s.name, s.country_code, ST_Distance_Spheroid(t.geom::GEOMETRY, ST_Point(s.longitude, s.latitude)::GEOMETRY) / 1000.0 AS distance_km FROM target t JOIN ghcn_stations s ON s.station_id <> t.station_id ORDER BY distance_km ASC, s.station_id ASC LIMIT 5;
+-> [['ASN00031161', 'ATHERTON CSIRO', 'AS', '1.1987209855798726'], ['ASN00031193', 'ATHERTON', 'AS', '1.3335819057832488'], ['ASN00031057', 'TOLGA POST OFFICE', 'AS', '4.787957842787512']]
+
+## 195 [ghcn_stations | hard] rows=52 cols=['state', 'name', 'elevation_m']
+Q: In each U.S. state, which weather station is at the highest elevation, and what is that elevation?
+SELECT state, name, elevation_m FROM ghcn_stations WHERE country_code = 'US' AND state IS NOT NULL AND elevation_m IS NOT NULL QUALIFY ROW_NUMBER() OVER (PARTITION BY state ORDER BY elevation_m DESC, station_id) = 1 ORDER BY elevation_m DESC, state
+-> [['HI', 'MAUNA KEA OBSY 111', '4198.0'], ['CA', 'WHITE MTN 2', '3800.9'], ['UT', 'CHEPETA UTAH', '3694.2']]
+
+## 196 [fr_departements | easy] rows=23 cols=['code', 'nom']
+Q: List code and nom from fr_departements where the geometry's bounding box lies entirely east of x=800000 in EPSG:2154. Output columns: code, nom, ordered by code.
+SELECT code, nom FROM fr_departements WHERE ST_XMin(geom) > 800000 ORDER BY code;
+-> [['01', 'Ain'], ['04', 'Alpes-de-Haute-Provence'], ['05', 'Hautes-Alpes']]
+
+## 197 [fr_departements | easy] rows=1 cols=['code', 'nom']
+Q: Give me the departements that are completely inside the bounding box from longitude 1.5 to 3.5 and latitude 43.5 to 45.0.
+SELECT code, nom FROM fr_departements WHERE ST_Within(geom, ST_Transform(ST_MakeEnvelope(1.5, 43.5, 3.5, 45.0), 'EPSG:4326', 'EPSG:2154', always_xy := true)) ORDER BY code;
+-> [['12', 'Aveyron']]
+
+## 198 [ghcn_stations, countries | easy] rows=1 cols=['station_id', 'name', 'geojson']
+Q: For GHCN station ASN00015147, return the station_id, name, and its location as a GeoJSON point using longitude and latitude rounded to 4 decimal places. Output columns: station_id, name, geojson.
+SELECT station_id, name, ST_AsGeoJSON(ST_Point(ROUND(longitude, 4), ROUND(latitude, 4))) AS geojson FROM ghcn_stations WHERE station_id = 'ASN00015147';
+-> [['ASN00015147', 'WALHALLOW', '{"type":"Point","coordinates":[135.66...']]
+
+## 199 [fr_departements | easy] rows=2 cols=['code', 'nom']
+Q: departements within 30 km of Vendée centroid
+WITH ref AS (SELECT ST_Centroid(geom) AS pt FROM fr_departements WHERE nom = 'Vendée') SELECT d.code, d.nom FROM fr_departements d, ref WHERE ST_Distance(d.geom, ref.pt) <= 30000 ORDER BY d.code;
+-> [['44', 'Loire-Atlantique'], ['85', 'Vendée']]
+
+## 200 [fr_departements, geonames_cities | medium] rows=1 cols=['hull_geojson', 'area_km2']
+Q: Give me the convex hull of the centroids of the departements Charente-Maritime, Gard, Gironde, Loiret and Oise as GeoJSON, and its area in square kilometres.
+WITH c AS (SELECT ST_Centroid(geom) AS pt FROM fr_departements WHERE nom IN ('Charente-Maritime','Gard','Gironde','Loiret','Oise')), hull AS (SELECT ST_ConvexHull(ST_Union_Agg(pt)) AS geom FROM c) SELECT ST_AsGeoJSON(ST_Transform(geom, 'EPSG:2154', 'EPSG:4326', always_xy := true)) AS hull_geojson, ST_Area(geom) / 1000000.0 AS area_km2 FROM hull;
+-> [['{"type":"Polygon","coordinates":[[[4....', '119988.77609178868']]
+
+## 201 [ghcn_stations, us_counties | hard] rows=3 cols=['station_id', 'name', 'state', 'distance_km']
+Q: Which three weather stations in the continental United States are closest to Walthall County, Mississippi, measuring to the county’s area, and how far are they in kilometres? Please show station identifier, station name, state, and distance.
+WITH target AS (SELECT geom FROM us_counties WHERE geoid = '28147') SELECT s.station_id, s.name, s.state, ST_Distance(ST_Transform(ST_Point(s.longitude, s.latitude), 'EPSG:4326', 'EPSG:5070', always_xy := true), t.geom) / 1000 AS distance_km FROM ghcn_stations s, target t WHERE s.country_code = 'US' AND s.longitude BETWEEN -125 AND -66 AND s.latitude BETWEEN 24 AND 50 ORDER BY distance_km, s.station_id LIMIT 3;
+-> [['USC00229048', 'TYLERTOWN 5ESE', 'MS', '0.0'], ['US1MSPK0002', 'JAYESS 5.6 SW', 'MS', '0.12600146427644807'], ['USC00227714', 'RUTH 1 SE', 'MS', '4.348574859703476']]
+
+## 202 [ghcn_stations | hard] rows=2 cols=['country_code', 'station_count', 'max_elevation_m']
+Q: Within the polygon bounded by longitudes 112 to 154 and latitudes -44 to -10, for stations at or above 100 m elevation, how many stations are there for each country code, and what is the maximum elevation in metres? Return country code, station count, and maximum elevation, sorted by station count descending then country code.
+WITH region AS (SELECT ST_MakeEnvelope(112, -44, 154, -10) AS geom) SELECT s.country_code, COUNT(*) AS station_count, MAX(s.elevation_m) AS max_elevation_m FROM ghcn_stations s, region r WHERE ST_Intersects(ST_Point(s.longitude, s.latitude), r.geom) AND s.elevation_m >= 100 GROUP BY s.country_code ORDER BY station_count DESC, s.country_code;
+-> [['AS', '9144', '1957.0'], ['ID', '1', '108.0']]
+
+## 203 [fr_departements, eu_nuts_regions | medium] rows=3 cols=['levl_code', 'region_count', 'pct_coastal']
+Q: In France, for each statistical level, how many regions are there and what percentage of them are coastal? A region is coastal if its coastal classification is not zero. Show only levels with at least 10 regions, ordered by level.
+SELECT levl_code, count(*) AS region_count, round(100.0 * sum(CASE WHEN coast_type <> 0 THEN 1 ELSE 0 END) / count(*), 1) AS pct_coastal FROM eu_nuts_regions WHERE cntr_code = 'FR' GROUP BY levl_code HAVING count(*) >= 10 ORDER BY levl_code;
+-> [['1', '14', '0.0'], ['2', '27', '0.0'], ['3', '101', '100.0']]
+
+## 204 [fr_departements, eu_nuts_regions | medium] rows=1 cols=['nom', 'distance_km']
+Q: For the department Val-de-Marne, return its name and the distance in kilometres from its centroid to the point at longitude 2.6797 and latitude 44.2803, rounded to 2 decimal places, ordered by code, limit 1.
+SELECT nom, ROUND(ST_Distance_Spheroid(ST_Transform(ST_Centroid(geom), 'EPSG:2154', 'EPSG:4326', always_xy := true)::GEOMETRY, ST_Point(2.6797, 44.2803)) / 1000, 2) AS distance_km FROM fr_departements WHERE code = '94' ORDER BY code LIMIT 1;
+-> [['Val-de-Marne', '500.17']]
+
+## 205 [fr_departements | easy] rows=96 cols=['code', 'nom', 'distance_km', 'distance_rank']
+Q: For each department, compute its distance in kilometres from its centroid to the point at longitude 2.3522, latitude 48.8566, and rank departments by that distance ascending (closest first). Return department number, name, distance in km and rank.
+WITH dept_dist AS (SELECT code, nom, ST_Distance(ST_Centroid(geom), ST_Transform(ST_Point(2.3522, 48.8566), 'EPSG:4326', 'EPSG:2154', always_xy := true)) / 1000.0 AS distance_km FROM fr_departements) SELECT code, nom, ROUND(distance_km, 2) AS distance_km, RANK() OVER (ORDER BY distance_km ASC, code ASC) AS distance_rank FROM dept_dist ORDER BY distance_rank, code;
+-> [['75', 'Paris', '0.69', '1'], ['92', 'Hauts-de-Seine', '7.85', '2'], ['93', 'Seine-Saint-Denis', '11.48', '3']]
+
+## 206 [fr_departements, eu_nuts_regions | medium] rows=27 cols=['nuts_id', 'nuts_name', 'department_count', 'geojson']
+Q: Map the NUTS level 2 regions in France with the number of French departments that intersect each, as GeoJSON.
+WITH counts AS (SELECT e.nuts_id, COUNT(f.code) AS department_count FROM eu_nuts_regions e LEFT JOIN fr_departements f ON ST_Intersects(f.geom, ST_Transform(e.geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true)) WHERE e.cntr_code = 'FR' AND e.levl_code = 2 GROUP BY e.nuts_id) SELECT e.nuts_id, e.nuts_name, c.department_count, ST_AsGeoJSON(e.geometry) AS geojson FROM eu_nuts_regions e JOIN counts c ON e.nuts_id = c.nuts_id WHERE e.cntr_code = 'FR' AND e.levl_code = 2 ORDER BY c.department_count DESC, e.nuts_id
+-> [['FRB0', 'Centre — Val de Loire', '19', '{"type":"MultiPolygon","coordinates":...'], ['FRJ2', 'Midi-Pyrénées', '19', '{"type":"MultiPolygon","coordinates":...'], ['FRK2', 'Rhône-Alpes', '18', '{"type":"MultiPolygon","coordinates":...']]
+
+## 207 [fr_departements, geonames_cities | medium] rows=1 cols=['area_km2']
+Q: If I draw a circle with a 20 km radius around the centre of the Ardennes department, what is the area of that circle in square kilometres?
+WITH d AS (
+  SELECT geom FROM fr_departements WHERE nom = 'Ardennes'
+), b AS (
+  SELECT ST_Buffer(ST_Centroid(geom), 20000) AS geom FROM d
+)
+SELECT ST_Area(geom) / 1000000 AS area_km2 FROM b;
+-> [['1248.578060903211']]
+
+## 208 [fr_departements, eu_nuts_regions | medium] rows=1 cols=['first_digit', 'department_count', 'avg_area_km2']
+Q: For each first digit of the French department number, how many departments are there and what is their average area in square kilometres? Show only first digits that have more than 10 departments, ordered by the first digit.
+SELECT substr(code, 1, 1) AS first_digit, count(*) AS department_count, round(avg(ST_Area(geom)) / 1000000.0, 0) AS avg_area_km2 FROM fr_departements GROUP BY first_digit HAVING count(*) > 10 ORDER BY first_digit;
+-> [['2', '11', '6350.0']]
+
+## 209 [ghcn_stations, countries | easy] rows=3 cols=['name', 'area_km2']
+Q: List the area in square kilometers of France, Angola, and Mauritania, sorted from largest to smallest.
+SELECT name, ST_Area_Spheroid(geometry)/1e6 AS area_km2 FROM countries WHERE name IN ('France', 'Angola', 'Mauritania') ORDER BY area_km2 DESC;
+-> [['Angola', '1244670.8472221857'], ['Mauritania', '1035383.8299359455'], ['France', '636064.0176024577']]
+
+## 210 [ghcn_stations | hard] rows=3 cols=['station_id', 'name', 'elevation_m', 'distance_km']
+Q: Using the point at longitude 132.8358 and latitude -12.6686, return the 3 nearest Australian stations above 100 m elevation with station id, name, elevation in metres, and spheroid distance in kilometres, ordered by distance then station id.
+SELECT station_id, name, elevation_m, round(ST_Distance_Spheroid(ST_Point(longitude, latitude)::GEOMETRY, ST_Point(132.8358, -12.6686)::GEOMETRY) / 1000.0, 2) AS distance_km FROM ghcn_stations WHERE country_code = 'AS' AND elevation_m > 100 ORDER BY distance_km, station_id LIMIT 3;
+-> [['ASN00014909', 'CENTRAL ARNHEM PLATEAU', '416.0', '77.79'], ['ASN00014178', 'SHOVEL BILLABONG', '157.0', '90.68'], ['ASN00014091', 'EL SHARANA', '183.0', '100.97']]
+
+## 211 [ghcn_stations, us_counties | hard] rows=5 cols=['station_id', 'name', 'elevation_m', 'dist_km']
+Q: Find the 5 highest-elevation weather stations inside the bounding box from longitude 140 to 155 and latitude -32 to -22 that have elevation above 50 metres, returning station ID, name, elevation in metres, and spheroid distance in kilometres from the bounding-box centre at longitude 147.5, latitude -27, ordered by elevation descending then station ID ascending.
+SELECT station_id, name, elevation_m, ROUND(ST_Distance_Spheroid(ST_Point(longitude, latitude)::GEOMETRY, ST_Point(147.5, -27)::GEOMETRY) / 1000.0, 2) AS dist_km FROM ghcn_stations WHERE ST_Within(ST_Point(longitude, latitude), ST_MakeEnvelope(140, -32, 155, -22)) AND elevation_m > 50 ORDER BY elevation_m DESC, station_id ASC LIMIT 5;
+-> [['ASN00057124', 'POINT LOOKOUT', '1550.0', '614.64'], ['ASN00054126', 'NARRABRI (MOUNT DOWE)', '1465.0', '447.61'], ['ASN00054151', 'NARRABRI (MT KAPUTAR NATIONAL', '1450.0', '447.65']]
+
+## 212 [ghcn_stations, countries | easy] rows=1 cols=['antarctica_area_km2', 'curacao_area_km2']
+Q: Compare the area in square kilometers of Antarctica and Curaçao, showing both in a single row.
+SELECT MAX(CASE WHEN name = 'Antarctica' THEN ST_Area_Spheroid(geometry)/1e6 END) AS antarctica_area_km2, MAX(CASE WHEN name = 'Curaçao' THEN ST_Area_Spheroid(geometry)/1e6 END) AS curacao_area_km2 FROM countries WHERE name IN ('Antarctica', 'Curaçao');
+-> [['12356254.385151893', '428.0178675116837']]
+
+## 213 [fr_departements, eu_nuts_regions | medium] rows=1 cols=['combined_area_km2']
+Q: Using fr_departements, return the combined area in square kilometres (rounded to 2 decimals) of the departments Cantal and Creuse.
+SELECT ROUND(ST_Area(ST_Union_Agg(geom))/1000000.0, 2) AS combined_area_km2 FROM fr_departements WHERE nom IN ('Cantal','Creuse');
+-> [['11356.97']]
+
+## 214 [ghcn_stations, countries | easy] rows=5 cols=['country_name', 'station_count']
+Q: For African countries, count the weather stations inside their boundaries, keep only countries with at least 2 stations, and return the top 5 by station count descending then country name ascending.
+WITH africa_station_counts AS (SELECT c.iso_a3, c.name AS country_name, COUNT(*) AS station_count FROM countries c JOIN ghcn_stations s ON ST_Within(ST_Point(s.longitude, s.latitude), c.geometry) WHERE c.continent = 'Africa' GROUP BY c.iso_a3, c.name HAVING COUNT(*) >= 2) SELECT country_name, station_count FROM africa_station_counts ORDER BY station_count DESC, country_name ASC, iso_a3 ASC LIMIT 5;
+-> [['South Africa', '1153'], ['Namibia', '282'], ['Algeria', '80']]
+
+## 215 [fr_departements, eu_nuts_regions | medium] rows=8 cols=['nom', 'code']
+Q: Which French departments have their geographic centre within 50 kilometres of the point at longitude 2.35 and latitude 48.85? Return the department name and number, ordered by name.
+SELECT nom, code FROM fr_departements WHERE ST_Distance(ST_Centroid(geom), ST_Transform(ST_Point(2.35, 48.85), 'EPSG:4326', 'EPSG:2154', always_xy := true)) <= 50000 ORDER BY nom;
+-> [['Essonne', '91'], ['Hauts-de-Seine', '92'], ['Paris', '75']]
+
+## 216 [fr_departements, geonames_cities | medium] rows=1 cols=['code', 'nom']
+Q: Which department contains the point at longitude 1.877 and latitude 45.357?
+SELECT d.code, d.nom FROM fr_departements d WHERE ST_Contains(d.geom, ST_Transform(ST_Point(1.877, 45.357), 'EPSG:4326', 'EPSG:2154', always_xy := true)) ORDER BY d.code;
+-> [['19', 'Corrèze']]
+
+## 217 [fr_departements, eu_nuts_regions | medium] rows=10 cols=['nuts_id', 'nuts_name', 'dept_count']
+Q: Using fr_departements and eu_nuts_regions, for each French NUTS 3 region (levl_code = 3 and cntr_code = 'FR'), count how many French departements have their centroid inside it. Return nuts_id, nuts_name, and dept_count, ordered by dept_count descending then nuts_id, limit 10.
+WITH nuts3_2154 AS (SELECT nuts_id, nuts_name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:2154', always_xy := true) AS geom_2154 FROM eu_nuts_regions WHERE levl_code = 3 AND cntr_code = 'FR'), dept_centroids AS (SELECT code, ST_Centroid(geom) AS centroid_2154 FROM fr_departements) SELECT n.nuts_id, n.nuts_name, COUNT(d.code) AS dept_count FROM nuts3_2154 n LEFT JOIN dept_centroids d ON ST_Contains(n.geom_2154, d.centroid_2154) GROUP BY n.nuts_id, n.nuts_name ORDER BY dept_count DESC, n.nuts_id LIMIT 10;
+-> [['FR101', 'Paris', '1'], ['FR102', 'Seine-et-Marne', '1'], ['FR103', 'Yvelines', '1']]
+
+## 218 [fr_departements | easy] rows=96 cols=['code', 'nom', 'area_km2', 'cumulative_area_km2']
+Q: Order departments by their department number and show the running total of their areas in square kilometres, so each row includes the cumulative area of all departments up to that department number.
+WITH dept AS (SELECT code, nom, ST_Area(geom)/1000000.0 AS area_km2 FROM fr_departements) SELECT code, nom, ROUND(area_km2, 2) AS area_km2, ROUND(SUM(area_km2) OVER (ORDER BY code ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 2) AS cumulative_area_km2 FROM dept ORDER BY code;
+-> [['01', 'Ain', '5774.89', '5774.89'], ['02', 'Aisne', '7419.55', '13194.43'], ['03', 'Allier', '7365.4', '20559.83']]
+
+## 219 [ghcn_stations, countries | easy] rows=12 cols=['name', 'area_km2']
+Q: List the name and area in square kilometers of African countries with an area greater than 1,000,000 square kilometers, sorted by area descending.
+SELECT name, ST_Area_Spheroid(geometry)/1e6 AS area_km2 FROM countries WHERE continent = 'Africa' AND ST_Area_Spheroid(geometry)/1e6 > 1000000 ORDER BY area_km2 DESC;
+-> [['Dem. Rep. Congo', '2324449.5873622685'], ['Algeria', '2319293.3613117505'], ['Sudan', '1856670.5368150643']]
+
+## 220 [fr_departements, eu_nuts_regions | medium] rows=3 cols=['nuts_name', 'cntr_code', 'centre_label']
+Q: For the regions Asturias, Osječko-baranjska županija, and Bilecik, show the region name, the country code, and a formatted label with the centre latitude and longitude rounded to four decimal places, in the form 'lat, lon'.
+SELECT nuts_name, cntr_code, printf('%.4f, %.4f', ROUND(ST_Y(ST_Centroid(geometry)), 4), ROUND(ST_X(ST_Centroid(geometry)), 4)) AS centre_label FROM eu_nuts_regions WHERE nuts_name IN ('Asturias', 'Osječko-baranjska županija', 'Bilecik') ORDER BY nuts_name;
+-> [['Asturias', 'ES', '43.2969, -5.9855'], ['Bilecik', 'TR', '40.1067, 30.0882'], ['Osječko-baranjska županija', 'HR', '45.5680, 18.4624']]
+
+## 221 [fr_departements | easy] rows=6 cols=['code', 'nom']
+Q: Using fr_departements, list the code and nom of every department that touches Ille-et-Vilaine (code '35'). Exclude Ille-et-Vilaine itself. Output columns: code, nom ordered by code.
+SELECT b.code, b.nom FROM fr_departements a JOIN fr_departements b ON ST_Touches(a.geom, b.geom) WHERE a.code = '35' AND b.code <> '35' ORDER BY b.code;
+-> [['22', "Côtes-d'Armor"], ['44', 'Loire-Atlantique'], ['49', 'Maine-et-Loire']]
+
+## 222 [fr_departements, geonames_cities | medium] rows=3 cols=['code', 'nom']
+Q: List the departments that share a boundary with Paris (department code 75), excluding Paris itself.
+SELECT d.code, d.nom FROM fr_departements d JOIN fr_departements p ON p.code = '75' WHERE d.code <> '75' AND ST_Touches(d.geom, p.geom) ORDER BY d.code
+-> [['92', 'Hauts-de-Seine'], ['93', 'Seine-Saint-Denis'], ['94', 'Val-de-Marne']]
+
+## 223 [ghcn_stations | hard] rows=1 cols=['perimeter_km']
+Q: Give the spheroidal perimeter length in kilometers of the convex hull of all GHCN stations with FIPS country code AS.
+WITH hull AS (SELECT ST_ConvexHull(ST_Union_Agg(ST_Point(longitude, latitude))) AS geom FROM ghcn_stations WHERE country_code = 'AS') SELECT ST_Length_Spheroid(ST_Boundary(geom))/1000 AS perimeter_km FROM hull;
+-> [['19215.311559239766']]

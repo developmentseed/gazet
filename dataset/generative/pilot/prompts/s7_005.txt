@@ -1,0 +1,39 @@
+You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
+
+Below are the tables available. Each is a DuckDB view with exactly the columns shown.
+
+TABLE nyc_taxi_trips  -- Sample of NYC yellow taxi trips, Jan 2024. PULocationID/DOLocationID reference nyc_taxi_zones.location_id. No geometry. rows=200000
+  VendorID INTEGER  -- range=[1, 6]
+  tpep_pickup_datetime TIMESTAMP  -- range=[2009-01-01 23:30:39, 2024-01-31 23:58:56]
+  tpep_dropoff_datetime TIMESTAMP  -- range=[2009-01-02 00:01:39, 2024-02-01 18:47:04]
+  passenger_count BIGINT  -- range=[0, 8]
+  trip_distance DOUBLE  -- range=[0.0, 38131.83]
+  RatecodeID BIGINT  -- range=[1, 99]
+  PULocationID INTEGER  -- range=[1, 265]
+  DOLocationID INTEGER  -- range=[1, 265]
+  payment_type BIGINT  -- range=[0, 4]
+  fare_amount DOUBLE  -- range=[-404.1, 5000.0]
+  extra DOUBLE  -- range=[-7.5, 14.25]
+  mta_tax DOUBLE  -- range=[-0.5, 4.0]
+  tip_amount DOUBLE  -- range=[-3.9, 140.0]
+  tolls_amount DOUBLE  -- range=[-60.0, 115.92]
+  improvement_surcharge DOUBLE  -- range=[-1.0, 1.0]
+  total_amount DOUBLE  -- range=[-426.54, 5000.0]
+  congestion_surcharge DOUBLE  -- range=[-2.5, 2.5]
+  Airport_fee DOUBLE  -- range=[-1.75, 1.75]
+
+Write 6 diverse (question, sql) pairs for these tables.
+- Focus skill: nested Overture-style data: struct fields, lists, UNNEST, list functions, JSON-like attributes
+- Difficulty: hard
+- Question style: terse keyword-style requests a GIS analyst types into a search box
+
+Rules:
+- SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
+- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Only reference values that plausibly exist in the data (use the top values / ranges shown). The query should return at least one row.
+- Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
+- Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
+- Make the 6 pairs differ in intent, not just in literal values.
+
+Return ONLY a JSON array, no markdown fences:
+[{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "hard"}]

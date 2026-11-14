@@ -1,0 +1,38 @@
+[
+  {
+    "question": "For all Brazilian cities that are national or regional capitals, show the smallest convex polygon that encloses them as GeoJSON.",
+    "sql": "SELECT ST_AsGeoJSON(ST_ConvexHull(ST_Union_Agg(geometry))) AS hull FROM populated_places WHERE country = 'Brazil' AND feature_class IN ('Admin-0 capital', 'Admin-1 capital');",
+    "skills": ["ST_ConvexHull", "ST_Union_Agg", "ST_AsGeoJSON"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which countries have territory within 200 kilometers of Nairobi?",
+    "sql": "WITH nairobi AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom FROM populated_places WHERE name = 'Nairobi' AND is_capital = true LIMIT 1), buffer_geom AS (SELECT ST_Buffer(geom, 200000) AS geom FROM nairobi), countries_3857 AS (SELECT name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', always_xy := true) AS geom FROM countries) SELECT c.name FROM countries_3857 c, buffer_geom b WHERE ST_Intersects(c.geom, b.geom) ORDER BY c.name;",
+    "skills": ["ST_Buffer", "ST_Intersects", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "In Kenya, show the parts of the country that are more than 50 kilometers away from any populated place.",
+    "sql": "WITH kenya AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32737', always_xy := true) AS geom FROM countries WHERE name = 'Kenya'), places AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32737', always_xy := true) AS geom FROM populated_places WHERE country = 'Kenya'), buffers AS (SELECT ST_Union_Agg(ST_Buffer(geom, 50000)) AS geom FROM places) SELECT ST_AsGeoJSON(ST_Difference(kenya.geom, buffers.geom)) AS remote_areas FROM kenya, buffers;",
+    "skills": ["ST_Buffer", "ST_Union_Agg", "ST_Difference", "ST_AsGeoJSON", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the approximate center of all cities with more than 10 million people, as longitude and latitude?",
+    "sql": "SELECT ST_X(ST_Centroid(ST_Union_Agg(geometry))) AS longitude, ST_Y(ST_Centroid(ST_Union_Agg(geometry))) AS latitude FROM populated_places WHERE pop_max > 10000000;",
+    "skills": ["ST_Centroid", "ST_Union_Agg", "ST_X", "ST_Y"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "How much land area of each country falls within 500 kilometers of Cairo? List the country names and square kilometers.",
+    "sql": "WITH cairo AS (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:32636', always_xy := true) AS geom FROM populated_places WHERE name = 'Cairo' AND is_capital = true LIMIT 1), buffer_geom AS (SELECT ST_Buffer(geom, 500000) AS geom FROM cairo), countries_utm AS (SELECT name, ST_Transform(geometry, 'EPSG:4326', 'EPSG:32636', always_xy := true) AS geom FROM countries) SELECT c.name, ST_Area(ST_Intersection(c.geom, b.geom)) / 1000000 AS area_km2 FROM countries_utm c, buffer_geom b WHERE ST_Intersects(c.geom, b.geom) ORDER BY area_km2 DESC;",
+    "skills": ["ST_Buffer", "ST_Intersection", "ST_Area", "ST_Transform"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "If we draw a 100 km circle around every capital city in Europe and merge them into one shape, how many square kilometers does that combined area cover?",
+    "sql": "WITH european_capitals AS (SELECT ST_Transform(p.geometry, 'EPSG:4326', 'EPSG:3035', always_xy := true) AS geom FROM populated_places p JOIN countries c ON p.country = c.name WHERE p.is_capital = true AND c.continent = 'Europe'), merged_buffers AS (SELECT ST_Union_Agg(ST_Buffer(geom, 100000)) AS geom FROM european_capitals) SELECT ST_Area(geom) / 1000000 AS area_km2 FROM merged_buffers;",
+    "skills": ["ST_Buffer", "ST_Union_Agg", "ST_Area", "ST_Transform"],
+    "difficulty": "medium"
+  }
+]

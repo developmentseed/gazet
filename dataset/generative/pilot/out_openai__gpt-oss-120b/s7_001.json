@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the count of major airports in each 10-degree longitude band worldwide.",
+    "sql": "WITH bands AS ( SELECT value AS band_start, ST_MakeEnvelope(value, -90, value + 10, 90, 4326) AS geom FROM generate_series(-180, 170, 10) AS gs(value) ) SELECT b.band_start, COUNT(a.*) AS airport_count FROM bands b LEFT JOIN airports a ON ST_Intersects(a.geometry, b.geom) WHERE a.type LIKE '%major%' GROUP BY b.band_start ORDER BY b.band_start;",
+    "skills": ["spatial join", "aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the IATA codes and names of airports that lie within 100 km of Kansas City.",
+    "sql": "WITH target AS ( SELECT ST_Transform(ST_Point(-94.5786, 39.0997), 'EPSG:4326', 'EPSG:3857', true) AS geom ) SELECT a.iata_code, a.name FROM airports a, target t WHERE ST_Distance( ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:3857', true), t.geom ) <= 100000;",
+    "skills": ["spatial join", "distance", "aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "How many airports of each scalerank are located inside Europe?",
+    "sql": "WITH europe AS ( SELECT ST_MakeEnvelope(-10, 35, 40, 71, 4326) AS geom ) SELECT a.scalerank, COUNT(*) AS airport_count FROM airports a, europe e WHERE ST_Intersects(a.geometry, e.geom) GROUP BY a.scalerank ORDER BY airport_count DESC;",
+    "skills": ["spatial join", "aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find the airport that is farthest from any other airport (i.e., with the largest nearest‑neighbor distance).",
+    "sql": "WITH nearest AS ( SELECT a.name, a.iata_code, MIN(ST_Distance( ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:3857', true), ST_Transform(b.geometry, 'EPSG:4326', 'EPSG:3857', true) )) AS nearest_dist_m FROM airports a JOIN airports b ON a.iata_code <> b.iata_code GROUP BY a.name, a.iata_code ) SELECT name, iata_code, nearest_dist_m FROM nearest ORDER BY nearest_dist_m DESC LIMIT 1;",
+    "skills": ["spatial join", "distance", "aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Provide a GeoJSON polygon representing the combined 10 km buffers around all military airports in the United States.",
+    "sql": "WITH us_box AS ( SELECT ST_MakeEnvelope(-125, 24, -66, 49, 4326) AS geom ), military AS ( SELECT a.geometry FROM airports a, us_box u WHERE a.type LIKE '%military%' AND ST_Intersects(a.geometry, u.geom) ) SELECT ST_AsGeoJSON( ST_Union( ST_Transform( ST_Buffer( ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857', true), 10000 ), 'EPSG:3857', 'EPSG:4326', true ) ) ) AS geojson FROM military;",
+    "skills": ["spatial join", "buffer", "aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare the number of airports in South America versus Africa.",
+    "sql": "WITH regions AS ( SELECT 'SouthAmerica' AS name, ST_MakeEnvelope(-82, -55, -34, 13, 4326) AS geom UNION ALL SELECT 'Africa', ST_MakeEnvelope(-17, -35, 51, 38, 4326) AS geom ) SELECT r.name, COUNT(a.*) AS airport_count FROM regions r LEFT JOIN airports a ON ST_Intersects(a.geometry, r.geom) GROUP BY r.name ORDER BY r.name;",
+    "skills": ["spatial join", "aggregation"],
+    "difficulty": "medium"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Which countries have more than 5 major airports within their borders, and what is the total estimated population of those countries?",
+    "sql": "SELECT c.name, SUM(c.pop_est) AS total_population FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE a.type IN ('major', 'major and military') GROUP BY c.name HAVING COUNT(a.*) > 5",
+    "skills": ["spatial join", "aggregation", "filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "List the top 10 countries by GDP where at least one airport has an IATA code starting with 'A' and the airport is within 100 kilometers of the country's centroid.",
+    "sql": "WITH filtered_airports AS (SELECT * FROM airports WHERE iata_code LIKE 'A%') SELECT c.name, c.gdp_md FROM countries c JOIN filtered_airports a ON ST_Distance(ST_Centroid(c.geometry), a.geometry) < 100 AND ST_Contains(c.geometry, a.geometry) ORDER BY c.gdp_md DESC LIMIT 10",
+    "skills": ["spatial join", "distance filtering", "pattern matching"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each continent, calculate the number of airports located within countries having an economy classified as 'Developed region: G7'.",
+    "sql": "SELECT c.continent, COUNT(*) AS airport_count FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.economy = '1. Developed region: G7' GROUP BY c.continent",
+    "skills": ["spatial join", "aggregation", "filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Identify countries where the average distance from all contained airports to the country’s centroid exceeds 500 km, assuming distances are measured using a suitable projected coordinate system.",
+    "sql": "WITH transformed_geoms AS (SELECT c.name AS country_name, c.geometry AS country_geom, a.geometry AS airport_geom, ST_Transform(c.geometry, '+proj=longlat +datum=WGS84', '+proj=aeqd +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +units=m', always_xy := true) AS trans_country_geom, ST_Transform(a.geometry, '+proj=longlat +datum=WGS84', '+proj=aeqd +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +units=m', always_xy := true) AS trans_airport_geom FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry)), avg_distances AS (SELECT country_name, AVG(ST_Distance(trans_country_geom, trans_airport_geom)) AS avg_dist FROM transformed_geoms GROUP BY country_name) SELECT country_name FROM avg_distances WHERE avg_dist > 500000",
+    "skills": ["spatial transformation", "distance calculation", "aggregation"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "Find European countries with fewer than 3 airports categorized as 'mid' or 'mid and military', returning the full country name and its income group classification.",
+    "sql": "SELECT c.name_long, c.income_grp FROM countries c LEFT JOIN (SELECT a.*, c.iso_a3 FROM airports a JOIN countries c ON ST_Contains(c.geometry, a.geometry) WHERE a.type IN ('mid', 'mid and military')) ap ON c.iso_a3 = ap.iso_a3 WHERE c.continent = 'Europe' GROUP BY c.name_long, c.income_grp HAVING COUNT(ap.*) < 3",
+    "skills": ["spatial join", "left join", "group filtering"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "What percentage of global GDP does the sum of GDPs represent for countries that contain at least one military airport (type includes 'military')?",
+    "sql": "WITH military_countries AS (SELECT DISTINCT c.iso_a3, c.gdp_md FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE a.type LIKE '%military%'), total_gdp AS (SELECT SUM(gdp_md) AS world_gdp FROM countries), military_gdp AS (SELECT SUM(mc.gdp_md) AS mil_gdp FROM military_countries mc) SELECT (mil_gdp * 100.0 / world_gdp) AS percentage_of_global_gdp FROM total_gdp, military_gdp",
+    "skills": ["spatial join", "aggregation", "percentage calculation"],
+    "difficulty": "hard"
+  }
+]

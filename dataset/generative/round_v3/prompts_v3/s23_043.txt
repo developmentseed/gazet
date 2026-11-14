@@ -1,0 +1,54 @@
+You are generating training data for a small text-to-SQL model that writes DuckDB SQL (with the spatial extension loaded) for geospatial questions.
+
+Below are the tables available. Each is a DuckDB view with exactly the columns shown.
+
+TABLE lisbon_places  -- Overture Maps places (POIs, points) in Lisbon. EPSG:4326. rows=52807
+  id VARCHAR  -- distinct~53391 e.g. ['caf09775-8e71-4080-a567-e0d944152d4f', 'a6975379-a3ea-453d-90d9-f4c8f0e08b55']
+  names STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[])  -- example={'primary': '벨렘탑', 'common': None, 'rules': None}
+  basic_category VARCHAR  -- distinct~229 top=['restaurant', 'personal_or_beauty_service', 'fashion_and_apparel_store', 'professional_service', 'wellness_service', 'real_estate_service']
+  taxonomy STRUCT("primary" VARCHAR, hierarchy VARCHAR[], alternates VARCHAR[])  -- example={'primary': 'historic_site', 'hierarchy': ['cultural_and_historic', 'historic_site'], 'alternates': None}
+  confidence DOUBLE  -- range=[0.0, 1.0]
+  operating_status VARCHAR  -- distinct~3 top=['open', 'permanently_closed', 'temporarily_closed']
+  websites VARCHAR[]  -- example=['http://www.torrebelem.pt/']
+  socials VARCHAR[]  -- example=['https://www.facebook.com/563315307113311']
+  phones VARCHAR[]  -- example=['+351933158503']
+  addresses STRUCT(freeform VARCHAR, locality VARCHAR, postcode VARCHAR, region VARCHAR, country VARCHAR)[]  -- example=[{'freeform': None, 'locality': 'Lisboa', 'postcode': None, 'region': None, 'country': 'PT'}]
+  brand STRUCT(wikidata VARCHAR, "names" STRUCT("primary" VARCHAR, common MAP(VARCHAR, VARCHAR), rules STRUCT(variant VARCHAR, "language" VARCHAR, perspectives STRUCT("mode" VARCHAR, countries VARCHAR[]), "value" VARCHAR, "between" DOUBLE[], side VARCHAR)[]))  -- example={'wikidata': None, 'names': {'primary': None, 'common': None, 'rules': None}}
+  geometry GEOMETRY('OGC:CRS84')  -- types=['POINT'] extent=[-9.25, 38.68, -9.091, 38.8]
+
+Real data to ground the questions in (use these names, categories and coordinates as literals):
+
+REAL ROWS from lisbon_places (random sample; centroid lon/lat):
+  names.primary=Revitaliza o teu eu interior encontra..., basic_category=behavioral_or_mental_health_clinic, taxonomy.primary=psychotherapy, confidence=0.2738989591598511, lon=-9.1671, lat=38.7166
+  names.primary=Cafetaria Estado D'Alma, confidence=0.5609161257743835, lon=-9.213, lat=38.6958
+  names.primary=Nicolau Lisboa, basic_category=cafe, taxonomy.primary=cafe, confidence=0.9974087941646576, lon=-9.1362, lat=38.7105
+  names.primary=Zip Gum Boogie, basic_category=second_hand_store, taxonomy.primary=second_hand_store, confidence=0.9190082550048828, lon=-9.141, lat=38.7131
+  names.primary=PURIFICACION GARCIA | Lisbon, basic_category=fashion_and_apparel_store, taxonomy.primary=clothing_store, confidence=0.9462013113498687, lon=-9.1442, lat=38.7193
+ALL VALUES in lisbon_places:
+  operating_status: ['open', 'permanently_closed', 'temporarily_closed']
+
+Write 6 diverse (question, sql) pairs for these tables.
+- Focus skill: measurement in real units (area/length via ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS)
+- Difficulty: medium
+- Question style: full natural sentences from a non-technical user who does not know column names
+
+Rules:
+- SQL must be a single read-only DuckDB SELECT (CTEs allowed) that runs on exactly these tables and columns. Use only DuckDB / DuckDB-spatial functions.
+- Geometries are EPSG:4326 lon/lat degrees. Use spheroid functions or ST_Transform(geom, 'EPSG:4326', '<metric EPSG>', always_xy := true) when the question asks for metres/km. Note ST_Distance on 4326 returns degrees.
+- Only use literal values (names, categories, codes) that appear in the real rows, value lists or top values above. The query should return at least one row.
+- Do not name places, neighbourhoods or landmarks that are not in the data. If a question needs an area or point that is not a row in the data, give its coordinates explicitly in the question.
+- Never measure distances, buffers or areas in EPSG:3857 (Web Mercator) or EPSG:6933; their scale is wrong away from the equator. Use the spheroid functions or a local metric CRS (UTM zone or national grid).
+- Results must be deterministic: no current_date, now() or random(); whenever you use LIMIT, ORDER BY columns that make the order unique.
+- Watch join fan-out: do not SUM a per-country (or per-parent) value after joining to many child rows.
+- Return geometries as ST_AsGeoJSON(...) only when the user would want the shape; otherwise return attributes.
+- Every question must be answerable from the data alone and must not mention column or table names unless the style says so.
+- Make the 6 pairs differ in intent, not just in literal values.
+
+DuckDB spatial is NOT PostGIS. `SET geometry_always_xy = true` is active (lon/lat order). Differences that matter:
+- No SRID arguments and no ST_SetSRID: ST_MakeEnvelope(xmin, ymin, xmax, ymax), ST_GeomFromText(wkt), ST_Point(lon, lat).
+- ST_Transform takes CRS strings, not integers: ST_Transform(geom, 'EPSG:4326', 'EPSG:3763', always_xy := true).
+- No GEOGRAPHY type and no 'spheroid' / use_spheroid argument on ST_Distance or ST_Area. For metres use ST_Distance_Sphere / ST_Distance_Spheroid / ST_DWithin_Spheroid (POINT inputs only), ST_Area_Spheroid, ST_Length_Spheroid, or ST_Transform to a metric CRS. For distances involving lines or polygons, transform to a metric CRS first.
+- ST_Collect takes a list: ST_Collect(list(geom)). Aggregates are ST_Union_Agg(geom) and ST_Extent_Agg(geom).
+
+Return ONLY a JSON array, no markdown fences:
+[{"question": "...", "sql": "...", "skills": ["..."], "difficulty": "medium"}]

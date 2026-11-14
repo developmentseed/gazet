@@ -1,0 +1,1 @@
+{"id": "s23_018", "tables": ["nyc_taxi_zones", "nyc_taxi_trips"], "skill": "bounding-box and envelope filtering (ST_MakeEnvelope, bbox comparisons, ST_Extent)", "difficulty": "easy", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}

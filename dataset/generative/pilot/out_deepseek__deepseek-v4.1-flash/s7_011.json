@@ -1,0 +1,38 @@
+[
+  {
+    "question": "For African countries with an estimated population above 20 million, count the airports located inside each country and return those with at least 3 airports, ordered by airport count descending.",
+    "sql": "SELECT c.name AS country, COUNT(*) AS airport_count FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.continent = 'Africa' AND c.pop_est > 20000000 GROUP BY c.name HAVING COUNT(*) >= 3 ORDER BY airport_count DESC, country;",
+    "skills": ["spatial join", "aggregation", "filtering", "having"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For each continent, count airports located in countries whose GDP per capita exceeds 10,000 USD, and return continents with at least 10 such airports, ordered by count descending.",
+    "sql": "SELECT c.continent, COUNT(*) AS airport_count FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.pop_est > 0 AND c.gdp_md > 0 AND (c.gdp_md * 1000000.0 / c.pop_est) > 10000 GROUP BY c.continent HAVING COUNT(*) >= 10 ORDER BY airport_count DESC, c.continent;",
+    "skills": ["spatial join", "aggregation", "derived metric", "having"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For Asian countries, count airports with an importance rank of 4 or lower and no military designation, and return countries with at least 5 such airports, ordered by count descending.",
+    "sql": "SELECT c.name AS country, COUNT(*) AS civil_major_airport_count FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.continent = 'Asia' AND a.scalerank <= 4 AND a.type NOT LIKE '%military%' GROUP BY c.name HAVING COUNT(*) >= 5 ORDER BY civil_major_airport_count DESC, country;",
+    "skills": ["spatial join", "aggregation", "filtering", "having"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For South American countries, count major airports and mid airports separately, returning countries that have at least one major airport, ordered by major airport count descending.",
+    "sql": "SELECT c.name AS country, COUNT(*) FILTER (WHERE a.type LIKE '%major%') AS major_airport_count, COUNT(*) FILTER (WHERE a.type LIKE '%mid%') AS mid_airport_count FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE c.continent = 'South America' GROUP BY c.name HAVING COUNT(*) FILTER (WHERE a.type LIKE '%major%') >= 1 ORDER BY major_airport_count DESC, country;",
+    "skills": ["spatial join", "conditional aggregation", "having"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For countries with a land area greater than 1,000,000 square kilometres, count the airports inside each country and return those with at least 10 airports, ordered by count descending.",
+    "sql": "SELECT c.name AS country, COUNT(*) AS airport_count FROM countries c JOIN airports a ON ST_Contains(c.geometry, a.geometry) WHERE ST_Area_Spheroid(c.geometry) > 1000000000000 GROUP BY c.name HAVING COUNT(*) >= 10 ORDER BY airport_count DESC, country;",
+    "skills": ["spatial join", "aggregation", "spheroid area", "having"],
+    "difficulty": "hard"
+  },
+  {
+    "question": "For European countries, count airports within 500 km of the country centroid and return those with at least 5 such airports, ordered by count descending.",
+    "sql": "SELECT c.name AS country, COUNT(*) AS nearby_airport_count FROM countries c JOIN airports a ON ST_DWithin(ST_Transform(ST_Centroid(c.geometry), 'EPSG:4326', 'EPSG:3035', always_xy := true), ST_Transform(a.geometry, 'EPSG:4326', 'EPSG:3035', always_xy := true), 500000) WHERE c.continent = 'Europe' GROUP BY c.name HAVING COUNT(*) >= 5 ORDER BY nearby_airport_count DESC, country;",
+    "skills": ["spatial join", "distance join", "metric transform", "aggregation", "having"],
+    "difficulty": "hard"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Find all restaurants located within 500 meters of the Tagus River waterfront in Lisbon.",
+    "sql": "SELECT lp.names.primary AS name, lp.basic_category, ST_AsGeoJSON(lp.geometry) AS geometry FROM lisbon_places lp WHERE lp.basic_category = 'restaurant' AND ST_Distance(ST_Transform(lp.geometry, 'EPSG:4326', 'EPSG:3857'), (SELECT ST_Transform(geometry, 'EPSG:4326', 'EPSG:3857') FROM lisbon_roads WHERE names.primary LIKE '%Tagus%' LIMIT 1)) < 500",
+    "skills": ["spatial distance filtering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which historic sites are directly touching or intersecting with roads classified as residential?",
+    "sql": "SELECT DISTINCT p.names.primary AS place_name, t.primary AS historic_type FROM lisbon_places p JOIN lisbon_roads r ON ST_Intersects(p.geometry, r.geometry) CROSS JOIN UNNEST(p.taxonomy.hierarchy) AS t(primary) WHERE t.primary = 'historic_site' AND r.class = 'residential'",
+    "skills": ["spatial intersection"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List all open fashion stores that are within the boundaries of the Belém district.",
+    "sql": "WITH belem_boundary AS (SELECT ST_ConvexHull(ST_Collect(geometry)) AS geom FROM lisbon_places WHERE names.primary LIKE '%Belém%') SELECT lp.names.primary AS store_name FROM lisbon_places lp, belem_boundary bb WHERE lp.basic_category = 'fashion_and_apparel_store' AND lp.operating_status = 'open' AND ST_Within(lp.geometry, bb.geom)",
+    "skills": ["spatial containment"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show me parks or green spaces that do not touch any major roadways in Lisbon.",
+    "sql": "WITH park_places AS (SELECT * FROM lisbon_places WHERE basic_category IN ('park', 'garden')), major_roads AS (SELECT * FROM lisbon_roads WHERE class IN ('primary', 'secondary')) SELECT pp.names.primary AS park_name, ST_AsGeoJSON(pp.geometry) AS geometry FROM park_places pp WHERE NOT EXISTS (SELECT 1 FROM major_roads mr WHERE ST_Touches(pp.geometry, mr.geometry))",
+    "skills": ["spatial negation and touches"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "What wellness services are located within 100 meters of a footpath or walking trail?",
+    "sql": "SELECT DISTINCT lp.names.primary AS service_name FROM lisbon_places lp JOIN lisbon_roads lr ON ST_Distance(ST_Transform(lp.geometry, 'EPSG:4326', 'EPSG:3857'), ST_Transform(lr.geometry, 'EPSG:4326', 'EPSG:3857')) < 100 WHERE lp.basic_category = 'wellness_service' AND lr.class = 'footway'",
+    "skills": ["spatial proximity join"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Identify buildings or structures that contain at least one restaurant inside their polygon area.",
+    "sql": "SELECT DISTINCT b.names.primary AS building_name FROM lisbon_places b JOIN lisbon_places r ON ST_Contains(b.geometry, r.geometry) WHERE b.taxonomy.primary IN ('building', 'structure') AND r.basic_category = 'restaurant'",
+    "skills": ["spatial contains"],
+    "difficulty": "medium"
+  }
+]

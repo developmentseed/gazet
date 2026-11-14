@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me a hexagon map of airport counts worldwide, showing the top 20 cells",
+    "sql": "WITH grid AS (SELECT * FROM ST_HexagonGrid(ST_GeomFromText('POLYGON((-180 -90, 180 -90, 180 90, -180 90, -180 -90))', 'EPSG:4326'), 5)) SELECT ST_AsGeoJSON(g.geom) AS hexagon, COUNT(a.name) AS num_airports FROM grid g JOIN airports a ON ST_Intersects(g.geom, a.geometry) GROUP BY g.geom ORDER BY num_airports DESC LIMIT 20",
+    "skills": ["spatial join", "aggregation", "hexagon grid"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the top 10 hexagons containing the most major airports",
+    "sql": "WITH grid AS (SELECT * FROM ST_HexagonGrid(ST_GeomFromText('POLYGON((-180 -90, 180 -90, 180 90, -180 90, -180 -90))', 'EPSG:4326'), 3)) SELECT ST_AsGeoJSON(ST_Centroid(g.geom)) AS center, COUNT(*) AS major_count FROM grid g JOIN airports a ON ST_Intersects(g.geom, a.geometry) WHERE a.type = 'major' GROUP BY g.geom ORDER BY major_count DESC LIMIT 10",
+    "skills": ["spatial join", "aggregation", "hexagon grid", "filter"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare airport counts between continental regions using a hexagon grid",
+    "sql": "WITH grid AS (SELECT * FROM ST_HexagonGrid(ST_GeomFromText('POLYGON((-180 -90, 180 -90, 180 90, -180 90, -180 -90))', 'EPSG:4326'), 4)), joined AS (SELECT g.geom, a.name, CASE WHEN ST_X(ST_Centroid(g.geom)) < -30 THEN 'Americas' WHEN ST_X(ST_Centroid(g.geom)) < 60 THEN 'Europe/Africa' ELSE 'Asia/Oceania' END AS region FROM grid g JOIN airports a ON ST_Intersects(g.geom, a.geometry)) SELECT region, COUNT(*) AS num_airports, COUNT(DISTINCT geom) AS num_cells FROM joined GROUP BY region ORDER BY num_airports DESC",
+    "skills": ["spatial join", "aggregation", "hexagon grid", "comparison"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List major airports with the count of other major airports within 500km",
+    "sql": "SELECT a1.name, a1.iata_code, COUNT(a2.name) AS nearby_major_count FROM airports a1 JOIN airports a2 ON ST_Distance_Spheroid(a1.geometry, a2.geometry) / 1000 <= 500 WHERE a1.type = 'major' AND a2.type = 'major' AND a1.icao_code != a2.icao_code GROUP BY a1.name, a1.iata_code ORDER BY nearby_major_count DESC LIMIT 20",
+    "skills": ["spatial self-join", "aggregation", "distance"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map the number of airports per scalerank using a 10-degree square grid",
+    "sql": "WITH grid AS (SELECT * FROM ST_SquareGrid(ST_GeomFromText('POLYGON((-180 -90, 180 -90, 180 90, -180 90, -180 -90))', 'EPSG:4326'), 10)) SELECT a.scalerank, COUNT(*) AS num_airports, COUNT(DISTINCT g.geom) AS occupied_cells FROM grid g JOIN airports a ON ST_Intersects(g.geom, a.geometry) GROUP BY a.scalerank ORDER BY a.scalerank",
+    "skills": ["spatial join", "aggregation", "square grid"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map the densest airport clusters using a 1-degree hexagon grid",
+    "sql": "WITH grid AS (SELECT * FROM ST_HexagonGrid(ST_GeomFromText('POLYGON((-180 -90, 180 -90, 180 90, -180 90, -180 -90))', 'EPSG:4326'), 1)) SELECT ST_AsGeoJSON(g.geom) AS hexagon, COUNT(a.name) AS num_airports FROM grid g JOIN airports a ON ST_Intersects(g.geom, a.geometry) GROUP BY g.geom ORDER BY num_airports DESC LIMIT 5",
+    "skills": ["spatial join", "aggregation", "hexagon grid", "density"],
+    "difficulty": "medium"
+  }
+]

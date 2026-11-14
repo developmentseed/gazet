@@ -1,0 +1,38 @@
+[
+  {
+    "question": "How far apart in meters are the pickup and dropoff zones for the trip that started on January 2, 2024 at 11:32:44?",
+    "sql": "SELECT ST_Distance_Sphere(ST_Centroid(pu.geom), ST_Centroid(do.geom)) AS distance_m FROM nyc_taxi_trips t JOIN nyc_taxi_zones pu ON t.PULocationID = pu.location_id JOIN nyc_taxi_zones do ON t.DOLocationID = do.location_id WHERE t.tpep_pickup_datetime = '2024-01-02 11:32:44'",
+    "skills": ["ST_Distance_Sphere", "ST_Centroid", "join"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "Which trip had the greatest straight-line distance in meters between its pickup zone and dropoff zone?",
+    "sql": "SELECT t.tpep_pickup_datetime, t.PULocationID, t.DOLocationID, ST_Distance_Sphere(ST_Centroid(pu.geom), ST_Centroid(do.geom)) AS distance_m FROM nyc_taxi_trips t JOIN nyc_taxi_zones pu ON t.PULocationID = pu.location_id JOIN nyc_taxi_zones do ON t.DOLocationID = do.location_id ORDER BY distance_m DESC, t.tpep_pickup_datetime LIMIT 1",
+    "skills": ["ST_Distance_Sphere", "ORDER BY", "LIMIT"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "How many trips started in a zone whose center is within 2 kilometers of the point (-73.98, 40.75)?",
+    "sql": "SELECT COUNT(*) FROM nyc_taxi_trips t JOIN nyc_taxi_zones z ON t.PULocationID = z.location_id WHERE ST_DWithin_Spheroid(ST_Centroid(z.geom), ST_Point(-73.98, 40.75), 2000)",
+    "skills": ["ST_DWithin_Spheroid", "ST_Centroid", "COUNT"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "List the 5 pickup zones that are closest to the point (-73.98, 40.75) and have at least one trip, showing the zone name and distance in meters.",
+    "sql": "SELECT z.zone, ST_Distance_Sphere(ST_Centroid(z.geom), ST_Point(-73.98, 40.75)) AS distance_m FROM nyc_taxi_zones z JOIN (SELECT DISTINCT PULocationID FROM nyc_taxi_trips) t ON z.location_id = t.PULocationID ORDER BY distance_m, z.location_id LIMIT 5",
+    "skills": ["ST_Distance_Sphere", "ORDER BY", "LIMIT", "DISTINCT"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "What is the average straight-line distance in meters between pickup and dropoff zones for trips with a fare greater than $50?",
+    "sql": "SELECT AVG(ST_Distance_Sphere(ST_Centroid(pu.geom), ST_Centroid(do.geom))) AS avg_distance_m FROM nyc_taxi_trips t JOIN nyc_taxi_zones pu ON t.PULocationID = pu.location_id JOIN nyc_taxi_zones do ON t.DOLocationID = do.location_id WHERE t.fare_amount > 50",
+    "skills": ["ST_Distance_Sphere", "AVG", "join"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "How many trips had a pickup zone within 1 mile of the point (-73.98, 40.75) and a dropoff zone within 1 mile of (-73.97, 40.76)?",
+    "sql": "SELECT COUNT(*) FROM nyc_taxi_trips t JOIN nyc_taxi_zones pu ON t.PULocationID = pu.location_id JOIN nyc_taxi_zones do ON t.DOLocationID = do.location_id WHERE ST_DWithin_Spheroid(ST_Centroid(pu.geom), ST_Point(-73.98, 40.75), 1609.34) AND ST_DWithin_Spheroid(ST_Centroid(do.geom), ST_Point(-73.97, 40.76), 1609.34)",
+    "skills": ["ST_DWithin_Spheroid", "ST_Centroid", "COUNT"],
+    "difficulty": "easy"
+  }
+]

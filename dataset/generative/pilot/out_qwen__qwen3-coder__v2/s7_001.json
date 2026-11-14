@@ -1,0 +1,38 @@
+[
+  {
+    "question": "Give me the number of airports within 100 kilometers of London, grouped by airport type.",
+    "sql": "SELECT type, COUNT(*) AS airport_count FROM airports WHERE ST_DWithin_Spheroid(geometry, ST_Point(-0.1278, 51.5074), 100000) GROUP BY type",
+    "skills": ["spatial join with aggregation", "distance filtering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "List all major and military airports located inside the bounding box defined by longitudes -10 to 30 and latitudes 35 to 60.",
+    "sql": "SELECT name, iata_code FROM airports WHERE type IN ('major', 'major and military') AND ST_Intersects(geometry, ST_MakeEnvelope(-10, 35, 30, 60))",
+    "skills": ["bounding box filter", "attribute and spatial filtering"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Map the total count of airports per integer latitude band between 30°N and 60°N.",
+    "sql": "SELECT CAST(ST_Y(geometry) AS INTEGER) AS lat_band, COUNT(*) AS airport_count FROM airports WHERE ST_Y(geometry) BETWEEN 30 AND 60 GROUP BY lat_band ORDER BY lat_band",
+    "skills": ["spatial aggregation", "latitude binning"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Compare the number of airports in Europe (west of 30°E) versus Asia (east of 30°E), excluding Antarctica.",
+    "sql": "SELECT CASE WHEN ST_X(geometry) < 30 THEN 'Europe' ELSE 'Asia' END AS region, COUNT(*) AS airport_count FROM airports WHERE ST_Y(geometry) > -60 GROUP BY region",
+    "skills": ["regional classification", "spatial aggregation"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Find the northernmost airport in each scalerank category that has an IATA code starting with 'S'.",
+    "sql": "SELECT scalerank, name, MAX(ST_Y(geometry)) AS max_lat FROM airports WHERE iata_code LIKE 'S%' GROUP BY scalerank, name ORDER BY scalerank, max_lat DESC",
+    "skills": ["conditional grouping", "extremum selection"],
+    "difficulty": "medium"
+  },
+  {
+    "question": "Show how many airports fall within each 5-degree longitudinal slice across the globe.",
+    "sql": "SELECT FLOOR((ST_X(geometry) + 180) / 5) * 5 - 180 AS lon_slice_start, COUNT(*) AS airport_count FROM airports GROUP BY lon_slice_start ORDER BY lon_slice_start",
+    "skills": ["longitude slicing", "spatial aggregation"],
+    "difficulty": "medium"
+  }
+]

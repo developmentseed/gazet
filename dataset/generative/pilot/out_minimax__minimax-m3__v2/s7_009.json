@@ -1,0 +1,38 @@
+[
+  {
+    "question": "geojson footway sidewalk",
+    "sql": "SELECT ST_AsGeoJSON(geometry) AS geom FROM lisbon_roads WHERE class = 'footway' AND subclass = 'sidewalk' LIMIT 1",
+    "skills": ["ST_AsGeoJSON"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "wkt residential road",
+    "sql": "SELECT ST_AsText(geometry) AS wkt, names.primary AS name FROM lisbon_roads WHERE class = 'residential' AND names.primary IS NOT NULL LIMIT 1",
+    "skills": ["ST_AsText"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "start point lon lat tertiary",
+    "sql": "SELECT ST_X(ST_StartPoint(geometry)) AS lon, ST_Y(ST_StartPoint(geometry)) AS lat FROM lisbon_roads WHERE class = 'tertiary' LIMIT 1",
+    "skills": ["ST_X", "ST_Y", "ST_StartPoint"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "round midpoint secondary 5 decimals",
+    "sql": "SELECT ROUND(ST_X(ST_Centroid(geometry)), 5) AS mid_lon, ROUND(ST_Y(ST_Centroid(geometry)), 5) AS mid_lat FROM lisbon_roads WHERE class = 'secondary' LIMIT 1",
+    "skills": ["ROUND", "ST_Centroid"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "name class label concat",
+    "sql": "SELECT names.primary AS name, UPPER(class) AS class_upper, class || ' (' || COALESCE(subclass, 'none') || ')' AS class_label FROM lisbon_roads WHERE names.primary IS NOT NULL LIMIT 5",
+    "skills": ["string formatting", "CONCAT", "COALESCE"],
+    "difficulty": "easy"
+  },
+  {
+    "question": "length km tertiary roads top 5",
+    "sql": "SELECT names.primary AS name, ROUND(ST_Length_Spheroid(geometry) / 1000.0, 2) AS km FROM lisbon_roads WHERE class = 'tertiary' AND names.primary IS NOT NULL ORDER BY km DESC LIMIT 5",
+    "skills": ["ST_Length_Spheroid", "ROUND"],
+    "difficulty": "easy"
+  }
+]

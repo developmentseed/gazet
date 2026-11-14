@@ -1,0 +1,1 @@
+{"id": "s7_005", "tables": ["nyc_taxi_trips"], "skill": "nested Overture-style data: struct fields, lists, UNNEST, list functions, JSON-like attributes", "difficulty": "hard", "style": "terse keyword-style requests a GIS analyst types into a search box", "k": 6}
