@@ -10,7 +10,7 @@ pinned: false
 
 # Gazet SQL demo
 
-A 0.8B model fine-tuned to write DuckDB spatial SQL from a question and table descriptions, running on CPU with
+A 0.6B model (Qwen3-0.6B, fine-tuned and then trained with RL on an execution reward) that writes DuckDB spatial SQL from a question and table descriptions, running on CPU with
 llama.cpp, the same way it would run on a laptop. Pick tables, ask a question, and the app shows the SQL, runs it
 on the data, and maps the result.
 
@@ -21,7 +21,7 @@ Source: `dataset/generative/demo/` in the gazet repository (`deploy.sh` builds t
 
 ## Run locally
 
-Needs Python 3.12, a llama.cpp build with Qwen3.5 support (release b11935 or later; `brew install llama.cpp` on a Mac)
+Needs Python 3.12, a llama.cpp build (release b11935 or later; `brew install llama.cpp` on a Mac)
 and an HF token with read access to the private repos (`hf auth login`).
 
 ```bash
@@ -31,7 +31,7 @@ cd /tmp/gazet-demo && uv venv -p 3.12 && uv pip install -r requirements.txt
 LLAMA_SERVER=$(which llama-server) .venv/bin/python app.py    # then open http://localhost:7860
 ```
 
-The first start downloads the data (137 MB) and the model (834 MB).
+The first start downloads the data (193 MB) and the model (640 MB).
 
 ## Hosting
 
