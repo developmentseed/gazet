@@ -34,7 +34,8 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | Schema variety (v2) | done | 15 new tables (`build_lake_more.py`), 8 chunks via `train_v2.sh` (~$92 key total); gold v2 (158 pairs, 2 held-out tables), dev v2 (`dev/dev_new_v1.jsonl`, 313 pairs); export `chatml/v2` 30,660 train + 1,068 val, `chatml/v2_cap250` 18,528 |
 | Size sweep (v2) | done | 9 models, results in `REVIEW.md` ("Size sweep v2") and `eval/sweep_v2/`: Qwen2.5-Coder-0.5B best speed/quality (gold v1 48%, 2.5 s/query on the laptop), Qwen3-0.6B best small on gold v2 (46%), 2B best overall (59/63%); below 0.5B unusable |
 | RL headroom | done | pass@8 (`passk.py`, `REVIEW.md`): Coder-0.5B 48->67 gold v1, Qwen3-0.6B 48->69 / gold v2 46->72; both reach 2B greedy |
-| **RL (GRPO)** | **next, awaiting Daniel** | execution-match reward on training-table questions that passed the solver check; small test run first |
+| RL (GRPO) run 1 | done | `rl-q3-06b` (lr 5e-6): gold v1 48->55% (+6.7, paired CI +3.5..+10.2), dev +4, gold v2 unchanged; GGUF in the model repo. Questions: `rl_data.py` -> dataset `rl/v1` (3,046); launcher `runs/rl/launch_full.sh` |
+| **RL run 2** | **running** | `rl-q3-06b-lr2e5` (lr 2e-5), job list in `runs/rl/rl_jobs.txt` |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**

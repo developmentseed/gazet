@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -44,7 +45,14 @@ def solve(pairs):
     def one(pair):
         model = solver_for(pair.get("source", ""))
         prompt = SYSTEM + "\n\n" + "\n\n".join(cards[t] for t in pair["tables"]) + f"\n\nQuestion: {pair['question']}"
-        resp = call(model, prompt, ["fp8", "bf16", "fp16"], None, key, temperature=0)
+        resp = {"error": "not called"}
+        for attempt in range(3):  # a dropped stream raises instead of returning an error; one question must not end the run
+            try:
+                resp = call(model, prompt, ["fp8", "bf16", "fp16"], None, key, temperature=0)
+                break
+            except Exception as e:  # noqa: BLE001
+                resp = {"error": f"{type(e).__name__}: {e}"}
+                time.sleep(5 * (attempt + 1))
         if "error" in resp:
             return dict(pair, solver=model, solver_sql=None, solver_cost=0)
         text = resp["choices"][0]["message"].get("content") or ""
