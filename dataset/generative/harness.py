@@ -311,7 +311,7 @@ QUERY_TIMEOUT_S = 30
 # The parent polls the child's RSS and kills it past this cap; 4 workers x 1.2 GB fits the ~6 GB free on the laptop VM.
 QUERY_RSS_CAP_MB = int(os.environ.get("GAZET_QUERY_RSS_MB", "1200"))
 # Comparison children run two queries (2x cap each), so fewer of them run at once: 2 x 2.4 GB worst case.
-COMPARE_WORKERS = 2
+COMPARE_WORKERS = int(os.environ.get("GAZET_COMPARE_WORKERS", "2"))  # keep workers x 2 x cap under free RAM
 FORBIDDEN = re.compile(r"\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|COPY|ATTACH|INSTALL|LOAD|PRAGMA|SET)\b", re.IGNORECASE)
 
 

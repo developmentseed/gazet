@@ -11,6 +11,7 @@ Pairs from DeepSeek are solved by GLM and everything else by DeepSeek, so agreem
 """
 import json
 import math
+import os
 import re
 import subprocess
 import sys
@@ -51,7 +52,7 @@ def solve(pairs):
         sql = (m.group(1) if m else text).strip().rstrip(";").strip()
         return dict(pair, solver=model, solver_sql=sql, solver_cost=(resp.get("usage") or {}).get("cost") or 0)
 
-    with ThreadPoolExecutor(8) as ex:
+    with ThreadPoolExecutor(int(os.environ.get("GAZET_SOLVER_WORKERS", "8"))) as ex:  # API calls only
         return list(ex.map(one, pairs))
 
 
