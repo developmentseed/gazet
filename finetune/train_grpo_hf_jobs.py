@@ -91,13 +91,42 @@ def generate(model, tokenizer, rows, batch_size, max_new_tokens):
     return out
 
 
+def prefilter(model, tokenizer, rows, a, reward_fn):
+    """Keep questions the start model answers right in 1..n-1 of n samples (same sampling as GRPO)."""
+    import torch
+    tokenizer.padding_side = "left"
+    texts = [prompt_text(tokenizer, r["messages"]) for r in rows]
+    order = sorted(range(len(rows)), key=lambda i: len(texts[i]))
+    n, counts, t0 = a.num_generations, [0] * len(rows), time.time()
+    for start in range(0, len(order), 16):
+        idx = order[start:start + 16]
+        enc = tokenizer([texts[i] for i in idx], return_tensors="pt", padding=True, add_special_tokens=False).to(model.device)
+        with torch.no_grad():
+            gen = model.generate(**enc, do_sample=True, temperature=a.temperature, num_return_sequences=n,
+                                 max_new_tokens=a.max_completion_length, pad_token_id=tokenizer.pad_token_id)
+        new = gen[:, enc["input_ids"].shape[1]:]
+        comps = [tokenizer.decode(x, skip_special_tokens=True) for x in new]
+        refs = [rows[i]["sql"] for i in idx for _ in range(n)]
+        rewards = reward_fn(None, comps, refs)
+        for j, i in enumerate(idx):
+            counts[i] = int(sum(rewards[j * n:(j + 1) * n]))
+    keep = [r for r, c in zip(rows, counts) if 0 < c < n]
+    print(f"prefilter: {len(keep):,} of {len(rows):,} questions sometimes right "
+          f"(never {sum(c == 0 for c in counts):,}, always {sum(c == n for c in counts):,}) in {(time.time() - t0) / 60:.1f} min")
+    return keep
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run-name", required=True)
     ap.add_argument("--init-run", required=True, help="SFT run whose merged model RL starts from")
     ap.add_argument("--rl-data", default="rl/v1")
     ap.add_argument("--eval-data", default="chatml/v2")
-    ap.add_argument("--max-steps", type=int, default=0, help="0 = one pass over the questions")
+    ap.add_argument("--max-steps", type=int, default=0, help="0 = --epochs passes over the questions")
+    ap.add_argument("--epochs", type=float, default=1)
+    ap.add_argument("--prefilter", action="store_true",
+                    help="sample --num-generations answers per question with the start model first and keep only "
+                         "questions it gets right sometimes (1..n-1 of n): the rest give GRPO no signal")
     ap.add_argument("--prompts-per-step", type=int, default=16)
     ap.add_argument("--num-generations", type=int, default=8)
     ap.add_argument("--lr", type=float, default=5e-6)
@@ -132,9 +161,6 @@ def main():
                                              bias="none", random_state=a.seed, use_gradient_checkpointing="unsloth")
 
     rows = load_jsonl(rl_dir / "train.jsonl")
-    ds = Dataset.from_list([{"prompt": prompt_text(tokenizer, r["messages"]), "ref_sql": r["sql"]} for r in rows])
-    print(f"{len(ds):,} RL questions; example prompt tail:\n{ds[0]['prompt'][-300:]}")
-
     stats = {"calls": 0, "ok": 0}
 
     def execution_reward(prompts, completions, ref_sql, **kw):
@@ -148,7 +174,14 @@ def main():
         stats["ok"] += sum(rewards)
         return rewards
 
-    steps = a.max_steps or len(ds) // a.prompts_per_step
+    if a.prefilter:
+        FastLanguageModel.for_inference(model)
+        rows = prefilter(model, tokenizer, rows, a, execution_reward)
+        FastLanguageModel.for_training(model)
+        stats.update(calls=0, ok=0)
+    ds = Dataset.from_list([{"prompt": prompt_text(tokenizer, r["messages"]), "ref_sql": r["sql"]} for r in rows])
+    print(f"{len(ds):,} RL questions; example prompt tail:\n{ds[0]['prompt'][-300:]}")
+    steps = a.max_steps or int(a.epochs * len(ds) // a.prompts_per_step)
     want = dict(
         output_dir="/tmp/grpo", learning_rate=a.lr, beta=a.beta, temperature=a.temperature,
         num_generations=a.num_generations, per_device_train_batch_size=a.prompts_per_step * a.num_generations,

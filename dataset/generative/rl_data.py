@@ -10,6 +10,11 @@ Usage:
     python rl_data.py pick N          # -> runs/rl/out_<generator>__rl.judged.jsonl (one file per generator)
     python consistency.py run runs/rl/out_<generator>__rl.judged.jsonl      # for each generator
     python rl_data.py write OUT_DIR   # -> OUT_DIR/train.jsonl {"id", "messages": [system, user], "sql"}
+
+Round 2 adds new-style (v2 bundle) questions not used in round 1, checked the same way, into runs/rl2/:
+    python rl_data.py pick-new N
+    python consistency.py run runs/rl2/out_<generator>__rl.judged.jsonl  # for each generator
+    python rl_data.py write2 OUT_DIR  # round 1 + round 2 questions
 """
 import json
 import random
@@ -25,6 +30,7 @@ import student
 
 HERE = Path(__file__).parent
 RUNS = HERE / "runs" / "rl"
+RUNS2 = HERE / "runs" / "rl2"
 GENERATORS = {"out_deepseek": "out_deepseek__deepseek-v4.1-flash", "out_z-ai": "out_z-ai__glm-5.3-flash"}
 SEED = 23
 
@@ -42,10 +48,16 @@ def visible(c, cards, r):
     return not any(hints_mod.norm(v) not in seen for v in hints_mod._filter_literals(sql)), h
 
 
-def pick(n):
+def pick(n, out_dir=RUNS, only_new=False, exclude_dirs=()):
+    """only_new: keep to the v2 (new storage style) bundles; exclude_dirs: skip pairs already picked there."""
+    taken = {json.loads(line)["key"] for d in exclude_dirs for f in Path(d).glob("out_*__rl.judged.jsonl")
+             for line in f.read_text().splitlines() if line.strip()}
+    new = {tuple(b) for b in harness.NEW_BUNDLES}
     by_bundle = defaultdict(list)
     for r in export.train_pairs(v2=True):
         assert not set(r["tables"]) & harness.HELD_OUT
+        if r["key"] in taken or (only_new and tuple(r["tables"]) not in new):
+            continue
         by_bundle[tuple(r["tables"])].append(r)
     rnd = random.Random(SEED)
     for rows in by_bundle.values():
@@ -66,21 +78,22 @@ def pick(n):
             continue
         out[GENERATORS[r["key"].split(":")[0]]].append(r)
         kept += 1
-    RUNS.mkdir(parents=True, exist_ok=True)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
     for gen, rows in out.items():
-        p = RUNS / f"{gen}__rl.judged.jsonl"
+        p = out_dir / f"{gen}__rl.judged.jsonl"
         p.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
         print(f"{gen}: {len(rows)} pairs -> {p}")
     print(f"{kept} pairs from {len(by_bundle)} bundles")
 
 
-def write(out_dir, unchecked=False):
+def write(out_dir, unchecked=False, runs_dirs=(RUNS,)):
     """unchecked=True skips the solver filter (judged candidates as they are), for smoke tests only."""
     c = harness.con()
     cards = {t: harness.schema_card(c, t) for t in harness.TABLE_DOCS}
     rows = []
     pattern = "out_*__rl.judged.jsonl" if unchecked else "out_*__rl.judged.consistency.jsonl"
-    for f in sorted(RUNS.glob(pattern)):
+    for f in sorted(f for d in runs_dirs for f in Path(d).glob(pattern)):
         for line in f.read_text().splitlines():
             r = json.loads(line)
             if not unchecked and (not r["lenient"] or r.get("tie") is True):
@@ -99,4 +112,7 @@ def write(out_dir, unchecked=False):
 
 if __name__ == "__main__":
     {"pick": lambda: pick(int(sys.argv[2])), "write": lambda: write(sys.argv[2]),
-     "write-unchecked": lambda: write(sys.argv[2], unchecked=True)}[sys.argv[1]]()
+     "write-unchecked": lambda: write(sys.argv[2], unchecked=True),
+     # round 2: extra new-style questions not in round 1, then one set from both rounds
+     "pick-new": lambda: pick(int(sys.argv[2]), RUNS2, only_new=True, exclude_dirs=(RUNS,)),
+     "write2": lambda: write(sys.argv[2], runs_dirs=(RUNS, RUNS2))}[sys.argv[1]]()
