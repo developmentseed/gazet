@@ -166,3 +166,23 @@ Table: `eval/passk_v2/report.txt`.
 Both small models reach the 2B's greedy score within 8 tries, so most of their gap is selection, not capacity:
 RL is the right next step. Qwen3-0.6B has more headroom on the new storage styles (gold v2 pass@8 72 vs 59);
 Coder-0.5B is 1.6x faster on the laptop.
+
+## RL run 1: GRPO on Qwen3-0.6B (2026-11-15)
+
+`finetune/train_grpo_hf_jobs.py` from `sql-v2-q3-06b`: 3,046 solver-confirmed training-table questions (`rl_data.py`,
+`rl/v1` in the dataset), 8 answers each, reward 1 for a lenient result match, LoRA r64, lr 5e-6, beta 0.02,
+190 steps, 208 min on an A100. Training reward stayed flat (about 0.70) and KL ended near 0.004, yet the test
+scores rose. Paired change per question against the SFT model (plain prompts, lenient, bootstrap 95%):
+
+| Test | SFT | RL | fixed / broken | change |
+|---|---|---|---|---|
+| gold v1 | 48.2 | 55.0 | 30 / 7 | +6.7 [+3.5, +10.2] |
+| gold v2 | 45.6 | 45.6 | 6 / 6 | 0.0 [-4.4, +3.8] |
+| dev v1 | 74.7 | 78.4 | 53 / 25 | +3.7 [+1.5, +6.0] |
+| dev v2 | 68.1 | 72.8 | 29 / 14 | +4.8 [+1.0, +8.6] |
+
+Execution rate on gold v1 rose from 89% to 93%: fewer broken queries. Gold v1 at 55% is close to the 2B's 59%,
+at a third of its laptop latency. Gold v2 (the new storage styles) did not move, although 41% of the RL questions use
+new-style bundles. Why is open: gold v2 is small (158 questions on 2 tables) and its tables test styles (plain
+lat/lon columns, EPSG:2154 under `geom`) that RL may not reach without more training. A second run with lr 2e-5 is
+running.
