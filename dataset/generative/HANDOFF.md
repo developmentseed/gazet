@@ -33,7 +33,8 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | Demo app | done, not hosted | `demo/` (Gradio + llama-server + DuckDB, runs locally); Docker Spaces need a paid HF plan |
 | Schema variety (v2) | done | 15 new tables (`build_lake_more.py`), 8 chunks via `train_v2.sh` (~$92 key total); gold v2 (158 pairs, 2 held-out tables), dev v2 (`dev/dev_new_v1.jsonl`, 313 pairs); export `chatml/v2` 30,660 train + 1,068 val, `chatml/v2_cap250` 18,528 |
 | Size sweep (v2) | done | 9 models, results in `REVIEW.md` ("Size sweep v2") and `eval/sweep_v2/`: Qwen2.5-Coder-0.5B best speed/quality (gold v1 48%, 2.5 s/query on the laptop), Qwen3-0.6B best small on gold v2 (46%), 2B best overall (59/63%); below 0.5B unusable |
-| **RL headroom** | **next** | pass@8 on Coder-0.5B and Qwen3-0.6B, then RL or distillation from the 2B |
+| RL headroom | done | pass@8 (`passk.py`, `REVIEW.md`): Coder-0.5B 48->67 gold v1, Qwen3-0.6B 48->69 / gold v2 46->72; both reach 2B greedy |
+| **RL (GRPO)** | **next, awaiting Daniel** | execution-match reward on training-table questions that passed the solver check; small test run first |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**

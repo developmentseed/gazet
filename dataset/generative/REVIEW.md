@@ -147,3 +147,22 @@ Findings:
 
 Next: pass@8 on Coder-0.5B and Qwen3-0.6B to size the RL headroom; distillation from the 2B as the cheap alternative;
 2B as the fallback ("system 2") when the small model's SQL fails; diffusion side test on Qwen3-0.6B.
+
+## RL headroom: pass@8 (2026-11-15)
+
+8 samples per question (temperature 0.8, top-p 0.95; `finetune/sample_hf_jobs.py`), scored with `passk.py`
+(lenient execution match, identical SQL run once). "some" = questions right in 1-7 of 8 tries, the RL signal.
+Table: `eval/passk_v2/report.txt`.
+
+| Model | Test | Greedy | pass@8 | never | some | always | Laptop s/query |
+|---|---|---|---|---|---|---|---|
+| Coder-0.5B | gold v1 | 48 | 67 | 33 | 49 | 19 | 2.5 |
+| Coder-0.5B | gold v2 | 35 | 59 | 41 | 39 | 20 | |
+| Qwen3-0.6B | gold v1 | 48 | 69 | 31 | 49 | 20 | 4.1 |
+| Qwen3-0.6B | gold v2 | 46 | 72 | 29 | 54 | 17 | |
+| Qwen3.5-2B | gold v1 | 59 | 80 | 20 | 54 | 26 | 12.4 |
+| Qwen3.5-2B | gold v2 | 63 | 85 | 15 | 58 | 27 | |
+
+Both small models reach the 2B's greedy score within 8 tries, so most of their gap is selection, not capacity:
+RL is the right next step. Qwen3-0.6B has more headroom on the new storage styles (gold v2 pass@8 72 vs 59);
+Coder-0.5B is 1.6x faster on the laptop.
