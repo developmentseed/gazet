@@ -162,7 +162,7 @@ with gr.Blocks(title="Gazet SQL demo") as demo:
                 "Tables marked *(new)* were never seen in training.")
     with gr.Row():
         with gr.Column(scale=2):
-            tables = gr.Dropdown([table_label(t) for t in TABLES], value=["power_plants", "countries"], multiselect=True, label="Tables")
+            tables = gr.Dropdown([table_label(t) for t in TABLES], value=[table_label(t) for t in ("power_plants", "countries")], multiselect=True, label="Tables")
             question = gr.Textbox(label="Question", lines=2, placeholder="e.g. Total solar capacity in MW per country in Africa")
             use_hints = gr.Checkbox(value=True, label="Value hints (look up names from the question in the data)")
             go = gr.Button("Write SQL and run it", variant="primary")
