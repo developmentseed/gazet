@@ -35,7 +35,7 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | Size sweep (v2) | done | 9 models, results in `REVIEW.md` ("Size sweep v2") and `eval/sweep_v2/`: Qwen2.5-Coder-0.5B best speed/quality (gold v1 48%, 2.5 s/query on the laptop), Qwen3-0.6B best small on gold v2 (46%), 2B best overall (59/63%); below 0.5B unusable |
 | RL headroom | done | pass@8 (`passk.py`, `REVIEW.md`): Coder-0.5B 48->67 gold v1, Qwen3-0.6B 48->69 / gold v2 46->72; both reach 2B greedy |
 | RL (GRPO) run 1 | done | `rl-q3-06b` (lr 5e-6): gold v1 48->55% (+6.7, paired CI +3.5..+10.2), dev +4, gold v2 unchanged; GGUF in the model repo. Questions: `rl_data.py` -> dataset `rl/v1` (3,046); launcher `runs/rl/launch_full.sh` |
-| **RL run 2** | **running** | `rl-q3-06b-lr2e5` (lr 2e-5), job list in `runs/rl/rl_jobs.txt` |
+| RL run 2 | done | `rl-q3-06b-lr2e5` (lr 2e-5): gold v1 57% (+8.8 vs SFT), gold v2 49%, dev 80%; best small model, near the 2B (59%) at a third of its laptop latency |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**

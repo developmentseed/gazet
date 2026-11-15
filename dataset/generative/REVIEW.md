@@ -186,3 +186,19 @@ at a third of its laptop latency. Gold v2 (the new storage styles) did not move,
 new-style bundles. Why is open: gold v2 is small (158 questions on 2 tables) and its tables test styles (plain
 lat/lon columns, EPSG:2154 under `geom`) that RL may not reach without more training. A second run with lr 2e-5 is
 running.
+
+## RL run 2: higher learning rate (2026-11-15)
+
+Same as run 1 with lr 2e-5 (`rl-q3-06b-lr2e5`, 197 min). Training reward rose from 0.69 to about 0.75 and KL
+reached about 0.018 (run 1: flat, 0.004). Plain prompts, lenient, paired bootstrap 95%:
+
+| Test | SFT | RL 1 | RL 2 | RL 2 vs SFT | RL 2 vs RL 1 |
+|---|---|---|---|---|---|
+| gold v1 | 48.2 | 55.0 | **57.0** | +8.8 [+5.0, +12.9] | +2.0 [-1.5, +5.6] |
+| gold v2 | 45.6 | 45.6 | 48.7 | +3.2 [-3.2, +9.5] | +3.2 [-3.2, +9.5] |
+| dev v1 | 74.7 | 78.4 | 79.6 | +4.9 [+2.4, +7.3] | +1.2 [-0.9, +3.3] |
+| dev v2 | 68.1 | 72.8 | 73.5 | +5.4 [+1.3, +9.6] | +0.6 [-2.6, +3.8] |
+
+RL 2 is the best small model: gold v1 57% against the 2B's 59%, at about 4 s per query on the laptop (2B: 12 s).
+Its gains over RL 1 point the same way on every test but are each within noise. GGUF:
+`developmentseed/gazet-sql-qwen35/rl-q3-06b-lr2e5/gguf`.
