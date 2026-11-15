@@ -36,6 +36,8 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | RL headroom | done | pass@8 (`passk.py`, `REVIEW.md`): Coder-0.5B 48->67 gold v1, Qwen3-0.6B 48->69 / gold v2 46->72; both reach 2B greedy |
 | RL (GRPO) run 1 | done | `rl-q3-06b` (lr 5e-6): gold v1 48->55% (+6.7, paired CI +3.5..+10.2), dev +4, gold v2 unchanged; GGUF in the model repo. Questions: `rl_data.py` -> dataset `rl/v1` (3,046); launcher `runs/rl/launch_full.sh` |
 | RL run 2 | done | `rl-q3-06b-lr2e5` (lr 2e-5): gold v1 57% (+8.8 vs SFT), gold v2 49%, dev 80%; best small model, near the 2B (59%) at a third of its laptop latency |
+| RL Coder-0.5B | done | `rl-coder05-lr2e5`: gold v1 48->55%, gold v2 35->40%, at 2.5 s/query |
+| **RL round 2** | **running** | `rl2-q3-06b` from `rl-q3-06b-lr2e5`, `rl/v2` (4,744 questions incl. 1,698 new-style), prefilter to sometimes-right; demo serves `rl-q3-06b-lr2e5` |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**

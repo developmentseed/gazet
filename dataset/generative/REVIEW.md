@@ -202,3 +202,19 @@ reached about 0.018 (run 1: flat, 0.004). Plain prompts, lenient, paired bootstr
 RL 2 is the best small model: gold v1 57% against the 2B's 59%, at about 4 s per query on the laptop (2B: 12 s).
 Its gains over RL 1 point the same way on every test but are each within noise. GGUF:
 `developmentseed/gazet-sql-qwen35/rl-q3-06b-lr2e5/gguf`.
+
+## RL on Coder-0.5B (2026-11-15)
+
+Same recipe as RL run 2 (lr 2e-5, `rl/v1`, 190 steps at about 30 s each, 2.5x faster than Qwen3-0.6B) from
+`sql-v2-coder05` -> `rl-coder05-lr2e5`. Plain prompts, lenient, paired bootstrap 95% against its SFT model:
+
+| Test | SFT | RL | change |
+|---|---|---|---|
+| gold v1 | 48.0 | 54.7 | +6.7 [+2.0, +11.7] |
+| gold v2 | 34.8 | 39.9 | +5.1 [+0.0, +10.1] |
+| dev v1 | 71.5 | 77.5 | +6.0 [+3.3, +8.5] |
+| dev v2 | 63.9 | 70.9 | +7.0 [+3.2, +11.2] |
+
+Small-model standings after RL (gold v1 / gold v2, laptop s/query): Qwen3-0.6B RL 57.0 / 48.7 at about 4.1-4.6 s;
+Coder-0.5B RL 54.7 / 39.9 at about 2.5 s. Coder is the faster choice with similar gold v1 accuracy; Qwen3 is
+clearly better on the new storage styles. GGUF: `developmentseed/gazet-sql-qwen35/rl-coder05-lr2e5/gguf`.

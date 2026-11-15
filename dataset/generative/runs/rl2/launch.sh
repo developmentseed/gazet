@@ -10,7 +10,9 @@ D=$HOME/.cache/gazet-exp/rl_v2; rm -rf $D
 .venv/bin/python -I rl_data.py write2 $D || exit 1
 n=$(wc -l < $D/train.jsonl); [ $n -ge 4000 ] || { echo "ONLY $n RL QUESTIONS, not launching"; exit 1; }
 mkdir -p $D/code && cp *.py $D/code/
-hf upload developmentseed/gazet-generative-sql $D rl/v2 --repo-type dataset --commit-message "RL question set v2: round 1 + new-style questions" | tail -1
+# Retry: one reset connection once left rl/v2 missing while the job launched anyway.
+for i in 1 2 3 4; do hf upload developmentseed/gazet-generative-sql $D rl/v2 --repo-type dataset --commit-message "RL question set v2: round 1 + new-style questions" | tail -1 && break; sleep $((i * 15)); done
+hf datasets info developmentseed/gazet-generative-sql | grep -q '"rl/v2/train.jsonl"' || { echo "rl/v2 NOT ON HF, not launching"; exit 1; }
 hf upload developmentseed/gazet-generative-sql runs/rl2 rl/v2/checks --repo-type dataset --include "*.jsonl" --commit-message "RL v2 candidates and solver checks" | tail -1
 cd ~/repos/gazet
 hf jobs uv run --flavor a100-large --timeout 10h --secrets HF_TOKEN --detach --name gazet-rl2-q3-06b \
