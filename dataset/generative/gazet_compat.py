@@ -109,7 +109,10 @@ def gen(label, port, per_family):
                     rec = dict(idx=i, family=r["metadata"].get("task_family"), query=user, pred=pred, ref=ref)
                 else:
                     question, cands = parse_sql_prompt(user)
-                    pred = lm.generate_sql(question, cands)
+                    try:
+                        pred = lm.generate_sql(question, cands)
+                    except RuntimeError as e:  # gazet's client gives up after 90 s (e.g. a runaway answer): the API fails too
+                        pred = f"-- generation failed: {e}"
                     rec = dict(idx=i, family=r["metadata"]["task_family"], query=question, pred=pred,
                                ref=r["messages"][2]["content"])
                 rec["secs"] = round(time.time() - t0, 2)
