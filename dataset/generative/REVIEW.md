@@ -218,3 +218,22 @@ Same recipe as RL run 2 (lr 2e-5, `rl/v1`, 190 steps at about 30 s each, 2.5x fa
 Small-model standings after RL (gold v1 / gold v2, laptop s/query): Qwen3-0.6B RL 57.0 / 48.7 at about 4.1-4.6 s;
 Coder-0.5B RL 54.7 / 39.9 at about 2.5 s. Coder is the faster choice with similar gold v1 accuracy; Qwen3 is
 clearly better on the new storage styles. GGUF: `developmentseed/gazet-sql-qwen35/rl-coder05-lr2e5/gguf`.
+
+## RL round 2 (2026-11-16)
+
+From `rl-q3-06b-lr2e5`, questions `rl/v2` = round 1 (3,046) + 1,698 new solver-checked questions from the new-style
+bundles. Prefilter (8 samples with the start model): 1,515 sometimes right, 2,742 always right (58%), 487 never;
+only the 1,515 were trained on (95 steps, lr 2e-5; prefilter 201 min, training 115 min) -> `rl2-q3-06b`.
+
+| Test | SFT | RL run 2 | RL round 2 | vs RL run 2 | vs SFT |
+|---|---|---|---|---|---|
+| gold v1 | 48.2 | 57.0 | 57.6 | +0.6 [-2.6, +3.5] | +9.4 [+5.3, +13.5] |
+| gold v2 | 45.6 | 48.7 | **57.6** | **+8.9 [+3.2, +14.6]** | +12.0 [+5.7, +19.0] |
+| dev v1 | 74.7 | 79.6 | 80.1 | +0.5 [-1.5, +2.5] | +5.4 [+2.8, +7.8] |
+| dev v2 | 68.1 | 73.5 | 74.1 | +0.6 [-1.9, +3.2] | +6.1 [+2.2, +10.2] |
+
+The targeted new-style questions closed most of the gold v2 gap without losing anything elsewhere. The 0.6B model
+now scores 58% / 58% on the two unseen-table sets against the 2B SFT model's 59% / 63%. Laptop check (q8_0 GGUF,
+llama-server, 60 gold v2 questions): 53% vs 50% for the training job's answers on the same questions, 2.9 s/query.
+The demo now serves this model. 58% of the training questions are always right for it: further RL needs harder
+or newer questions, not more of the same.

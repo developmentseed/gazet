@@ -10,7 +10,7 @@ pinned: false
 
 # Gazet SQL demo
 
-A 0.6B model (Qwen3-0.6B, fine-tuned and then trained with RL on an execution reward) that writes DuckDB spatial SQL from a question and table descriptions, running on CPU with
+A 0.6B model (Qwen3-0.6B, fine-tuned, then two rounds of RL on an execution reward) that writes DuckDB spatial SQL from a question and table descriptions, running on CPU with
 llama.cpp, the same way it would run on a laptop. Pick tables, ask a question, and the app shows the SQL, runs it
 on the data, and maps the result.
 
