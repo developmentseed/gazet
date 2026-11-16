@@ -193,6 +193,10 @@ def exec_geom(sql):
     con.execute("SET threads=2")
     con.execute(f"SET memory_limit='{os.environ.get('GAZET_COMPAT_DUCKDB_MB', '2500')}MB'")
     sql = _normalize_ne_subtypes(_rewrite_data_paths(sql))
+    if os.environ.get("GAZET_COMPAT_VIEWS") == "1":  # variant: plain table names resolve too (a small gazet-side change)
+        from gazet.config import DIVISIONS_AREA_PATH, NATURAL_EARTH_PATH
+        con.execute(f"CREATE VIEW divisions_area AS SELECT * FROM read_parquet('{DIVISIONS_AREA_PATH}')")
+        con.execute(f"CREATE VIEW natural_earth AS SELECT * FROM read_parquet('{NATURAL_EARTH_PATH}')")
     try:
         df = normalize_geometry_to_geojson(con, con.execute(sql).fetchdf())
     except Exception as e:
@@ -248,6 +252,7 @@ def _run(sql, cache):
 
 
 def score(labels):
+    suffix = "__views" if os.environ.get("GAZET_COMPAT_VIEWS") == "1" else ""
     cache_p = OUT / "ref_cache.json"
     cache = json.loads(cache_p.read_text()) if cache_p.exists() else {}
     for label in labels:
@@ -271,10 +276,10 @@ def score(labels):
             ref, pred = cache[r["ref"]], preds[r["pred"]]
             r["ref_error"], r["pred_error"] = ref.get("error"), pred.get("error")
             r["executes"] = "wkt" in pred
-            r["ok"] = "wkt" in ref and "wkt" in pred and same_geom(ref["wkt"], pred["wkt"])
-        (OUT / f"{label}__sql.scored.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+            r["ok"] = bool("wkt" in ref and "wkt" in pred and same_geom(ref["wkt"], pred["wkt"]))
+        (OUT / f"{label}__sql{suffix}.scored.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
         valid = [r for r in rows if not r["ref_error"]]
-        print(f"\n== {label}\nplaces: same place set {p_ok}/{p_n} = {100 * p_ok / p_n:.1f}%")
+        print(f"\n== {label}{suffix}\nplaces: same place set {p_ok}/{p_n} = {100 * p_ok / p_n:.1f}%")
         print(f"sql: reference ran for {len(valid)}/{len(rows)}; executes {100 * sum(r['executes'] for r in valid) / len(valid):.1f}%, "
               f"same geometry {100 * sum(r['ok'] for r in valid) / len(valid):.1f}%; "
               f"median {sorted(r['secs'] for r in rows)[len(rows) // 2]:.1f} s/query")
