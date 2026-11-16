@@ -38,6 +38,7 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | RL run 2 | done | `rl-q3-06b-lr2e5` (lr 2e-5): gold v1 57% (+8.8 vs SFT), gold v2 49%, dev 80%; best small model, near the 2B (59%) at a third of its laptop latency |
 | RL Coder-0.5B | done | `rl-coder05-lr2e5`: gold v1 48->55%, gold v2 35->40%, at 2.5 s/query |
 | RL round 2 | done | `rl2-q3-06b`: gold v1 58%, gold v2 49->58% (+8.9 paired), dev 80%; best small model, served by the demo. 58% of RL questions now always right: next RL needs harder/newer questions |
+| Gazet drop-in test | done | `gazet_compat.py`: old gazet model 59% same geometry / 99.7% places vs rl2-q3-06b 5% / 61%: not a drop-in; needs joint training on gazet-dataset |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**

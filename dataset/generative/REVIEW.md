@@ -237,3 +237,29 @@ now scores 58% / 58% on the two unseen-table sets against the 2B SFT model's 59%
 llama-server, 60 gold v2 questions): 53% vs 50% for the training job's answers on the same questions, 2.9 s/query.
 The demo now serves this model. 58% of the training questions are always right for it: further RL needs harder
 or newer questions, not more of the same.
+
+## Can the new model replace gazet's model? (2026-11-16)
+
+`gazet_compat.py`: the old gazet model (`developmentseed/gazet-model`, Qwen3.5-0.8B LoRA) and `rl2-q3-06b`, both
+through gazet's own production calls (`gazet.lm.generate_places` / `generate_sql`, the llama-server path behind the
+API; prompts captured from gazet.lm, answered on a GPU with each model's chat template, greedy, thinking off, then
+replayed through gazet.lm's parsing). Old test set (`developmentseed/gazet-dataset`), 25 questions per family x 14
+families per task; SQL questions limited to those whose reference returns a geometry on the current gazet-geodata
+(82 of 432 drawn did not: test IDs come from an older Overture release). SQL correct = same returned geometry
+(union IoU >= 0.99, or Hausdorff <= 1e-4 deg).
+
+| | old gazet model | rl2-q3-06b | rl2-q3-06b, plain table names allowed |
+|---|---|---|---|
+| places: same place set | **99.7** | 61.1 | - |
+| sql: executes | 72.3 | 11.1 | 28.6 |
+| sql: same geometry | **59.1** | 4.9 | 7.7 |
+
+Old model per family (same geometry): buffer, disambiguation, window_function 96; attribute_filter 84; direct_lookup
+80; set_operations 68; aggregation, containment, difference 60; partial_selection 44; adjacency 32; intersection 24;
+chained 20; border_corridor 8.
+
+Verdict: not a drop-in replacement. The new model never learned gazet's contract: it writes `FROM divisions_area`
+instead of `read_parquet('divisions_area')` (213/350), uses a `name` column instead of `names."primary"`, queries a
+`candidates` table that is only text in the prompt, often returns no geometry, and translates or swaps place names
+in extraction. Replacing the model behind the unchanged API needs training on gazet's own data (34,780 SQL and the
+places split of `gazet-dataset`), mixed with the generative data so the general skills stay.
