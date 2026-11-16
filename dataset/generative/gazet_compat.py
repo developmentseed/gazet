@@ -121,6 +121,63 @@ def gen(label, port, per_family):
         print(f"{label} {task}: {len(todo)} new answers in {(time.time() - t_all) / 60:.1f} min")
 
 
+# ── GPU path: same prompts and parsing, generation elsewhere ────────────────────
+# gazet's lm functions build the llama-server messages and parse the reply. `prompts` captures the messages they
+# would send (lm._llama_chat_complete patched to record them); a GPU job answers them with the model's own chat
+# template, greedy, as gazet's server settings; `replay` feeds each raw reply back through the same lm functions.
+
+def _patched(lm, reply):
+    sent = []
+
+    def fake(messages):
+        sent.append(messages)
+        return reply(len(sent) - 1)
+    lm._llama_chat_complete = fake
+    return sent
+
+
+def prompts(per_family):
+    sys.path.insert(0, str(REPO / "src"))
+    from gazet import lm
+    OUT.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for task in ("places", "sql"):
+        for i, r in sample(task, per_family):
+            sent = _patched(lm, lambda k: '{"places": []}' if task == "places" else "SELECT 1")
+            user = r["messages"][1]["content"]
+            if task == "places":
+                lm.generate_places(user)
+            else:
+                lm.generate_sql(*parse_sql_prompt(user))
+            rows.append({"id": f"{task}:{i}", "messages": sent[0]})
+    (OUT / "prompts.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    print(f"{len(rows)} prompts -> {OUT / 'prompts.jsonl'}")
+
+
+def replay(label, answers_file):
+    """Turn raw GPU answers ({"id", "text"}) into <label>__{places,sql}.jsonl through gazet's own parsing."""
+    sys.path.insert(0, str(REPO / "src"))
+    from gazet import lm
+    raw = {r["id"]: r for r in map(json.loads, Path(answers_file).read_text().splitlines())}
+    for task in ("places", "sql"):
+        with (OUT / f"{label}__{task}.jsonl").open("w") as f:
+            for i, r in sample(task, 25):
+                a = raw[f"{task}:{i}"]
+                _patched(lm, lambda k: a["text"])
+                user = r["messages"][1]["content"]
+                if task == "places":
+                    pred = [p.place for p in lm.generate_places(user).places]
+                    rec = dict(idx=i, family=r["metadata"].get("task_family"), query=user, pred=pred,
+                               ref=[p["place"] for p in json.loads(r["messages"][2]["content"])["places"]])
+                else:
+                    question, cands = parse_sql_prompt(user)
+                    rec = dict(idx=i, family=r["metadata"]["task_family"], query=question,
+                               pred=lm.generate_sql(question, cands), ref=r["messages"][2]["content"])
+                rec.update(secs=a.get("secs", 0), out_tokens=a.get("out_tokens"))
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    print(f"{label}: replayed {len(raw)} answers")
+
+
 # ── scoring ──────────────────────────────────────────────────────────────────
 
 def exec_geom(sql):
@@ -242,12 +299,20 @@ if __name__ == "__main__":
     g.add_argument("label")
     g.add_argument("port", type=int)
     g.add_argument("--per-family", type=int, default=25)
+    sub.add_parser("prompts")
+    rp = sub.add_parser("replay")
+    rp.add_argument("label")
+    rp.add_argument("answers")
     s = sub.add_parser("score")
     s.add_argument("labels", nargs="+")
     a = ap.parse_args()
     if a.cmd == "prep":
         OUT.mkdir(parents=True, exist_ok=True)
         prep(a.per_family, a.pool)
+    elif a.cmd == "prompts":
+        prompts(25)
+    elif a.cmd == "replay":
+        replay(a.label, a.answers)
     elif a.cmd == "gen":
         gen(a.label, a.port, a.per_family)
     else:
