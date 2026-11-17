@@ -263,3 +263,26 @@ instead of `read_parquet('divisions_area')` (213/350), uses a `name` column inst
 `candidates` table that is only text in the prompt, often returns no geometry, and translates or swaps place names
 in extraction. Replacing the model behind the unchanged API needs training on gazet's own data (34,780 SQL and the
 places split of `gazet-dataset`), mixed with the generative data so the general skills stay.
+
+## Plan-language coverage (2026-11-17)
+
+Could a structured plan (operations compiled to SQL) replace free SQL? `dsl_coverage.py` parses every query
+(sqlglot) and maps its constructs to a draft plan language: tier 1 = core (filters, joins, nested steps, grouping,
+order/limit, arithmetic, struct access, common spatial predicates and operations); tier 2 = extensions (rank within
+group, conditional labels and aggregates, text and date functions, set operations, scalar subqueries, expanding a list
+column, list membership); tier 3 = free SQL (list processing with lambdas, JSON, regex, inline VALUES, series).
+Full table: `eval/dsl_coverage/report.txt`.
+
+| Corpus | queries | tier 1 | tier 1+2 | tier 3 |
+|---|---|---|---|---|
+| gazet-dataset train | 34,780 | 95.1 | **100.0** | 0.0 |
+| generative train v2 | 30,660 | 64.6 | 87.8 | 12.2 |
+| dev v1 | 755 | 71.3 | 91.9 | 8.1 |
+| gold v1 | 342 | 74.3 | 92.1 | 7.9 |
+| gold v2 | 158 | 76.6 | 96.8 | 3.2 |
+
+Gazet's whole task fits the plan language (its 34,780 queries use about 20 functions; 4.9% need rank-within-group).
+For general spatial questions the extensions bring coverage to 88-97%; the largest single gain is ranking within
+groups (the only blocker for 10-12% of queries; 46% of window uses are top-N per group). The remaining 3-12% (mostly
+list processing and JSON) would go to free SQL. Caveat: synthetic questions, so this measures what our generators
+ask; a real-use test set is the better measure, and expressible does not yet mean learnable by a small model.
