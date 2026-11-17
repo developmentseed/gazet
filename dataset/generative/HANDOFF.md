@@ -39,6 +39,8 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | RL Coder-0.5B | done | `rl-coder05-lr2e5`: gold v1 48->55%, gold v2 35->40%, at 2.5 s/query |
 | RL round 2 | done | `rl2-q3-06b`: gold v1 58%, gold v2 49->58% (+8.9 paired), dev 80%; best small model, served by the demo. 58% of RL questions now always right: next RL needs harder/newer questions |
 | Gazet drop-in test | done | `gazet_compat.py`: old gazet model 59% same geometry / 99.7% places vs rl2-q3-06b 5% / 61%: not a drop-in; needs joint training on gazet-dataset |
+| Plan-language coverage | done | `dsl_coverage.py`, `eval/dsl_coverage/report.txt`: gazet 100% expressible (95% core + rank-within-group), generative 88%, gold 92-97% with ~25-30 operations |
+| **Gazet plan prototype** | **next** | Replace the gazet model with structured plans behind the unchanged API: (1) plan JSON schema covering gazet's 14 families (~15 ops + rank within group, from `dataset/scripts/sql_templates.py`); (2) compiler plan -> SQL inside `gazet.lm.generate_sql`, verified by returning the same geometry as reference SQL; (3) labels by parsing gazet-dataset's 34,780 template SQL into plans; (4) fine-tune 0.6B / 350M / 135M with JSON-constrained output (`train_hf_jobs_qwen35.py`); (5) score with `gazet_compat.py` against the old model (59% same geometry, 99.7% places). Place extraction: keep the old model's task, or train it jointly |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**
