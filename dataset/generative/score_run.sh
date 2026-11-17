@@ -10,6 +10,7 @@ files=$(hf models info "$REPO" | grep -o "\"$RUN/predictions/[^\"]*" | tr -d \")
 hf download "$REPO" $files --local-dir "$W" >/dev/null
 for f in $W/$RUN/predictions/*.jsonl; do
   b=$(basename $f .jsonl); data=${b%_*}; mode=${b##*_}
+  [ "$b" = gazet_compat ] && continue  # gazet answers: scored by gazet_compat.py (replay + score)
   h=""; [ "$mode" = hints ] && h=--hints
   .venv/bin/python -I evaluate.py run "$RUN" --preds "$f" --data "$data" $h --system minimal > "runs/eval/$RUN.$b.log" 2>&1
 done

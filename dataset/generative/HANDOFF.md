@@ -41,7 +41,8 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | Gazet drop-in test | done | `gazet_compat.py`: old gazet model 59% same geometry / 99.7% places vs rl2-q3-06b 5% / 61%: not a drop-in; needs joint training on gazet-dataset |
 | Plan-language coverage | done | `dsl_coverage.py`, `eval/dsl_coverage/report.txt`: gazet 100% expressible (95% core + rank-within-group), generative 88%, gold 92-97% with ~25-30 operations |
 | Gazet plan prototype | done | `src/gazet/plan.py` (plan language + compiler, `GAZET_SQL_MODE=plan`), `gazet_plan.py` (labels, verify, export, bench), `eval/gazet_plan/report.txt`: compiler 256/256 same geometry; LFM2.5-350M plans 83% same geometry / 99.7% places vs old model 59% / 99.7%, 2.5x faster per request on the laptop; GGUF `developmentseed/gazet-sql-qwen35/plan-v1-lfm350/gguf` (`REVIEW.md`) |
-| **Joint model** | **next** | One small model for gazet plans + places + generative SQL (`gazet_plan.py export-joint` -> `chatml/joint_v1`, 129,737 examples): does it keep gazet at ~83% and reach the SQL-only scores on gold/dev? Then a plan language for the general SQL |
+| Joint model | done | `chatml/joint_v1` (gazet plans + places + generative SQL): joint Qwen3-0.6B keeps gazet (83% same geometry, 100% places) and matches or beats SQL-only SFT on generative (gold v1 52%, gold v2 48%) (`REVIEW.md`, `eval/joint_v1/report.txt`). No general plan language: generative failures are mostly valid-but-wrong SQL |
+| **RL on the joint model** | **next** | Round 2 recipe (`runs/rl2/launch.sh`) from `joint-v1-q3-06b`; target rl2's 58% / 58% on gold while gazet stays ~83% |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**

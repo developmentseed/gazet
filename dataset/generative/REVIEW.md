@@ -339,3 +339,31 @@ Findings:
   old model's number has the same limit. A set of real gazet queries is the better test.
 
 Next: one model for both tasks (gazet plans + places + generative SQL), then a plan language for the general SQL.
+
+## Joint model: gazet plans + generative SQL (2026-11-17)
+
+One model for both tasks: gazet plans and place extraction (68,417 examples, once) plus the generative SQL pairs
+(`chatml/v2`, 30,660, twice), shuffled (`gazet_plan.py export-joint` -> `chatml/joint_v1`; 1 epoch, LoRA r64, seq
+3072, HF Jobs, 53-60 min). Full tables: `eval/joint_v1/report.txt`. Generative scores are lenient, plain prompts.
+
+| Qwen3-0.6B | gazet same geometry | gazet places | gold v1 | gold v2 | dev v1 | dev v2 |
+|---|---|---|---|---|---|---|
+| joint | **83.1** | **100.0** | 52.0 | 48.1 | 74.7 | 71.6 |
+| gazet plans only | 82.6 | 100.0 | - | - | - | - |
+| generative SQL only (SFT) | - | - | 48.2 | 45.6 | 74.7 | 68.1 |
+| rl2-q3-06b (SQL, two RL rounds) | 4.9 | 61.1 | 57.6 | 57.6 | 80.1 | 74.1 |
+
+LFM2.5-350M joint: gazet 83.1 / places 98.9, gold v1 34.8, gold v2 31.0 (its SQL-only run: 32.7 / 32.3).
+
+Findings:
+- Joint training costs nothing: gazet matches the plans-only model and the generative scores are as good or slightly
+  better than SQL-only SFT (gold v1 +3.8, gold v2 +2.5, intervals overlap). Qwen3-0.6B is the one model for both;
+  LFM2.5-350M keeps gazet but stays weak on general SQL.
+- What would a plan language do for the general SQL? On gold, rl2-q3-06b's answers are 90-93% valid SQL; the loss is
+  valid queries with the wrong result (32-36%), not invalid ones (7-11%). Gazet gained from plans because the old
+  model's failures were mostly broken SQL and the task fits ten high-level operations; arbitrary questions over
+  arbitrary tables would need most of SQL in JSON form, longer than the SQL. So no general plan language for now;
+  a cheaper guard for the invalid share is grammar-constrained SQL (table and column names from the schema, known
+  DuckDB functions).
+
+Next: RL (the round 2 recipe) from the joint model, checking that gazet stays at ~83%.
