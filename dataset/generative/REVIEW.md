@@ -286,3 +286,56 @@ For general spatial questions the extensions bring coverage to 88-97%; the large
 groups (the only blocker for 10-12% of queries; 46% of window uses are top-N per group). The remaining 3-12% (mostly
 list processing and JSON) would go to free SQL. Caveat: synthetic questions, so this measures what our generators
 ask; a real-use test set is the better measure, and expressible does not yet mean learnable by a small model.
+
+## Gazet plan prototype (2026-11-17)
+
+The gazet model now writes a short JSON plan instead of SQL, and gazet compiles the plan to SQL behind the unchanged
+API (`src/gazet/plan.py`; `gazet.lm.generate_sql` with `GAZET_SQL_MODE=plan`, default still `sql`). A plan is one
+nested expression over feature sets: `ids` (candidates), `find` (one table with attribute filters, spatial filters
+`touches / intersects / within / contains / not_intersects` against another expression, top n by area, optionally
+per region or country), `buffer`, `union`, `intersection`, `difference`, `half`. Example (adjacency):
+`{"find":"divisions","subtype":["county"],"touches":{"ids":["4fd2..."]}}`. One plan per template is in
+`eval/gazet_plan/report.txt`.
+
+- **Labels:** `gazet_plan.py labels` parses all 43,514 gazet-dataset SQL (train, val, test) into plans, 100%.
+- **Compiler check:** the compiled reference plan returns the same geometry as the template SQL for 256 of 256 test
+  questions (4 per template, all 77 templates; 52 references return nothing on current data).
+- **Valid output:** llama-server constrains decoding to the plan's JSON schema, with `ids` limited to the candidate
+  IDs (no invented IDs, list length capped). A fuzz test (`tests/test_plan.py`) generates random schema-valid plans
+  and checks that each compiles and runs; it found two gaps, now fixed: three-item `difference` lists, and a DuckDB
+  1.4 segfault on nested operations over empty geometries (the compiler now drops empties between steps). A plan that
+  still fails is an ordinary SQL error event in the API.
+- **Training:** plans + place extraction jointly (68,417 examples, 1 epoch, LoRA r64, HF Jobs, 8-17 min per model;
+  export `chatml/gazet_plan_v1`).
+
+Scores on the same `gazet_compat.py` sample as the old model (350 SQL + 350 places questions, 25 per family, from
+gazet-dataset test; "same geometry" as before):
+
+| Model | Params | places | executes | same geometry | output tokens | laptop s/request |
+|---|---|---|---|---|---|---|
+| old gazet model (SQL) | 0.8B | 99.7 | 72.3 | 59.1 | 129 | 0.5 + 9.2 |
+| Qwen3-0.6B, plans | 0.6B | 100.0 | 89.7 | 82.6 | 42 | - |
+| LFM2.5-350M, plans | 350M | 99.7 | 90.3 | **82.9** | 38 | 2.0 + 2.0 |
+| LFM2.5-350M, plans, laptop q8_0, constrained | 350M | 99.7 | 90.3 | **83.1** | - | 1.4 + 1.7 (full run) |
+| SmolLM2-135M, plans | 135M | 97.7 | 89.4 | 78.9 | 46 | - |
+
+Laptop seconds are place extraction + SQL/plan, q8_0, 6 threads, 42 questions per task on the same CPU
+(`gazet_plan.py bench`). GPU answers were not constrained and were still 100% valid plans.
+
+Findings:
+- Plans beat the old model by 24 points of same geometry at less than half its size, and a request is about 2.5x
+  faster on the laptop (plans take 4.5x less time than SQL). Even 135M beats the old 0.8B. Places stay at 99.7%.
+- All plan failures are valid queries that return no rows; the old model's are mostly broken SQL (unknown
+  functions, missing tables, ambiguous columns).
+- Most remaining misses are not learnable from the prompt: (1) duplicate candidates, e.g. two "Canada, country, CA"
+  rows (probably the land and the territorial boundary) that no candidate column tells apart: ~47 of Qwen's 67
+  plan misses are a wrong ID, many of them such pairs; (2) border corridors and some buffers whose question gives no
+  distance while the reference picks 5, 25 or 50 km. Fixes: add `is_land` / `is_territorial` to the candidate
+  columns, and a fixed default distance in labels when the question names none.
+- Place extraction is slower with LFM2.5 (2.0 s vs 0.5 s for the old model on the same long system prompt),
+  probably because llama-server does not reuse the cached system prompt for LFM2's hybrid layers (not checked).
+  A short places prompt (the model is fine-tuned) would cut it.
+- Caveat: test questions come from the same 77 templates as training, so this measures gazet's template task; the
+  old model's number has the same limit. A set of real gazet queries is the better test.
+
+Next: one model for both tasks (gazet plans + places + generative SQL), then a plan language for the general SQL.

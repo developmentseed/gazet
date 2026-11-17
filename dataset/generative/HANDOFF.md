@@ -1,6 +1,6 @@
 # Handoff: generative spatial text-to-SQL data
 
-State as of 2026-11-10. Read this first, then `REVIEW.md` (critique and the current plan) and `FINDINGS.md` for the full evidence.
+State as of 2026-11-17. Read this first, then `REVIEW.md` (critique and the current plan) and `FINDINGS.md` for the full evidence.
 Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet, on purpose.
 
 ## Goal and decisions (made by Daniel)
@@ -40,7 +40,8 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | RL round 2 | done | `rl2-q3-06b`: gold v1 58%, gold v2 49->58% (+8.9 paired), dev 80%; best small model, served by the demo. 58% of RL questions now always right: next RL needs harder/newer questions |
 | Gazet drop-in test | done | `gazet_compat.py`: old gazet model 59% same geometry / 99.7% places vs rl2-q3-06b 5% / 61%: not a drop-in; needs joint training on gazet-dataset |
 | Plan-language coverage | done | `dsl_coverage.py`, `eval/dsl_coverage/report.txt`: gazet 100% expressible (95% core + rank-within-group), generative 88%, gold 92-97% with ~25-30 operations |
-| **Gazet plan prototype** | **next** | Replace the gazet model with structured plans behind the unchanged API: (1) plan JSON schema covering gazet's 14 families (~15 ops + rank within group, from `dataset/scripts/sql_templates.py`); (2) compiler plan -> SQL inside `gazet.lm.generate_sql`, verified by returning the same geometry as reference SQL; (3) labels by parsing gazet-dataset's 34,780 template SQL into plans; (4) fine-tune 0.6B / 350M / 135M with JSON-constrained output (`train_hf_jobs_qwen35.py`); (5) score with `gazet_compat.py` against the old model (59% same geometry, 99.7% places). Place extraction: keep the old model's task, or train it jointly |
+| Gazet plan prototype | done | `src/gazet/plan.py` (plan language + compiler, `GAZET_SQL_MODE=plan`), `gazet_plan.py` (labels, verify, export, bench), `eval/gazet_plan/report.txt`: compiler 256/256 same geometry; LFM2.5-350M plans 83% same geometry / 99.7% places vs old model 59% / 99.7%, 2.5x faster per request on the laptop; GGUF `developmentseed/gazet-sql-qwen35/plan-v1-lfm350/gguf` (`REVIEW.md`) |
+| **Joint model** | **next** | One small model for gazet plans + places + generative SQL (`gazet_plan.py export-joint` -> `chatml/joint_v1`, 129,737 examples): does it keep gazet at ~83% and reach the SQL-only scores on gold/dev? Then a plan language for the general SQL |
 | Fine-tune sweep | after that | |
 
 **Keep policies (from calibration on 215 hand labels):**
@@ -137,6 +138,9 @@ executing `sql` and its prediction on the lake and comparing with `consistency.c
 | `eval_small.py`, `run_evals.sh` | small-model CPU eval; also holds the Haiku pilot hand labels |
 | `student.py`, `hints.py` | student prompt format; value-hint lookup (`show`, `coverage`) |
 | `evaluate.py`, `eval/` | execution-match eval on gold or dev (`run`, `report`); committed reference runs |
+| `gazet_compat.py` | gazet drop-in test: a model through gazet's production prompts and parsing, scored by returned geometry |
+| `gazet_plan.py`, `eval/gazet_plan/` | gazet plan prototype: SQL -> plan labels, compiler check, training exports, CPU bench; plan language itself in `src/gazet/plan.py` |
+| `dsl_coverage.py` | how much SQL a plan language could express |
 | `dev_split.py`, `dev/` | dev split on training tables: scenario list and `dev_v1.jsonl` |
 | `export.py`, `to_gguf.sh` | ChatML training export with test prompts; GGUF conversion and upload of a training run |
 | `demo/` | Gradio demo: question -> SQL -> result table and map; `deploy.sh` for a Space |

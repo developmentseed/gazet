@@ -1,0 +1,114 @@
+Gazet plan prototype (2026-11-17)
+
+== Compiler check: compiled reference plan vs template SQL, gazet-dataset test, 4 per template (gazet_plan.py verify)
+reference ran: 256; same geometry 256 (100.0%), different 0, plan error 0; reference without geometry 52
+
+== gazet_compat: 350 SQL + 350 places questions (25 per family), same sample as the old model
+gazet-v1         places  99.7  executes  72.3  same geometry  59.1  (n=350)
+   adjacency 32  aggregatio 60  attribute_ 84  border_cor 8  buffer 96  chained 20  containmen 60  difference 60  direct_loo 80  disambigua 96  intersecti 24  partial_se 44  set_operat 68  window_fun 96
+plan-v1-q3-06b   places 100.0  executes  89.7  same geometry  82.6  (n=350)
+   adjacency 96  aggregatio 92  attribute_ 100  border_cor 40  buffer 96  chained 52  containmen 92  difference 52  direct_loo 84  disambigua 88  intersecti 84  partial_se 84  set_operat 96  window_fun 100
+plan-v1-lfm350   places  99.7  executes  90.3  same geometry  82.9  (n=350)
+   adjacency 92  aggregatio 84  attribute_ 100  border_cor 52  buffer 96  chained 68  containmen 92  difference 52  direct_loo 76  disambigua 92  intersecti 80  partial_se 88  set_operat 92  window_fun 96
+plan-v1-smol135  places  97.7  executes  89.4  same geometry  78.9  (n=350)
+   adjacency 96  aggregatio 88  attribute_ 100  border_cor 40  buffer 80  chained 60  containmen 92  difference 48  direct_loo 64  disambigua 76  intersecti 84  partial_se 80  set_operat 96  window_fun 100
+plan-v1-lfm350-laptop-q8 places  99.7  executes  90.3  same geometry  83.1  (n=350)
+   adjacency 92  aggregatio 84  attribute_ 100  border_cor 52  buffer 96  chained 68  containmen 92  difference 52  direct_loo 80  disambigua 92  intersecti 80  partial_se 88  set_operat 92  window_fun 96
+
+(laptop-q8 = q8_0 GGUF on the laptop CPU through gazet.lm + llama-server with the json_schema constraint; the others are GPU answers without the constraint, replayed through gazet.lm)
+
+== Offline plan accuracy (plan equals reference plan; GPU answers)
+plan-v1-lfm350: places 99.7%  plans valid 100.0%  plan exact 81.7%  median out tokens 38
+   adjacency 92  aggregation 76  attribute_fi 100  border_corri 52  buffer 80  chained 68  containment 92  difference 68  direct_looku 76  disambiguati 92  intersection 72  partial_sele 88  set_operatio 92  window_funct 96
+plan-v1-q3-06b: places 100.0%  plans valid 100.0%  plan exact 80.9%  median out tokens 42
+   adjacency 96  aggregation 84  attribute_fi 100  border_corri 40  buffer 72  chained 52  containment 92  difference 68  direct_looku 84  disambiguati 88  intersection 76  partial_sele 84  set_operatio 96  window_funct 100
+plan-v1-smol135: places 97.7%  plans valid 100.0%  plan exact 76.6%  median out tokens 46
+   adjacency 96  aggregation 80  attribute_fi 100  border_corri 40  buffer 44  chained 60  containment 92  difference 64  direct_looku 64  disambiguati 76  intersection 80  partial_sele 80  set_operatio 96  window_funct 100
+
+== CPU latency, laptop, 6 threads, q8_0, 42 questions per task (gazet_plan.py bench)
+{"label": "gazet-v1", "mode": "sql", "places": {"n": 42, "median": 0.49, "mean": 0.72, "p90": 1.22}, "sql": {"n": 42, "median": 9.18, "mean": 9.1, "p90": 11.52}}
+{"label": "plan-v1-lfm350", "mode": "plan", "places": {"n": 42, "median": 1.97, "mean": 2.06, "p90": 2.43}, "sql": {"n": 42, "median": 2.02, "mean": 2.02, "p90": 2.44}}
+
+== Training jobs (HF Jobs, A100, 1 epoch over 68,417 examples, LoRA r64)
+plan-v1-q3-06b yellowcap/6afc50fe4643bac7ac627e6d
+plan-v1-lfm350 yellowcap/6afc5100884144d2f44f3909
+plan-v1-smol135 yellowcap/6afc5103884144d2f44f390b
+
+== One reference plan per template
+adj_01: {"find":"divisions","touches":{"ids":["25e65091-2e70-4aa4-b548-69435366aac0"]}}
+adj_02: {"find":"divisions","subtype":["region"],"touches":{"ids":["b6440b81-6acd-448a-a382-946b902d4103"]}}
+adj_03: {"find":"natural","subtype":["ocean","sea"],"intersects":{"ids":["5556c14d-88c2-4046-bca1-8dcf546708e5"]}}
+adj_04: {"find":"divisions","subtype":["county"],"touches":{"ids":["4fd290b6-5c9d-45f9-9502-0e3aed0f1cf3"]}}
+adj_05: {"find":"divisions","subtype":["country"],"touches":{"ids":["6aaadea0-9c48-4af0-a47f-bbe020540580"]}}
+adj_06: {"find":"divisions","subtype":["country"],"intersects":{"ids":["ne_1159111495"]}}
+adj_07: {"find":"divisions","subtype":["region"],"intersects":{"ids":["ne_1159104225"]}}
+adj_08: {"find":"divisions","subtype":["county"],"intersects":{"ids":["ne_1159103747"]}}
+adj_09: {"find":"natural","subtype":["river","lake","basin"],"intersects":{"ids":["970b9826-f511-46f6-b93f-c00e48a7c473"]}}
+adj_10: {"find":"natural","subtype":["range/mtn"],"intersects":{"ids":["50a03a2c-3e24-4740-b80d-f933ea60c64f"]}}
+adj_11: {"find":"natural","subtype":["plateau"],"intersects":{"ids":["ac63467c-e698-452a-bce3-0729d2974a7e"]}}
+adj_12: {"find":"natural","subtype":["plain","lowland","basin","valley","depression","gorge"],"intersects":{"ids":["a35ea692-7ace-4f16-8b37-44b341061cc2"]}}
+agg_01: {"find":"divisions","subtype":["county"],"within":{"ids":["37c320fc-628b-4a44-a228-c25a78bf87a3"]},"largest":3}
+agg_02: {"find":"divisions","subtype":["county"],"within":{"ids":["519212fc-f610-4903-baae-b0007dd54b2c"]},"smallest":1}
+agg_03: {"find":"divisions","subtype":["county"],"country":["EG"],"largest":1}
+agg_04: {"find":"divisions","subtype":["county"],"country":["AL"],"smallest":3}
+attr_01: {"find":"divisions","subtype":["county"],"country":["PE"],"is_land":true}
+attr_02: {"find":"divisions","subtype":["region"],"country":["CI"],"is_territorial":true}
+attr_03: {"find":"divisions","subtype":["region"],"country":["CL"],"is_land":false}
+attr_04: {"find":"divisions","subtype":["country"],"country":["VU"],"is_territorial":true}
+buffer_01: {"find":"divisions","intersects":{"buffer":{"ids":["e753b678-ad2e-4719-aed9-4de25c62b42d"]},"m":250}}
+buffer_02: {"find":"divisions","intersects":{"buffer":{"ids":["ne_1159124767"]},"m":100}}
+buffer_03: {"buffer":{"ids":["7e9c6c73-3bde-4ccd-a9a9-873724b65b03"]},"m":250}
+buffer_04: {"find":"divisions","subtype":["country"],"intersects":{"buffer":{"ids":["7e4384f1-2fa8-4895-a486-cb21380a292e"]},"m":10000}}
+buffer_05: {"find":"divisions","subtype":["region"],"intersects":{"buffer":{"ids":["085a35a4-6bbc-4ffd-a6df-c105ea603fe6"]},"m":2000}}
+buffer_06: {"find":"divisions","subtype":["county"],"intersects":{"buffer":{"ids":["dad64d90-54a9-4387-8725-8f67560e7b33"]},"m":100}}
+buffer_07: {"find":"divisions","subtype":["region"],"intersects":{"buffer":{"ids":["b9e9e99e-613e-40d1-b615-ff58c36051c0","73376a2b-cd05-4cee-a405-d9c2c40a2653"]},"m":2000}}
+buffer_08: {"find":"divisions","subtype":["country"],"intersects":{"buffer":{"ids":["990ad0e3-e55b-4a58-bdf4-9e54277b2f19","a828fee9-bfdd-41bc-b325-29f00d12a6c3","e04e8a7f-9b16-4926-890d-1a7d87365075"]},"m":5000}}
+buffer_09: {"find":"divisions","subtype":["region"],"intersects":{"buffer":{"ids":["1b68a496-4448-429d-aac6-d4e7f8391e2d","6fd3476e-4790-495a-a5fb-557b3dd7e347","cf071f64-7eb8-498f-8fb1-4854c3b6c069","9ef1533c-4863-472f-a303-56be1a375bd7"]},"m":2000}}
+buffer_10: {"find":"divisions","subtype":["county"],"intersects":{"buffer":{"ids":["3a023897-1d0e-45d8-adb7-a98455a09330","375c72f5-65e9-4612-bb1b-846d5745d122","c00535df-550a-4a59-beac-a701f75ddb02","7ab1879f-3afd-4a1f-beb9-2a30f51b90c2","da546f55-e2ad-4511-8c37-11d39dc7b920"]},"m":10000}}
+buffer_11: {"find":"natural","intersects":{"buffer":{"ids":["ne_1159110183"]},"m":100}}
+chained_01: {"find":"divisions","subtype":["county"],"intersects":{"find":"natural","subtype":["ocean","sea"]},"within":{"ids":["9d05e7a1-cc64-498f-a5cd-3165a42c19c3"]}}
+chained_02: {"find":"divisions","subtype":["county"],"intersects":{"ids":["2272dea3-e36f-4962-bf4d-768b640a5c64"]},"not_intersects":{"find":"natural","subtype":["ocean","sea"]}}
+chained_03: {"find":"divisions","subtype":["region"],"intersects":{"find":"natural","subtype":["range/mtn","island group","peninsula","depression"]},"within":{"ids":["4fe8e4e2-ae9c-4915-9100-f8e6ff697fc1"]}}
+chained_04: {"find":"divisions","subtype":["region"],"intersects":{"find":"natural","subtype":["river","lake","basin"]},"within":{"ids":["6aaadea0-9c48-4af0-a47f-bbe020540580"]}}
+chained_05: {"find":"divisions","subtype":["region"],"intersects":{"find":"natural","subtype":["range/mtn","depression"]},"within":{"ids":["75ce7a4b-b029-4fa5-bf45-2cb0504b723c"]}}
+chained_06: {"find":"divisions","subtype":["county"],"intersects":{"find":"natural","subtype":["ocean","sea"]},"within":{"ids":["c8c16ddf-62b6-4fa8-882a-05e12dfa4bb0"]}}
+chained_07: {"find":"divisions","subtype":["county"],"within":{"ids":["aa89c37f-ced6-4750-b789-94813c3293b8"]},"not_intersects":{"find":"natural","subtype":["ocean","sea"]}}
+chained_08: {"find":"divisions","subtype":["county"],"intersects":{"find":"natural","subtype":["river","lake","basin"]},"within":{"ids":["b1409f12-e160-4f5f-b67e-be42fe68245b"]}}
+chained_09: {"find":"divisions","subtype":["county"],"intersects":{"find":"natural","subtype":["range/mtn","depression"]},"within":{"ids":["c8c16ddf-62b6-4fa8-882a-05e12dfa4bb0"]}}
+chained_10: {"find":"divisions","subtype":["region"],"intersects":{"find":"natural","subtype":["ocean","sea"]},"within":{"ids":["28fb557b-494a-451b-bebd-8e0ed49e7cc2"]}}
+chained_11: {"find":"divisions","subtype":["region"],"within":{"ids":["3ee017ee-ae6c-45ff-ae72-84758cec508f"]},"not_intersects":{"find":"natural","subtype":["ocean","sea"]}}
+chained_12: {"find":"divisions","subtype":["country"],"touches":{"ids":["3c7ffd05-0f89-4ff8-b052-1dfe7f5ae3aa"]},"intersects":{"find":"natural","subtype":["ocean","sea"]}}
+chained_13: {"find":"divisions","subtype":["country"],"touches":{"ids":["6aaadea0-9c48-4af0-a47f-bbe020540580"]},"not_intersects":{"find":"natural","subtype":["ocean","sea"]}}
+contain_01: {"find":"divisions","subtype":["county"],"within":{"ids":["9f2cc9de-fcc0-47ba-9453-d9d74519babc"]}}
+contain_02: {"find":"divisions","subtype":["country"],"contains":{"ids":["b7ea5e8b-2ffa-4822-8181-cc182cce299e"]}}
+contain_03: {"find":"divisions","subtype":["region"],"within":{"ids":["4fe8e4e2-ae9c-4915-9100-f8e6ff697fc1"]}}
+contain_04: {"find":"divisions","subtype":["region"],"within":{"ids":["ne_1159115057"]}}
+contain_05: {"find":"divisions","subtype":["country"],"intersects":{"ids":["ne_1159115057"]}}
+contain_multi_01: {"find":"divisions","subtype":["region"],"country":["SD","GA"]}
+contain_multi_02: {"find":"divisions","subtype":["region"],"country":["KZ","GT","NR"]}
+contain_multi_03: {"find":"divisions","subtype":["county"],"country":["UY","GH"]}
+corridor_01: {"buffer":{"intersection":[{"ids":["540170b7-d98e-47c0-b4f2-8732e349fcbb"]},{"ids":["6d1bbe73-c4fd-4c7b-a2b1-4b28227fdc01"]}]},"m":25000}
+diff_01: {"difference":[{"ids":["8c09baf8-d6f2-40a4-88da-d31cd0907449"]},{"ids":["a6f8635d-617f-4830-80a1-f77d89720630"]}]}
+diff_02: {"difference":[{"ids":["fe2c2a7c-f128-40b9-be4c-4d2362cb441b"]},{"ids":["ne_1159116027"]}]}
+disambiguate_01: {"ids":["7bfb8474-823c-4a9e-879c-ffd368dc4617"]}
+disambiguate_02: {"ids":["7525705a-8b85-4039-89af-609b70b645ec"]}
+disambiguate_03: {"ids":["a6f6381e-0a77-4a1c-b4f5-db2981109cdf"]}
+intersect_01: {"find":"divisions","subtype":["region"],"intersects":{"ids":["652bb4d1-55d4-4eae-b7ee-bd56f2034fda"]}}
+intersect_02: {"find":"divisions","subtype":["county"],"intersects":{"ids":["239d0ae2-93b0-4b52-b2e9-350ebdbea62f"]}}
+intersect_03: {"find":"divisions","subtype":["country"],"intersects":{"ids":["ne_1159111947.0"]}}
+intersect_04: {"find":"divisions","subtype":["region"],"intersects":{"ids":["ne_1159121939"]}}
+intersect_05: {"find":"natural","intersects":{"ids":["6e2dd2f1-c019-40ec-898e-3e0ef6ebe1cb"]}}
+intersect_06: {"find":"divisions","subtype":["county"],"intersects":{"ids":["ne_1159109437.0"]}}
+lookup_01: {"ids":["16d88a9b-0cb4-4e62-b131-384189b97121"]}
+lookup_02: {"ids":["ne_1159140895"]}
+partial_01: {"half":{"ids":["6e5eccb9-255b-4220-b761-7953ec743bfb"]},"side":"north"}
+partial_02: {"half":{"ids":["cbf2da7e-ade7-4b95-b88c-1a1693edccf1"]},"side":"south"}
+partial_03: {"half":{"ids":["fbecff52-1722-41b0-822d-024b517632ed"]},"side":"east"}
+partial_04: {"half":{"ids":["603416f0-4f77-484f-bc07-55c3a276a333"]},"side":"west"}
+partial_05: {"intersection":[{"ids":["983c433d-2d15-44b3-a49e-616cb6e0b218"]},{"ids":["ne_1159104309"]}]}
+union_01: {"union":{"ids":["3d67ce1c-e651-4a11-87cb-2ec75b051be9","a64388e2-abc6-4d3c-9a1f-ac5784c5ade2"]}}
+union_03: {"union":{"ids":["aac4cc57-ed80-4e01-9db6-79d67496dbbc","c2adf147-e061-42a2-b4e0-3cbf9f90a703","415d006c-2fa1-44f8-8370-222dae49918b"]}}
+window_01: {"find":"divisions","subtype":["county"],"country":["MG"],"largest":1,"per":"region"}
+window_02: {"find":"divisions","subtype":["county"],"country":["ER"],"smallest":1,"per":"region"}
+window_03: {"find":"divisions","subtype":["region"],"country":["FI"],"largest":1,"per":"country"}
+window_04: {"find":"divisions","subtype":["region"],"country":["GT"],"smallest":1,"per":"country"}

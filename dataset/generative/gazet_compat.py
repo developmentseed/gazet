@@ -10,6 +10,9 @@ path behind the API), on a stratified sample of the old test set (`developmentse
   >= 0.99, other geometries by Hausdorff distance <= 1e-4 degrees. Attribute columns are ignored, because the API
   returns geometry. Every query runs in its own memory-capped subprocess (harness.run_capped).
 
+Plan mode (GAZET_SQL_MODE=plan): gazet.lm asks the model for a JSON plan and compiles it (gazet.plan); `prompts` then
+writes prompts_plan.jsonl, and replay/gen record what the compiled plan returns.
+
 Run with gazet's environment (`~/repos/gazet/.venv/bin/python`), llama-server serving the model on PORT:
     python gazet_compat.py prep [--per-family 25]   # fix the SQL sample (references that run on current data)
     python gazet_compat.py gen LABEL PORT [--per-family 25]
@@ -109,16 +112,21 @@ def gen(label, port, per_family):
                     rec = dict(idx=i, family=r["metadata"].get("task_family"), query=user, pred=pred, ref=ref)
                 else:
                     question, cands = parse_sql_prompt(user)
-                    try:
-                        pred = lm.generate_sql(question, cands)
-                    except RuntimeError as e:  # gazet's client gives up after 90 s (e.g. a runaway answer): the API fails too
-                        pred = f"-- generation failed: {e}"
+                    pred = _sql_or_failure(lm, question, cands)
                     rec = dict(idx=i, family=r["metadata"]["task_family"], query=question, pred=pred,
                                ref=r["messages"][2]["content"])
                 rec["secs"] = round(time.time() - t0, 2)
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 f.flush()
         print(f"{label} {task}: {len(todo)} new answers in {(time.time() - t_all) / 60:.1f} min")
+
+
+def _sql_or_failure(lm, question, cands):
+    """gazet.lm.generate_sql, with a failure (client timeout, invalid plan) recorded as a failed answer: the API fails too."""
+    try:
+        return lm.generate_sql(question, cands)
+    except Exception as e:
+        return f"-- generation failed: {type(e).__name__}: {str(e)[:200]}"
 
 
 # ── GPU path: same prompts and parsing, generation elsewhere ────────────────────
@@ -129,7 +137,7 @@ def gen(label, port, per_family):
 def _patched(lm, reply):
     sent = []
 
-    def fake(messages):
+    def fake(messages, json_schema=None):
         sent.append(messages)
         return reply(len(sent) - 1)
     lm._llama_chat_complete = fake
@@ -139,19 +147,21 @@ def _patched(lm, reply):
 def prompts(per_family):
     sys.path.insert(0, str(REPO / "src"))
     from gazet import lm
+    plan = os.environ.get("GAZET_SQL_MODE") == "plan"
     OUT.mkdir(parents=True, exist_ok=True)
     rows = []
     for task in ("places", "sql"):
         for i, r in sample(task, per_family):
-            sent = _patched(lm, lambda k: '{"places": []}' if task == "places" else "SELECT 1")
+            sent = _patched(lm, lambda k: '{"places": []}' if task == "places" else '{"ids": ["x"]}' if plan else "SELECT 1")
             user = r["messages"][1]["content"]
             if task == "places":
                 lm.generate_places(user)
             else:
                 lm.generate_sql(*parse_sql_prompt(user))
             rows.append({"id": f"{task}:{i}", "messages": sent[0]})
-    (OUT / "prompts.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
-    print(f"{len(rows)} prompts -> {OUT / 'prompts.jsonl'}")
+    name = "prompts_plan.jsonl" if os.environ.get("GAZET_SQL_MODE") == "plan" else "prompts.jsonl"
+    (OUT / name).write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    print(f"{len(rows)} prompts -> {OUT / name}")
 
 
 def replay(label, answers_file):
@@ -172,7 +182,7 @@ def replay(label, answers_file):
                 else:
                     question, cands = parse_sql_prompt(user)
                     rec = dict(idx=i, family=r["metadata"]["task_family"], query=question,
-                               pred=lm.generate_sql(question, cands), ref=r["messages"][2]["content"])
+                               pred=_sql_or_failure(lm, question, cands), ref=r["messages"][2]["content"])
                 rec.update(secs=a.get("secs", 0), out_tokens=a.get("out_tokens"))
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     print(f"{label}: replayed {len(raw)} answers")

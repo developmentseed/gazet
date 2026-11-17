@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 
 import dspy
@@ -13,7 +14,9 @@ from .config import (
     PLACE_EXTRACTION_MODEL,
     SCHEMA_INFO,
     SQL_GENERATION_MODEL,
+    SQL_MODE,
 )
+from .plan import compile_plan, parse_plan, plan_schema
 from .schemas import Place, PlacesResult
 
 logger = logging.getLogger(__name__)
@@ -189,14 +192,19 @@ def is_llama_server_available() -> bool:
         return False
 
 
-def _llama_chat_complete(messages: list[dict]) -> str:
-    """Call llama-server /v1/chat/completions, waiting through cold starts."""
+def _llama_chat_complete(messages: list[dict], json_schema: dict | None = None) -> str:
+    """Call llama-server /v1/chat/completions, waiting through cold starts.
+
+    With `json_schema`, llama-server constrains decoding to JSON that follows the schema.
+    """
     payload = {
         "messages": messages,
         "n_predict": LLAMA_MAX_TOKENS,
         "temperature": LLAMA_TEMPERATURE,
         "chat_template_kwargs": {"enable_thinking": False},
     }
+    if json_schema is not None:
+        payload["json_schema"] = json_schema
     deadline = time.monotonic() + 120.0
     backoff = 2.0
     last_err: Exception | None = None
@@ -315,13 +323,56 @@ def generate_places(user_query: str) -> PlacesResult:
         return PlacesResult(places=[Place(place=user_query)])
 
 
+_PLAN_SYSTEM_PROMPT = """You turn a geographic query into a JSON plan. Data: divisions (Overture admin areas; subtype country, region or county; country is an ISO alpha-2 code) and natural (Natural Earth features; subtype such as ocean, sea, river, lake, basin, range/mtn, plateau, island group, peninsula).
+
+Every expression is a set of features:
+{"ids":[...]}  candidates by id
+{"find":"divisions"|"natural", "subtype":[...], "country":[...], "is_land":bool, "is_territorial":bool, "touches"|"intersects"|"within"|"contains"|"not_intersects": E or [E,...], "largest"|"smallest":n, "per":"region"|"country"}
+{"buffer":E,"m":metres}  {"union":E}  {"intersection":[A,B]}  {"difference":[A,B]}  {"half":E,"side":"north"|"south"|"east"|"west"}
+
+Use ids from the candidates table. Return only the plan."""
+
+
+def plan_messages(user_query: str, candidates_df: pd.DataFrame) -> list[dict]:
+    """Chat messages for the plan model: short system prompt, then the same candidates and question as the SQL model."""
+    keep_cols = ["source", "id", "name", "subtype", "country", "region", "admin_level"]
+    cols = [c for c in keep_cols if c in candidates_df.columns]
+    user_prompt = _USER_PROMPT_TEMPLATE.format(
+        candidates_csv=candidates_df[cols].to_csv(index=False).strip(),
+        question=user_query.strip(),
+    )
+    return [
+        {"role": "system", "content": _PLAN_SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ]
+
+
+def _generate_sql_from_plan(user_query: str, candidates_df: pd.DataFrame) -> str:
+    """Ask the model for a JSON plan (constrained to the plan schema, IDs to the candidates) and compile it to SQL.
+
+    Raises gazet.plan.PlanError when the answer is not a valid plan.
+    """
+    sources = {}
+    if {"id", "source"} <= set(candidates_df.columns):
+        sources = dict(zip(candidates_df["id"].astype(str), candidates_df["source"].astype(str)))
+    schema = plan_schema(list(sources) or None)
+    raw_output = _llama_chat_complete(plan_messages(user_query, candidates_df), json_schema=schema)
+    plan = parse_plan(raw_output)
+    sql = compile_plan(plan, sources)
+    logger.debug("plan %s -> %s", raw_output, sql)
+    return sql
+
+
 def generate_sql(user_query: str, candidates_df: pd.DataFrame) -> str:
     """Generate SQL from a natural language query using the finetuned GGUF model.
 
     Uses the same prompt format the model was trained on:
     SYSTEM_PROMPT (includes schema) + USER_PROMPT_TEMPLATE with candidates CSV and question.
     Single-shot — no retry loop (the finetuned model can't improve from error feedback).
+    With GAZET_SQL_MODE=plan the model writes a JSON plan instead, which gazet.plan compiles to SQL.
     """
+    if os.environ.get("GAZET_SQL_MODE", SQL_MODE) == "plan":
+        return _generate_sql_from_plan(user_query, candidates_df)
     # Keep only columns the model was trained on
     keep_cols = ["source", "id", "name", "subtype", "country", "region", "admin_level"]
     cols = [c for c in keep_cols if c in candidates_df.columns]
