@@ -1,0 +1,6 @@
+node_modules/
+dist/
+public/data/
+public/models/
+test-results/
+test-results-*
