@@ -1,5 +1,7 @@
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+// MapLibre looks for its worker next to the bundle, which Vite's build does not emit; hand it the bundled file.
+import maplibreWorker from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import './style.css';
 import { Db } from './db.ts';
 import type { Candidate } from './format.ts';
@@ -24,6 +26,7 @@ const button = $<HTMLButtonElement>('go');
 const steps = $('steps');
 const status = $('status');
 
+maplibregl.setWorkerUrl(maplibreWorker);
 const map = new maplibregl.Map({
   container: 'map',
   style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',

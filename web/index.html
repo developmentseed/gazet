@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gazet in the browser</title>
     <link rel="icon" href="./gazet-logo.svg" />
+    <!-- Static hosts such as GitHub Pages cannot send COOP/COEP; this service worker adds them (and reloads once) so
+         wllama can run multithreaded. It does nothing where the server already isolates the page (vite dev/preview). -->
+    <script src="./coi-serviceworker.min.js"></script>
   </head>
   <body>
     <aside id="panel">

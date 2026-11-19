@@ -10,12 +10,13 @@ import { chromium } from 'playwright';
 import { createServer, preview } from 'vite';
 
 const [mode = 'model', ...queries] = process.argv.slice(2);
-// PREVIEW=1 tests the production build (npm run build first) instead of the dev server.
-const server = process.env.PREVIEW
+// PREVIEW=1 tests the production build (npm run build first) instead of the dev server; BASE_URL=<url> tests a page
+// served elsewhere (e.g. dist/ from a plain static server, as on GitHub Pages, or the deployed site).
+const server = process.env.BASE_URL ? null : process.env.PREVIEW
   ? await preview({ preview: { port: 5199 }, logLevel: 'warn' })
   : await createServer({ server: { port: 5199 }, logLevel: 'warn' });
-if (!process.env.PREVIEW) await server.listen();
-const base = 'http://localhost:5199';
+if (server && !process.env.PREVIEW) await server.listen();
+const base = process.env.BASE_URL ?? 'http://localhost:5199';
 const browser = await chromium.launch();
 const page = await browser.newPage();
 page.on('console', (m) => m.type() === 'error' && console.error('[page]', m.text()));
@@ -36,6 +37,9 @@ try {
     for (const p of r.plans.filter((p) => !p.same)) console.log('  plan differs', p.idx, p.family, p.text, p.error ?? '');
   } else {
     await page.goto(base);
+    // coi-serviceworker reloads the page once to become cross-origin isolated; wait for that before using it.
+    await page.waitForFunction(() => window.crossOriginIsolated, null, { timeout: 60_000 });
+    console.log(`crossOriginIsolated=${await page.evaluate(() => window.crossOriginIsolated)}`);
     await page.waitForFunction(() => document.body.dataset.ready === 'true', null, { timeout: 10 * 60_000 });
     const all = [];
     for (const q of queries.length ? queries : ['counties that border Loja']) {
@@ -58,5 +62,5 @@ try {
   }
 } finally {
   await browser.close();
-  await (server.close?.() ?? server.httpServer.close());
+  if (server) await (server.close?.() ?? server.httpServer.close());
 }

@@ -52,13 +52,24 @@ The page must be cross-origin isolated (COOP `same-origin`, COEP `require-corp`)
 `vite.config.ts` sets the headers for `dev` and `preview`; a static host must set them too (GitHub Pages cannot; an
 HF static Space, Netlify or Cloudflare Pages can).
 
+## Hosting (GitHub Pages)
+
+`.github/workflows/pages.yml` builds `web/` on pushes to `main` and `feat/browser-demo` and publishes it to GitHub
+Pages (https://developmentseed.org/gazet/). The site holds only the page: the model and the place index load from the
+Hugging Face Hub (`developmentseed/gazet-models`, `developmentseed/gazet-sql-data/web-demo/`), which serve CORS and
+range requests. GitHub Pages cannot send COOP/COEP headers, so `public/coi-serviceworker.min.js` (MIT) adds them
+through a service worker; the first visit reloads once. To move to a newer Overture release, rebuild the index with
+`scripts/build_data.py`, upload it to a new `web-demo/overture-<release>/` folder and update `VITE_DATA_URL` in the
+workflow.
+
 ## Tests
 
 ```bash
 npm test                          # compiler, schema and prompts equal the Python ones (fixtures from scripts/)
 node tests/e2e.mjs model          # in headless Chromium: replay 56 plan + 42 place prompts from gazet_compat
 node tests/e2e.mjs search "counties that border Loja" "northern half of Ecuador"   # full searches, live S3
-PREVIEW=1 node tests/e2e.mjs search "..."   # the same against the production build (not yet run)
+PREVIEW=1 node tests/e2e.mjs search "..."   # the same against the production build
+BASE_URL=http://localhost:8765/gazet/ node tests/e2e.mjs search "..."   # a build served elsewhere (static server, Pages)
 ```
 
 Fixtures: `uv run python web/scripts/make_plan_fixtures.py` (plans), `tests/fixtures/prompts.json` (prompts and 40
@@ -98,5 +109,5 @@ evaluation prompts, from `gazet.lm` and `dataset/generative/runs/gazet_compat/pr
 
 - Publishing: the model is public (`developmentseed/gazet-models`); the index and geometry data are still local. A public deployment needs `public/data/` on a public host with CORS
   (e.g. an HF model and dataset repo) and a static host that can send COOP/COEP headers.
-- The production build compiles but was not run through the e2e test.
+- The production build passed the e2e test from a plain static server (no COOP/COEP headers), as on Pages.
 - Speed in a real browser with WebGPU is not measured.
