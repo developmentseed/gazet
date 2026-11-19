@@ -10,7 +10,7 @@ Hugging Face, public:
   Both cards list every source with its licence and attribution.
 GitHub: developmentseed/gazet (already public): EU NUTS rows removed from committed data (DATA_LICENSES.md); browser
 demo on GitHub Pages at https://developmentseed.org/gazet/ (.github/workflows/pages.yml).
-To be deleted after the copy (decided): the private repos developmentseed/gazet-sql-qwen35 and
+To be deleted once rl2-q3-06b-pub is published (decided): the private repos developmentseed/gazet-sql-qwen35 and
 developmentseed/gazet-generative-sql.
 
 == Licence review (primary sources; summary)
