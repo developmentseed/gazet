@@ -34,6 +34,14 @@ table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-top: 
 th, td { text-align: left; padding: 2px 4px; border-bottom: 1px solid var(--line); }
 footer { margin-top: auto; display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); }
 footer a { color: var(--muted); }
+#heavy-warning { max-width: min(460px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; color: var(--ink); font-size: 0.92rem; line-height: 1.4; }
+#heavy-warning::backdrop { background: rgb(20 30 34 / 55%); }
+#heavy-warning h2 { margin: 0 0 8px; font-size: 1.1rem; }
+#heavy-warning ul { padding-left: 1.2em; margin: 8px 0; }
+#heavy-warning .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+#heavy-warning button { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line); background: #f6f8f8; color: var(--ink); }
+#heavy-warning button.primary { border: 0; background: var(--accent); color: white; }
+#status .load-anyway { margin-left: 4px; padding: 4px 10px; border: 0; border-radius: 6px; background: var(--accent); color: white; font-size: 0.85rem; }
 @media (max-width: 800px) {
   body { grid-template-columns: 1fr; grid-template-rows: auto 50vh; }
   #panel { height: auto; border-right: 0; }

@@ -193,7 +193,51 @@ async function init() {
   }
 }
 
-init();
+/** Phones, tablets and low-memory devices, where ~200 MB of downloads and the in-page model can exhaust memory. */
+function isConstrainedDevice(): boolean {
+  const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean }; deviceMemory?: number };
+  if (nav.userAgentData?.mobile) return true;
+  if (/Android|iPhone|iPad|iPod|Mobile|Silk|Kindle/i.test(navigator.userAgent)) return true;
+  // iPadOS reports a desktop user agent; a touch-only screen this small is a tablet or phone.
+  if (matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches && Math.min(screen.width, screen.height) <= 1024) return true;
+  return nav.deviceMemory !== undefined && nav.deviceMemory <= 4;
+}
+
+const LOAD_OK = 'gazet-heavy-load-ok';
+
+function start() {
+  if (!isConstrainedDevice() || localStorage.getItem(LOAD_OK)) {
+    init();
+    return;
+  }
+  const dialog = $<HTMLDialogElement>('heavy-warning');
+  const notLoaded = () => {
+    status.innerHTML = '';
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'load-anyway';
+    b.textContent = 'Load the model and data (~200 MB)';
+    b.addEventListener('click', () => {
+      b.remove();
+      localStorage.setItem(LOAD_OK, '1');
+      init();
+    });
+    status.append('Not loaded: this page is heavy on phones and tablets. ', b);
+  };
+  $('heavy-ok').addEventListener('click', () => {
+    localStorage.setItem(LOAD_OK, '1');
+    dialog.close();
+    init();
+  });
+  $('heavy-cancel').addEventListener('click', () => dialog.close('cancel'));
+  dialog.addEventListener('cancel', () => notLoaded());  // Escape key
+  dialog.addEventListener('close', () => {
+    if (dialog.returnValue === 'cancel') notLoaded();
+  });
+  dialog.showModal();
+}
+
+start();
 
 // For scripted runs (tests/e2e.mjs).
 Object.assign(window, {

@@ -39,6 +39,22 @@
       </footer>
     </aside>
     <main id="map"></main>
+
+    <dialog id="heavy-warning" aria-labelledby="heavy-title">
+      <h2 id="heavy-title">Heavy page ahead</h2>
+      <p>This demo runs a language model and a database inside your browser.</p>
+      <ul>
+        <li>The first visit downloads about <strong>200 MB</strong> (model, place index, database engine).</li>
+        <li>Each search then reads another <strong>10&ndash;170 MB</strong> of map data.</li>
+        <li>On a phone or tablet this can use a lot of mobile data, and the page may <strong>run out of memory</strong> and
+          reload or crash the tab.</li>
+      </ul>
+      <p>A desktop browser on Wi-Fi works best.</p>
+      <div class="actions">
+        <button id="heavy-cancel" type="button">Not now</button>
+        <button id="heavy-ok" type="button" class="primary">Load anyway</button>
+      </div>
+    </dialog>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>
