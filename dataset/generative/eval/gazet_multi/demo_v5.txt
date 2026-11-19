@@ -1,0 +1,36 @@
+counties that border Loja
+  places: ['Loja']
+  plan:   {"find":"divisions","subtype":["county"],"touches":{"ids":["4ad73a…=Loja Province"]}}
+northern half of Ecuador
+  places: ['Ecuador']
+  plan:   {"half":{"ids":["ed1d3c…=Ecuador"]},"side":"north"}
+10 km buffer around Lake Titicaca
+  places: ['Lake Titicaca']
+  plan:   {"find":"divisions","intersects":{"buffer":{"ids":["ne_115…=Titicaca"]},"m":10000}}
+regions of Peru that touch the Pacific Ocean
+  places: ['Peru', 'Pacific Ocean']
+  plan:   {"find":"divisions","subtype":["region"],"country":["PE"],"intersects":{"ids":["ne_115…=Pacific Ocean","ne_115…=Pacific Ocean"]}}
+the three largest counties in Albania
+  places: ['Albania']
+  plan:   {"find":"divisions","subtype":["county"],"country":["AL"],"largest":3}
+border between Loja and Piura
+  places: ['Loja', 'Piura']
+  plan:   {"buffer":{"intersection":[{"ids":["4ad73a…=Loja Province"]},{"ids":["33ac9d…=Piura"]}]},"m":50000}
+regions of Peru that don't touch the ocean
+  places: ['Peru']
+  plan:   {"find":"divisions","subtype":["region"],"country":["PE"],"not_intersects":{"find":"natural","subtype":["ocean","sea"]}}
+regions of Peru bordering Ecuador
+  places: ['Peru', 'Ecuador']
+  plan:   {"find":"divisions","subtype":["region"],"country":["PE"],"touches":{"ids":["ed1d3c…=Ecuador"]}}
+provinces of Chile along the Andes
+  places: ['Chile', 'Andes']
+  plan:   {"find":"divisions","subtype":["region"],"country":["CL"],"intersects":{"ids":["ne_115…=Andes"]}}
+which countries touch both the Mediterranean Sea and the Red Sea
+  places: ['Mediterranean Sea', 'Red Sea']
+  plan:   {"find":"divisions","subtype":["country"],"intersects":[{"ids":["ne_115…=Mediterranean Sea"]},{"ids":["ne_115…=Red Sea"]}]}
+shared border of Loja and Piura
+  places: ['Loja', 'Piura']
+  plan:   {"buffer":{"intersection":[{"ids":["4ad73a…=Loja Province"]},{"ids":["33ac9d…=Piura"]}]},"m":50000}
+10 km corridor along the border of Loja and Zamora Chinchipe
+  places: ['Loja', 'Zamora Chinchipe']
+  plan:   {"buffer":{"intersection":[{"ids":["4ad73a…=Loja Province"]},{"ids":["abe1e8…=Zamora Chinchipe Province"]}]},"m":10000}

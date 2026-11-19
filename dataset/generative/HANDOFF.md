@@ -42,6 +42,8 @@ Branch `feat/generative-sql-data` on developmentseed/gazet is pushed. No PR yet,
 | Plan-language coverage | done | `dsl_coverage.py`, `eval/dsl_coverage/report.txt`: gazet 100% expressible (95% core + rank-within-group), generative 88%, gold 92-97% with ~25-30 operations |
 | Gazet plan prototype | done | `src/gazet/plan.py` (plan language + compiler, `GAZET_SQL_MODE=plan`), `gazet_plan.py` (labels, verify, export, bench), `eval/gazet_plan/report.txt`: compiler 256/256 same geometry; LFM2.5-350M plans 83% same geometry / 99.7% places vs old model 59% / 99.7%, 2.5x faster per request on the laptop; GGUF `developmentseed/gazet-sql-qwen35/plan-v1-lfm350/gguf` (`REVIEW.md`) |
 | Joint model | done | `chatml/joint_v1` (gazet plans + places + generative SQL): joint Qwen3-0.6B keeps gazet (83% same geometry, 100% places) and matches or beats SQL-only SFT on generative (gold v1 52%, gold v2 48%) (`REVIEW.md`, `eval/joint_v1/report.txt`). No general plan language: generative failures are mostly valid-but-wrong SQL |
+| Browser demo | done | `web/`: gazet's geocoder with the 135M plan model in the page (`web/README.md`, `BROWSER_DEMO_PLAN.md`) |
+| Multi-place questions | done | `gazet_multi.py`, `eval/gazet_multi/report.txt`: 17k new questions where a second named place filters the set ("regions of Peru that touch the Pacific Ocean"), DeepSeek paraphrases ($1.08), short-name variants; fixes two label bugs (ST_Within country containers drop coastal regions: 31% of regions; same-name Natural Earth candidates). `plan-v5-smol135`: held-out multi-place 8.6% -> 89.2%, gazet_compat 74.9% -> 82.0% (corrected references); demo now loads it |
 | **RL on the joint model** | **next** | Round 2 recipe (`runs/rl2/launch.sh`) from `joint-v1-q3-06b`; target rl2's 58% / 58% on gold while gazet stays ~83% |
 | Fine-tune sweep | after that | |
 
@@ -140,6 +142,7 @@ executing `sql` and its prediction on the lake and comparing with `consistency.c
 | `student.py`, `hints.py` | student prompt format; value-hint lookup (`show`, `coverage`) |
 | `evaluate.py`, `eval/` | execution-match eval on gold or dev (`run`, `report`); committed reference runs |
 | `gazet_compat.py` | gazet drop-in test: a model through gazet's production prompts and parsing, scored by returned geometry |
+| `gazet_multi.py`, `eval/gazet_multi/` | multi-place plan data: per-country relations, question generation with gazet's search, paraphrases, short names, label fixes, held-out scoring |
 | `gazet_plan.py`, `eval/gazet_plan/` | gazet plan prototype: SQL -> plan labels, compiler check, training exports, CPU bench; plan language itself in `src/gazet/plan.py` |
 | `dsl_coverage.py` | how much SQL a plan language could express |
 | `dev_split.py`, `dev/` | dev split on training tables: scenario list and `dev_v1.jsonl` |

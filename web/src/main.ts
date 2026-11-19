@@ -6,7 +6,7 @@ import type { Candidate } from './format.ts';
 import { Llm } from './llm.ts';
 import { type Event, search } from './pipeline.ts';
 
-const MODEL_URL = import.meta.env.VITE_MODEL_URL ?? './models/gazet-plan-v1-smol135-q8_0.gguf';
+const MODEL_URL = import.meta.env.VITE_MODEL_URL ?? './models/gazet-plan-v5-smol135-q8_0.gguf';
 const DATA_URL = import.meta.env.VITE_DATA_URL ?? './data/';
 const EXAMPLES = [
   'counties that border Loja',

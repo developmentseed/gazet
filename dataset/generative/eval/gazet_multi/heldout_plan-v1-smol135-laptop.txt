@@ -1,0 +1,30 @@
+== plan-v1-smol135-laptop
+ALL                  n  741  places  37.9  plan exact   0.0  same features   8.6  invalid 17
+short names          n   19  places  10.5  plan exact   0.0  same features   0.0  invalid 0
+templated            n  371  places  42.0  plan exact   0.0  same features   8.6  invalid 10
+paraphrased          n  351  places  35.0  plan exact   0.0  same features   9.1  invalid 7
+border_country       n   40  places  20.0  plan exact   0.0  same features   0.0  invalid 0
+border_country (para) n   40  places   5.0  plan exact   0.0  same features   0.0  invalid 0
+border_country (short) n    4  places  25.0  plan exact   0.0  same features   0.0  invalid 0
+border_country_nat   n   16  places   0.0  plan exact   0.0  same features   0.0  invalid 0
+border_country_nat (para) n   16  places   0.0  plan exact   0.0  same features   0.0  invalid 0
+countries_both       n   36  places  97.2  plan exact   0.0  same features  30.6  invalid 0
+countries_both (para) n   36  places  83.3  plan exact   0.0  same features  30.6  invalid 0
+nat_buffer           n   40  places   7.5  plan exact   0.0  same features   2.5  invalid 2
+nat_buffer (para)    n   32  places   6.2  plan exact   0.0  same features   3.1  invalid 2
+nat_buffer (short)   n    2  places   0.0  plan exact   0.0  same features   0.0  invalid 0
+nat_exclude          n   40  places  35.0  plan exact   0.0  same features   0.0  invalid 1
+nat_exclude (para)   n   39  places  17.9  plan exact   0.0  same features   0.0  invalid 2
+nat_filter           n   40  places   5.0  plan exact   0.0  same features  15.0  invalid 2
+nat_filter (para)    n   40  places   7.5  plan exact   0.0  same features  15.0  invalid 1
+nat_filter (short)   n    4  places   0.0  plan exact   0.0  same features   0.0  invalid 0
+nat_rank             n   40  places  52.5  plan exact   0.0  same features   7.5  invalid 5
+nat_rank (para)      n   29  places  41.4  plan exact   0.0  same features   6.9  invalid 2
+nat_rank (short)     n    3  places  33.3  plan exact   0.0  same features   0.0  invalid 0
+nat_union            n   40  places  85.0  plan exact   0.0  same features   2.5  invalid 0
+nat_union (para)     n   40  places  67.5  plan exact   0.0  same features   5.0  invalid 0
+seas_both            n   40  places  92.5  plan exact   0.0  same features  25.0  invalid 0
+seas_both (para)     n   40  places  95.0  plan exact   0.0  same features  25.0  invalid 0
+two_nat              n   39  places   5.1  plan exact   0.0  same features   0.0  invalid 0
+two_nat (para)       n   39  places   5.1  plan exact   0.0  same features   0.0  invalid 0
+two_nat (short)      n    6  places   0.0  plan exact   0.0  same features   0.0  invalid 0

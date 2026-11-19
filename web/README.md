@@ -8,10 +8,12 @@ query ──► model: place names ──► DuckDB: fuzzy search on the index �
       ──► geometry fetched for just the features the plan can touch ──► DuckDB runs the SQL ──► map
 ```
 
-- **Model:** `plan-v1-smol135`, SmolLM2-135M fine-tuned on gazet's place extraction and plans (the plan language in
-  `src/gazet/plan.py`). q8_0 GGUF, 145 MB, run by [wllama](https://github.com/ngxson/wllama) (llama.cpp's
-  server core in WebAssembly). Plans are decoded under the plan JSON schema with IDs limited to the candidates, as
-  gazet does with llama-server. On gazet_compat (GPU): places 97.7%, same geometry 78.9%.
+- **Model:** `plan-v5-smol135`, SmolLM2-135M fine-tuned on gazet's place extraction and plans (the plan language in
+  `src/gazet/plan.py`) plus multi-place questions ("regions of Peru that touch the Pacific Ocean"; see
+  `dataset/generative/eval/gazet_multi/report.txt`). q8_0 GGUF, 145 MB, run by [wllama](https://github.com/ngxson/wllama)
+  (llama.cpp's server core in WebAssembly). Plans are decoded under the plan JSON schema with IDs limited to the
+  candidates, as gazet does with llama-server. Laptop CPU, q8_0, constrained: held-out multi-place questions 89.2%
+  same features (`plan-v1-smol135`: 8.6%); gazet_compat 82.0% same geometry with corrected references (v1: 74.9%).
 - **Compiler:** `src/plan.ts`, a port of `src/gazet/plan.py`. Tests check it writes the same SQL as Python.
 - **Data:** `scripts/build_data.py` builds a 10 MB index (names, attributes, bbox, area, and the file and row of
   each of the 43k divisions and 32k Natural Earth features; no geometry) and a 40 MB Natural Earth geometry file.
@@ -28,10 +30,10 @@ query ──► model: place names ──► DuckDB: fuzzy search on the index �
 cd web
 npm install
 
-# Model: convert the merged weights from the HF repo (or download the GGUF once it is published)
+# Model: the GGUF is in the private HF model repo (convert other runs with dataset/generative/to_gguf.sh)
 mkdir -p public/models
-#   python llama.cpp/convert_hf_to_gguf.py <plan-v1-smol135/merged> --outtype q8_0 \
-#     --outfile public/models/gazet-plan-v1-smol135-q8_0.gguf
+hf download developmentseed/gazet-sql-qwen35 plan-v5-smol135/gguf/gazet-plan-v5-smol135-q8_0.gguf --local-dir .hf-dl \
+  && mv .hf-dl/plan-v5-smol135/gguf/gazet-plan-v5-smol135-q8_0.gguf public/models/
 
 # Data: index and Natural Earth file for an Overture release still on S3 (they keep the latest few).
 # --local reads a downloaded copy of the release's division_area/ and division/ files (5 GB), much faster
@@ -41,7 +43,7 @@ cd .. && uv run python web/scripts/build_data.py --release 2026-10-21.0 [--local
 npm run dev        # http://localhost:5173
 ```
 
-Where the page finds the model and data: `VITE_MODEL_URL` (default `./models/gazet-plan-v1-smol135-q8_0.gguf`) and
+Where the page finds the model and data: `VITE_MODEL_URL` (default `./models/gazet-plan-v5-smol135-q8_0.gguf`) and
 `VITE_DATA_URL` (default `./data/`), at build time. Both hosts must send CORS headers; Hugging Face does.
 
 The page must be cross-origin isolated (COOP `same-origin`, COEP `require-corp`) for wllama to run multithreaded.
