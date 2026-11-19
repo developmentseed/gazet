@@ -17,7 +17,7 @@ LLAMA_TEMPERATURE / LLAMA_MAX_TOKENS defaults). Writes gazet_compat/answers/<lab
 "out_tokens"}) to the dataset repo.
 
 hf jobs uv run --flavor a100-large --timeout 2h --secrets HF_TOKEN finetune/answer_hf_jobs.py \
-    --model gazet-v1=developmentseed/gazet-model:merged --model rl2-q3-06b=developmentseed/gazet-sql-qwen35:rl2-q3-06b/merged
+    --model gazet-v1=developmentseed/gazet-model:merged --model rl2-q3-06b=developmentseed/gazet-models:rl2-q3-06b-pub/merged
 """
 import argparse
 import json
@@ -26,7 +26,7 @@ import pathlib
 import time
 
 os.environ.setdefault("HF_XET_HIGH_PERFORMANCE", "1")
-DATASET = "developmentseed/gazet-generative-sql"
+DATASET = "developmentseed/gazet-sql-data"
 
 
 def main():

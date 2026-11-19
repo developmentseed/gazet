@@ -77,7 +77,8 @@ def run(args):
     OUT.mkdir(parents=True, exist_ok=True)
     done = {}
     if outp.exists():
-        done = {r["id"]: r for r in map(json.loads, outp.read_text().splitlines()) if r.get("pred_sql")}
+        ids = {p["id"] for p in pairs}  # earlier answers to questions no longer in the set are dropped
+        done = {r["id"]: r for r in map(json.loads, outp.read_text().splitlines()) if r.get("pred_sql") and r["id"] in ids}
     c = harness.con()
     cards = {t: harness.schema_card(c, t) for p in pairs for t in p["tables"]}
     todo = []

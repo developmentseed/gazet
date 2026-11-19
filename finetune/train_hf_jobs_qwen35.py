@@ -16,7 +16,7 @@ Any ChatML or Gemma chat model works as --base-model (Qwen3.5, Qwen3, Qwen2.5-Co
 the response markers and the inference prompt are read from the model's own chat template.
 
 Same recipe as train_modal_qwen35.py, but the data comes from the private dataset
-developmentseed/gazet-generative-sql (built by dataset/generative/export.py) and everything the run
+developmentseed/gazet-sql-data (built by dataset/generative/export.py) and everything the run
 produces goes to a private model repo:
 
     <run>/adapter/               LoRA adapter + tokenizer
@@ -45,8 +45,8 @@ import time
 
 os.environ.setdefault("HF_XET_HIGH_PERFORMANCE", "1")
 
-DATASET = "developmentseed/gazet-generative-sql"
-MODEL_REPO = "developmentseed/gazet-sql-qwen35"
+DATASET = "developmentseed/gazet-sql-data"
+MODEL_REPO = "developmentseed/gazet-models"
 
 # flash-linear-attention gives the fast kernels for Qwen3.5's linear-attention layers; without it transformers
 # falls back to a slow torch implementation (about 2 s per generated answer on an A100).

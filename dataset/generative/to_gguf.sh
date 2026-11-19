@@ -5,7 +5,7 @@
 set -euo pipefail
 S="$(cd "$(dirname "$0")" && pwd)"
 RUN="$1"
-REPO="${MODEL_REPO:-developmentseed/gazet-sql-qwen35}"
+REPO="${MODEL_REPO:-developmentseed/gazet-models}"
 LLAMA_SRC="${LLAMA_SRC:-$HOME/.cache/gazet-exp/llamacpp-src/llama.cpp-b11935}"
 CONVERT_PY="${CONVERT_PY:-$HOME/.cache/gazet-exp/convert-venv/bin/python}"
 W="${WORK:-$HOME/.cache/gazet-exp/models}"
