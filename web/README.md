@@ -30,10 +30,12 @@ query ──► model: place names ──► DuckDB: fuzzy search on the index �
 cd web
 npm install
 
-# Model: the GGUF is in the private HF model repo (convert other runs with dataset/generative/to_gguf.sh)
+# Model: public on the Hub (developmentseed/gazet-models). Either serve a local copy ...
 mkdir -p public/models
-hf download developmentseed/gazet-sql-qwen35 plan-v5-smol135/gguf/gazet-plan-v5-smol135-q8_0.gguf --local-dir .hf-dl \
-  && mv .hf-dl/plan-v5-smol135/gguf/gazet-plan-v5-smol135-q8_0.gguf public/models/
+curl -L -o public/models/gazet-plan-v5-smol135-q8_0.gguf \
+  https://huggingface.co/developmentseed/gazet-models/resolve/main/plan-v5-smol135/gguf/gazet-plan-v5-smol135-q8_0.gguf
+# ... or point the page at the Hub directly (it sends CORS headers):
+#   VITE_MODEL_URL=https://huggingface.co/developmentseed/gazet-models/resolve/main/plan-v5-smol135/gguf/gazet-plan-v5-smol135-q8_0.gguf
 
 # Data: index and Natural Earth file for an Overture release still on S3 (they keep the latest few).
 # --local reads a downloaded copy of the release's division_area/ and division/ files (5 GB), much faster
@@ -94,8 +96,7 @@ evaluation prompts, from `gazet.lm` and `dataset/generative/runs/gazet_compat/pr
 
 ## Not done yet
 
-- Publishing: the GGUF was converted locally from the merged weights in the private `developmentseed/gazet-sql-qwen35`
-  repo, and the data is local. A public deployment needs the GGUF and `public/data/` on a public host with CORS
+- Publishing: the model is public (`developmentseed/gazet-models`); the index and geometry data are still local. A public deployment needs `public/data/` on a public host with CORS
   (e.g. an HF model and dataset repo) and a static host that can send COOP/COEP headers.
 - The production build compiles but was not run through the e2e test.
 - Speed in a real browser with WebGPU is not measured.
