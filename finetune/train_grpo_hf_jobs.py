@@ -127,6 +127,11 @@ def main():
     ap.add_argument("--prefilter", action="store_true",
                     help="sample --num-generations answers per question with the start model first and keep only "
                          "questions it gets right sometimes (1..n-1 of n): the rest give GRPO no signal")
+    ap.add_argument("--prefilter-from", help="reuse the questions an earlier run's prefilter kept (<run>/prefilter.jsonl)")
+    ap.add_argument("--kl-stop", type=float, default=0.1,
+                    help="stop when the KL to the start model passes this (a run at lr 2e-5 collapsed above ~0.1)")
+    ap.add_argument("--keep-every", type=int, default=10,
+                    help="every N steps, keep the adapter if its N-step mean reward is the best so far; restored at the end")
     ap.add_argument("--prompts-per-step", type=int, default=16)
     ap.add_argument("--num-generations", type=int, default=8)
     ap.add_argument("--lr", type=float, default=5e-6)
@@ -138,6 +143,7 @@ def main():
     ap.add_argument("--reward-workers", type=int, default=16)
     ap.add_argument("--max-eval-prompts", type=int)
     ap.add_argument("--seed", type=int, default=108)
+    ap.add_argument("--no-upload", action="store_true", help="smoke test: upload nothing")
     a = ap.parse_args()
 
     rl_dir, consistency = setup_lake(a.rl_data)
@@ -174,11 +180,23 @@ def main():
         stats["ok"] += sum(rewards)
         return rewards
 
-    if a.prefilter:
+    api = HfApi()
+    if a.prefilter_from:
+        path = api.hf_hub_download(MODEL_REPO, f"{a.prefilter_from}/prefilter.jsonl")
+        kept = {json.loads(line)["id"] for line in pathlib.Path(path).read_text().splitlines() if line.strip()}
+        rows = [r for r in rows if r["id"] in kept]
+        print(f"prefilter from {a.prefilter_from}: {len(rows):,} questions")
+    elif a.prefilter:
         FastLanguageModel.for_inference(model)
         rows = prefilter(model, tokenizer, rows, a, execution_reward)
         FastLanguageModel.for_training(model)
         stats.update(calls=0, ok=0)
+        # Saved right away: the prefilter is the slowest part of a run, and later runs can reuse it.
+        pf = pathlib.Path("/tmp/prefilter.jsonl")
+        pf.write_text("".join(json.dumps({"id": r["id"]}) + "\n" for r in rows))
+        if not a.no_upload:
+            api.upload_file(path_or_fileobj=str(pf), path_in_repo=f"{a.run_name}/prefilter.jsonl", repo_id=MODEL_REPO,
+                            commit_message=f"Prefiltered RL questions for {a.run_name}")
     ds = Dataset.from_list([{"prompt": prompt_text(tokenizer, r["messages"]), "ref_sql": r["sql"]} for r in rows])
     print(f"{len(ds):,} RL questions; example prompt tail:\n{ds[0]['prompt'][-300:]}")
     steps = a.max_steps or int(a.epochs * len(ds) // a.prompts_per_step)
@@ -194,10 +212,40 @@ def main():
     fields = set(GRPOConfig.__dataclass_fields__)
     print(f"GRPOConfig: dropped unsupported {sorted(set(want) - fields)}")
     args = GRPOConfig(**{k: v for k, v in want.items() if k in fields})
+    from transformers import TrainerCallback
+
+    class KeepBest(TrainerCallback):
+        """Keep the LoRA weights with the best --keep-every-step mean reward; stop when the KL passes --kl-stop."""
+
+        def __init__(self):
+            self.rewards, self.best, self.best_step, self.state = [], -1.0, 0, None
+
+        def on_log(self, args, state, control, logs=None, **kw):
+            logs = logs or {}
+            r = next((v for k, v in logs.items() if k.startswith("rewards/") and k.endswith("/mean")), None)
+            if r is not None:
+                self.rewards.append(float(r))
+            if float(logs.get("kl", 0) or 0) > a.kl_stop:
+                print(f"step {state.global_step}: KL {logs['kl']} > {a.kl_stop}, stopping")
+                control.should_training_stop = True
+            n = a.keep_every
+            if r is not None and len(self.rewards) % n == 0:
+                mean = sum(self.rewards[-n:]) / n
+                if mean > self.best:
+                    self.best, self.best_step = mean, state.global_step
+                    self.state = {k: v.detach().to("cpu", copy=True) for k, v in model.state_dict().items() if "lora_" in k}
+                    print(f"step {state.global_step}: best {n}-step mean reward {mean:.3f}, kept")
+
+    keep = KeepBest()
     trainer = GRPOTrainer(model=model, processing_class=tokenizer, reward_funcs=[execution_reward],
-                          args=args, train_dataset=ds)
+                          args=args, train_dataset=ds, callbacks=[keep])
     t0 = time.time()
     trainer.train()
+    if keep.state is not None:
+        missing = set(keep.state) - set(model.state_dict())
+        assert not missing, f"kept weights not in model: {sorted(missing)[:3]}"
+        model.load_state_dict(keep.state, strict=False)
+        print(f"restored the adapter from step {keep.best_step} (mean reward {keep.best:.3f})")
     minutes = (time.time() - t0) / 60
     print(f"training took {minutes:.1f} min; mean reward {stats['ok'] / max(stats['calls'], 1):.3f} over {stats['calls']} answers")
 
@@ -216,8 +264,12 @@ def main():
         (out / "predictions" / f.name).write_text("".join(json.dumps(p, ensure_ascii=False) + "\n" for p in preds))
         print(f"{f.name}: {len(preds)} answers in {time.time() - t1:.0f} s; first: {preds[0]['text'][:150]!r}")
     model.save_pretrained_merged(str(out / "merged"), tokenizer, save_method="merged_16bit")
-    (out / "config.json").write_text(json.dumps(dict(vars(a), steps=steps, train_minutes=round(minutes, 1)), indent=1))
-    HfApi().upload_folder(repo_id=MODEL_REPO, folder_path=str(out), path_in_repo=a.run_name,
+    (out / "config.json").write_text(json.dumps(dict(vars(a), steps=steps, train_minutes=round(minutes, 1),
+                                                     kept_step=keep.best_step, kept_reward=keep.best), indent=1))
+    if a.no_upload:
+        print(f"--no-upload: left {out} unuploaded")
+        return
+    api.upload_folder(repo_id=MODEL_REPO, folder_path=str(out), path_in_repo=a.run_name,
                           commit_message=f"Add RL run {a.run_name}")
     print(f"uploaded to https://huggingface.co/{MODEL_REPO}/tree/main/{a.run_name}")
 
