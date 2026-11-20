@@ -1,8 +1,0 @@
-plan-v1-smol135-laptop       places  97.7  executes  88.3  same geometry  77.7  (n=350)
-   adjacency 96  aggregatio 80  attribute_ 100  border_cor 40  buffer 72  chained 60  containmen 88  difference 48  direct_loo 68  disambigua 76  intersecti 84  partial_se 80  set_operat 96  window_fun 100
-plan-v3-smol135-laptop       places  99.1  executes  92.9  same geometry  76.0  (n=350)
-   adjacency 92  aggregatio 76  attribute_ 100  border_cor 40  buffer 64  chained 56  containmen 76  difference 60  direct_loo 60  disambigua 88  intersecti 76  partial_se 84  set_operat 92  window_fun 100
-plan-v4-smol135-laptop       places  98.6  executes  92.0  same geometry  76.6  (n=350)
-   adjacency 96  aggregatio 76  attribute_ 100  border_cor 40  buffer 80  chained 52  containmen 76  difference 56  direct_loo 72  disambigua 84  intersecti 72  partial_se 80  set_operat 88  window_fun 100
-plan-v5-smol135-laptop       places  99.1  executes  90.9  same geometry  76.6  (n=350)
-   adjacency 92  aggregatio 76  attribute_ 100  border_cor 40  buffer 84  chained 52  containmen 76  difference 52  direct_loo 68  disambigua 84  intersecti 72  partial_se 80  set_operat 96  window_fun 100

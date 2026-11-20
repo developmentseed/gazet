@@ -1,8 +1,0 @@
-plan-v1-smol135-laptop       corrected refs: same geometry  74.9 (n=350, 40 references corrected)
-   adjacency 96  aggregatio 64  attribute_ 100  border_cor 40  buffer 72  chained 52  containmen 76  difference 48  direct_loo 64  disambigua 76  intersecti 84  partial_se 80  set_operat 96  window_fun 100
-plan-v3-smol135-laptop       corrected refs: same geometry  81.7 (n=350, 40 references corrected)
-   adjacency 92  aggregatio 100  attribute_ 100  border_cor 40  buffer 64  chained 80  containmen 100  difference 60  direct_loo 68  disambigua 88  intersecti 76  partial_se 84  set_operat 92  window_fun 100
-plan-v4-smol135-laptop       corrected refs: same geometry  82.0 (n=350, 40 references corrected)
-   adjacency 96  aggregatio 100  attribute_ 100  border_cor 40  buffer 80  chained 76  containmen 100  difference 56  direct_loo 76  disambigua 84  intersecti 72  partial_se 80  set_operat 88  window_fun 100
-plan-v5-smol135-laptop       corrected refs: same geometry  82.0 (n=350, 40 references corrected)
-   adjacency 92  aggregatio 100  attribute_ 100  border_cor 40  buffer 84  chained 76  containmen 100  difference 52  direct_loo 72  disambigua 84  intersecti 72  partial_se 80  set_operat 96  window_fun 100

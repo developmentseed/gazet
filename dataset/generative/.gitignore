@@ -4,12 +4,16 @@ raw/
 models
 llama/
 .venv/
-# Working output; snapshot meaningful rounds into their own folder (like pilot/)
+# Working output. Research snapshots (pilot/, round_v3/, grading, per-pair eval outputs) live on the Hub:
+# developmentseed/gazet-sql-data, research/generative/ (see README)
 runs/
-# The gold eval set and its candidates are versioned despite the repo-wide *.jsonl rule
-!gold/**/*.jsonl
+pilot/
+round_v3/
+export_stats/
+gold/grading/
+gold/candidates/
+gold2/
+# The test sets are versioned despite the repo-wide *.jsonl rule
 !gold/*.jsonl
 !dev/*.jsonl
-!eval/**/*.jsonl
 .tmp/
-!gold2/**/*.jsonl

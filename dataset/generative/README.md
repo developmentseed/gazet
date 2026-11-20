@@ -41,7 +41,21 @@ and the generator prompt carries a short "DuckDB spatial is not PostGIS" section
 most dialect errors. For llama.cpp on a laptop, use fewer threads than cores (`-t 6` of 8 here);
 using all cores collapsed generation speed about tenfold.
 
-## Pilot results (`pilot/`)
+## Research snapshots (on the Hub)
+
+The experiment snapshots are not in git. They are in the dataset
+[`developmentseed/gazet-sql-data`](https://huggingface.co/datasets/developmentseed/gazet-sql-data) under
+`research/generative/`, with the same paths as here: `pilot/`, `round_v3/`, `gold/grading/`, `gold/candidates/`,
+`gold2/`, `export_stats/` and the per-pair outputs in `eval/`. This folder keeps the code, the docs, the test sets
+(`gold/gold_v*.jsonl`, `dev/`) and the `eval/*/report.txt` summaries. To rerun something that reads a snapshot (for
+example `judge.py`'s calibration), download it here first:
+
+```bash
+hf download developmentseed/gazet-sql-data --repo-type dataset --include "research/generative/*" --local-dir /tmp/r
+cp -r /tmp/r/research/generative/. dataset/generative/
+```
+
+## Pilot results (`pilot/`, on the Hub)
 
 Same 12 scenarios (72 pairs) per model; "usable" = executes x hand-graded correct.
 
