@@ -10,13 +10,17 @@ import { type Event, search } from './pipeline.ts';
 
 const MODEL_URL = import.meta.env.VITE_MODEL_URL ?? './models/gazet-plan-v5-smol135-q8_0.gguf';
 const DATA_URL = import.meta.env.VITE_DATA_URL ?? './data/';
+// Each one checked end to end in the browser (tests/e2e.mjs search) with the right answer; mixed continents and plan operations.
 const EXAMPLES = [
+  'regions of Italy that touch the Adriatic Sea',
+  'prefectures of Japan that border Tokyo',
+  'regions of Kenya that border Somalia',
+  'states of Mexico that touch both the Pacific Ocean and the United States',
+  'regions of Morocco that do not touch the Atlantic Ocean',
+  '10 km buffer along the border between Spain and France',
+  'southern half of Norway',
+  'the three largest regions of Brazil',
   'counties that border Loja',
-  'northern half of Ecuador',
-  '10 km buffer around Lake Titicaca',
-  'regions of Peru that touch the Pacific Ocean',
-  'the three largest counties in Albania',
-  'border between Loja and Piura',
 ];
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;

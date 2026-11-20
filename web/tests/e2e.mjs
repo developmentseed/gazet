@@ -53,6 +53,7 @@ try {
       for (const e of events.filter((e) => e.type === 'status')) console.log('  ', e.message);
       const res = get('result');
       console.log(res ? `  result: ${res.geojson.features.length} features, ${res.seconds.toFixed(1)} s data` : `  ERROR ${get('error')?.message}`);
+      if (res) console.log('  names', res.geojson.features.map((f) => f.properties.name).slice(0, 25).join(', '));
       all.push({ query: q, plan: get('plan')?.plan, sql: get('sql')?.sql,
                  ids: res?.geojson.features.map((f) => f.properties.id) ?? [],
                  areas: res?.geojson.features.map((f) => f.geometry) ? undefined : undefined });
