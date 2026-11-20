@@ -187,6 +187,17 @@ function anchorIds(e: Expr): string[] {
 }
 
 /** Python's float() repr for the buffer distance: 250 -> "250.0", 1e-05 stays exponent-free enough for DuckDB. */
+/** ST_Buffer that stays fast on shared borders (see _buffer in plan.py): line segments are merged before buffering. */
+function buffer(g: string, d: string): string {
+  return (
+    `CASE ST_GeometryType(${g}) ` +
+    `WHEN 'MULTILINESTRING' THEN ST_Buffer(ST_LineMerge(${g}), ${d}) ` +
+    `WHEN 'GEOMETRYCOLLECTION' THEN ST_Union(ST_Union(ST_Buffer(ST_CollectionExtract(${g}, 3), ${d}), ` +
+    `ST_Buffer(ST_LineMerge(ST_CollectionExtract(${g}, 2)), ${d})), ST_Buffer(ST_CollectionExtract(${g}, 1), ${d})) ` +
+    `ELSE ST_Buffer(${g}, ${d}) END`
+  );
+}
+
 function pyFloat(v: number): string {
   if (Number.isInteger(v) && Math.abs(v) < 1e16) return `${v}.0`;
   return String(v);
@@ -252,7 +263,7 @@ function compileOp(e: Expr, sources: Record<string, string>): string {
 
   if (kind === 'buffer') {
     return (
-      `SELECT id, name, subtype, country, region, ST_Buffer(geometry, ${pyFloat(e.m)} / ${DEG_PER_M}) AS geometry ` +
+      `SELECT id, name, subtype, country, region, ${buffer('geometry', `${pyFloat(e.m)} / ${DEG_PER_M}`)} AS geometry ` +
       `FROM (${compile(e.buffer, sources)})`
     );
   }
