@@ -354,9 +354,13 @@ def _generate_sql_from_plan(user_query: str, candidates_df: pd.DataFrame) -> str
     """
     sources = {}
     if {"id", "source"} <= set(candidates_df.columns):
-        sources = dict(zip(candidates_df["id"].astype(str), candidates_df["source"].astype(str)))
+        sources = dict(
+            zip(candidates_df["id"].astype(str), candidates_df["source"].astype(str))
+        )
     schema = plan_schema(list(sources) or None)
-    raw_output = _llama_chat_complete(plan_messages(user_query, candidates_df), json_schema=schema)
+    raw_output = _llama_chat_complete(
+        plan_messages(user_query, candidates_df), json_schema=schema
+    )
     plan = parse_plan(raw_output)
     sql = compile_plan(plan, sources)
     logger.debug("plan %s -> %s", raw_output, sql)
