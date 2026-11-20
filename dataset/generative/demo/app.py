@@ -4,8 +4,8 @@ The model runs in llama-server on CPU. The prompt is built by the same code as t
 (student.py, hints.py, harness.py are copied in by deploy.sh), so what you see is what was evaluated.
 
 Environment:
-    MODEL_REPO / MODEL_FILE   GGUF to serve (default: developmentseed/gazet-sql-qwen35, rl2-q3-06b/gguf/...q8_0.gguf)
-    DATA_REPO                 dataset with lake/*.parquet (default: developmentseed/gazet-generative-sql)
+    MODEL_REPO / MODEL_FILE   GGUF to serve (default: developmentseed/gazet-models, rl-q3-06b-lr2e5-pub/gguf/...q8_0.gguf)
+    DATA_REPO                 dataset with lake/*.parquet (default: developmentseed/gazet-sql-data)
     HF_TOKEN                  read access to both (Space secret)
     LLAMA_SERVER              llama-server binary (default /opt/llama/llama-server, as installed by the Dockerfile)
 """
@@ -24,9 +24,9 @@ import requests
 from huggingface_hub import hf_hub_download, snapshot_download
 
 HERE = Path(__file__).parent
-MODEL_REPO = os.environ.get("MODEL_REPO", "developmentseed/gazet-sql-qwen35")
-MODEL_FILE = os.environ.get("MODEL_FILE", "rl2-q3-06b/gguf/gazet-rl2-q3-06b-q8_0.gguf")
-DATA_REPO = os.environ.get("DATA_REPO", "developmentseed/gazet-generative-sql")
+MODEL_REPO = os.environ.get("MODEL_REPO", "developmentseed/gazet-models")
+MODEL_FILE = os.environ.get("MODEL_FILE", "rl-q3-06b-lr2e5-pub/gguf/gazet-rl-q3-06b-lr2e5-pub-q8_0.gguf")
+DATA_REPO = os.environ.get("DATA_REPO", "developmentseed/gazet-sql-data")
 PORT = 8081
 MAX_ROWS, MAX_FEATURES, QUERY_SECONDS = 500, 2000, 30
 

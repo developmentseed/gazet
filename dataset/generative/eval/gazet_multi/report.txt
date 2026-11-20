@@ -1,0 +1,111 @@
+Multi-place questions for the 135M plan model (2026-11-18/19)
+
+Problem: in the browser demo, "regions of Peru that touch the Pacific Ocean" failed with plan-v1-smol135. The model
+extracted only "Peru", so the Pacific never became a candidate. gazet-dataset has almost no "filter a set by its
+relation to a second named place" questions. Two label bugs made it worse:
+
+1. Container semantics. gazet's templates select "regions of <country>" with ST_Within(region, country). On the
+   current Overture data that is false for 31% of regions (1,108 of 3,612, in 137 of 195 countries), and 19% of
+   counties against their region: coastal divisions reach past the country's land polygon. So "regions of Peru ..."
+   dropped every coastal region, and "regions of Peru that touch the Pacific" returned no rows even with a perfect
+   plan. Fix: a country container is the plan's "country" filter (the code is in the candidate row); region
+   containers keep "within". 3,528 plan-v1 training targets relabelled (containment, chained, aggregation).
+2. Same-name candidates. "Pacific Ocean" is two Natural Earth rows (North and South Pacific) with identical candidate
+   rows; rivers are several segments with one name. Labels held one or all of them depending on geography the model
+   cannot see (plan-v1: 773 labels left a twin out; first multi-place set: 1,546). v2 learned "pick the first" and
+   chose the North Pacific for Peru (no rows again). Fix: a Natural Earth name stands for every candidate row with
+   the same name and subtype (expand_twins). Answers are unchanged for per-country questions; "countries on both X
+   and Y" answers were recomputed (10 changed).
+
+== Data (gazet_multi.py)
+
+relations: for each of 219 countries, in a memory-capped process: regions and counties (all for countries with <=400
+counties, else those of 5 regions), Natural Earth features within 0.6 degrees with distances (0 = intersects),
+neighbouring countries (ST_Touches) and containment (ST_Within, gazet's semantics). Canada needed one thread and 2.9 GB.
+
+generate: 10 templates, places in question order, candidates from gazet's own search (gazet.api's per-source limit,
+merge and sort), plan targets in canonical order. A question is kept only if the second place matters (the answer
+differs from the container alone).
+  nat_filter          regions/counties of X that touch/are along/in natural feature Y (sea, river, lake, range, desert...)
+  nat_exclude         ... that do not touch Y
+  nat_rank            the N largest/smallest ... of X along Y
+  nat_union           merge the ... of X along Y
+  nat_buffer          ... of X within N km of lake/river Y
+  two_nat             ... of X touching both Y and Z
+  border_country      regions/counties of X bordering country Z
+  border_country_nat  ... bordering Z and touching Y
+  seas_both           seas/rivers/lakes/ranges shared by X and its neighbour Z
+  countries_both      countries on both sea/range Y and Z
+  Questions from 12 countries (CL NG VN PL MX KE NZ TR CO SE MA PH) only go to the test split.
+paraphrase: DeepSeek-V4.1-Flash (OpenRouter) rewords each question once. A rewording is kept if every place name is
+  verbatim, numbers match, and negation/ranking/merge words agree. Kept 95%, cost $1.08.
+variants: short names ("Loja" for "Loja Province", "Lima" for "Province of Lima") with fresh candidates. Kept only if
+  every plan ID is still a candidate, the plan is unchanged, and no other division has exactly the short name
+  ("Guatemala" for Guatemala Department is dropped). 382 train / 19 test from the new data, 604 single-place and 648
+  multi-place (mostly border corridors) from plan-v1. Repeated 3 times in training.
+border_country drops "on the X border" / "border with X" phrasings (658), which read like gazet's "border between A
+and B" (a buffered shared border).
+
+verify: compiled plans run on the full local data return exactly the expected features in 100 of 100 sampled questions
+(10 per template). One known exception outside the sample: ne_1159103969 is two NE rows sharing one ID.
+
+Final set (chatml/gazet_plan_v5 in developmentseed/gazet-generative-sql): 110,863 train records (56,003 plan,
+54,860 places), plan-v1's 68,417 records (relabelled) + 17,405 new questions (8,494 paraphrases, 382 short) as plan
+and places pairs + short variants. Test: 741 questions (360 paraphrased, 19 short) = eval/multi_test.jsonl.
+
+== Training (HF Jobs, A100, SmolLM2-135M-Instruct, LoRA r64, lr 2e-4, 1 epoch, same recipe as plan-v1-smol135)
+  plan-v2-smol135  chatml/gazet_plan_v2  102,463 rows  14.4 min   (multi-place + container fix)
+  plan-v3-smol135  chatml/gazet_plan_v3  102,463 rows  13.6 min   (+ same-name candidates together)
+  plan-v4-smol135  chatml/gazet_plan_v4  106,975 rows             (+ short names, no "X border" phrasing)
+  plan-v5-smol135  chatml/gazet_plan_v5  110,863 rows             (+ short names in multi-place plan-v1 questions)
+  GGUF (q8_0, q4_k_m) for each in developmentseed/gazet-sql-qwen35/<run>/gguf.
+
+== Results (laptop CPU, q8_0 GGUF, llama-server with the plan JSON schema and candidate IDs, as the demo does)
+
+Held-out multi-place test, 741 questions (gazet_multi.py score: plan exact, or the compiled plan returns the same features)
+                     places   same features   paraphrased   short names (n=19)
+  plan-v1-smol135     37.9        8.6             9.1            0.0
+  plan-v3-smol135     98.5       88.1            88.9           63.2
+  plan-v4-smol135     98.5       90.7            90.6           78.9
+  plan-v5-smol135     98.5       89.2            89.5           73.7
+  v5 per template (templated, paraphrased): border_country 88, 90; border_country_nat 88, 88; countries_both 97, 97;
+  nat_buffer 90, 88; nat_exclude 90, 95;
+  nat_filter 88, 85; nat_rank 85, 90; nat_union 93, 85; seas_both 98, 95; two_nat 82, 82 (files heldout_*.txt).
+
+gazet_compat, 350 plan + 350 places questions from gazet-dataset's test set (same sample as before)
+                     places   original references   corrected references (40 of 350 changed)
+  plan-v1-smol135     97.7        77.7                  74.9
+  plan-v3-smol135     99.1        76.0                  81.7
+  plan-v4-smol135     98.6        76.6                  82.0
+  plan-v5-smol135     99.1        76.6                  82.0
+  The original references are template SQL with ST_Within containers and single twins. Corrected references compile
+  the relabelled reference plan (gazet_multi.py compat-corrected). v5 vs v1, corrected: containment 76->100,
+  aggregation 64->100, chained 52->76, buffer 72->84, disambiguation 76->84, difference 48->52, direct lookup
+  64->72; adjacency 96->92, intersection 84->72 (25 questions per family). border_corridor 40 for every model:
+  most of its questions name no distance.
+
+Demo examples (eval/gazet_multi/demo_v5.txt; gazet search + constrained plan on the laptop):
+                                                   v1     v3     v4     v5
+  regions of Peru that touch the Pacific Ocean      no     yes    yes    yes
+  regions of Peru bordering Ecuador                 no     yes    yes    yes
+  provinces of Chile along the Andes                no     yes    yes    yes
+  countries on both the Mediterranean and Red Sea   -      yes    yes    yes
+  counties that border Loja                         yes    no     yes    yes   (v3: Lodja, DR Congo)
+  border between Loja and Piura                     yes    no     no     yes
+  northern half of Ecuador / three largest counties in Albania / 10 km buffer around Lake Titicaca: same plan in all.
+In the browser page (web/, tests/e2e.mjs search, v5): Peru + Pacific returns 10 coastal regions (Tumbes, 140 m from
+Natural Earth's coarse ocean polygon, is the one coastal region missed); counties that border Loja returns 17
+counties; border between Loja and Piura gives the right plan, but the 50 km buffer on full-resolution geometry runs
+out of browser memory (a known limit, web/README.md).
+
+Choice: plan-v5-smol135. The demo (web/src/main.ts) now loads gazet-plan-v5-smol135-q8_0.gguf.
+
+== Not covered / next
+- Question types the plan language cannot express: distances and nearest ("closest country to X"), directions
+  ("regions north of X"), counts and areas, cities and localities (not in gazet's natural-language data).
+- Short names are only 19 test questions (v4 79%, v5 74%: 1 question apart); a larger short-name test would settle it.
+- intersection (84->72) and adjacency (96->92) on gazet_compat dropped by 3 and 1 questions of 25.
+- The same container bug exists in gazet's SQL templates and the old SQL model's data (dataset/scripts/sql_templates.py
+  contain_*/chained_*/agg_01-02); not changed there.
+- Reproduce: relations -> generate -> paraphrase -> fix-twins -> variants -> variants --multi-only -> export;
+  eval with local_eval.sh LABEL GGUF compat, then compat-corrected.

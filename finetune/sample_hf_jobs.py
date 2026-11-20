@@ -24,8 +24,8 @@ import time
 
 os.environ.setdefault("HF_XET_HIGH_PERFORMANCE", "1")
 
-DATASET = "developmentseed/gazet-generative-sql"
-MODEL_REPO = "developmentseed/gazet-sql-qwen35"
+DATASET = "developmentseed/gazet-sql-data"
+MODEL_REPO = "developmentseed/gazet-models"
 _ANS = "\x00ANSWER\x00"
 
 

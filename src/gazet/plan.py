@@ -287,6 +287,20 @@ def _anchor_ids(e: dict) -> list[str]:
 GEOMETRY_OPS = ("buffer", "union", "intersection", "difference", "half")
 
 
+def _buffer(g: str, d: str) -> str:
+    """ST_Buffer that stays fast on shared borders. The intersection of two neighbouring areas is their border as
+    thousands of two-point segments (Spain and France: 10,582), and ST_Buffer on that buffers every segment and
+    unions the overlapping results: more than 30 minutes and many GB. Merging the segments first gives the same
+    geometry in under a second. Polygons are buffered as before."""
+    return (
+        f"CASE ST_GeometryType({g}) "
+        f"WHEN 'MULTILINESTRING' THEN ST_Buffer(ST_LineMerge({g}), {d}) "
+        f"WHEN 'GEOMETRYCOLLECTION' THEN ST_Union(ST_Union(ST_Buffer(ST_CollectionExtract({g}, 3), {d}), "
+        f"ST_Buffer(ST_LineMerge(ST_CollectionExtract({g}, 2)), {d})), ST_Buffer(ST_CollectionExtract({g}, 1), {d})) "
+        f"ELSE ST_Buffer({g}, {d}) END"
+    )
+
+
 def _compile(e: dict, sources: dict[str, str]) -> str:
     """SQL for one expression. Geometry operations drop empty and NULL results, so they never feed the next
     operation (DuckDB 1.4 + GEOS can crash on nested operations over empty geometries)."""
@@ -345,8 +359,9 @@ def _compile_op(e: dict, sources: dict[str, str]) -> str:
         return f"SELECT {COLS} FROM ({body}) ORDER BY ST_Area(geometry) {order} LIMIT {int(n)}"
 
     if kind == "buffer":
+        d = f"{float(e['m'])} / {DEG_PER_M}"
         return (
-            f"SELECT id, name, subtype, country, region, ST_Buffer(geometry, {float(e['m'])} / {DEG_PER_M}) AS geometry "
+            f"SELECT id, name, subtype, country, region, {_buffer('geometry', d)} AS geometry "
             f"FROM ({_compile(e['buffer'], sources)})"
         )
 

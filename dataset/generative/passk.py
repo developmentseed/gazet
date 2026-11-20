@@ -23,7 +23,7 @@ import harness
 
 HERE = Path(__file__).parent
 W = Path.home() / ".cache" / "gazet-exp" / "models"
-REPO = "developmentseed/gazet-sql-qwen35"
+REPO = "developmentseed/gazet-models"
 FILES = {"gold": "gold_plain", "gold2": "gold2_plain", "devnew": "devnew_plain"}
 OUT = HERE / "runs" / "passk"
 

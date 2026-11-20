@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 export PATH=$HOME/.local/bin:$PATH
-RUN="$1"; REPO="${MODEL_REPO:-developmentseed/gazet-sql-qwen35}"; W="$HOME/.cache/gazet-exp/models"
+RUN="$1"; REPO="${MODEL_REPO:-developmentseed/gazet-models}"; W="$HOME/.cache/gazet-exp/models"
 files=$(hf models info "$REPO" | grep -o "\"$RUN/predictions/[^\"]*" | tr -d \")
 [ -n "$files" ] || { echo "no predictions for $RUN yet"; exit 1; }
 hf download "$REPO" $files --local-dir "$W" >/dev/null

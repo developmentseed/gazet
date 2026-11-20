@@ -39,8 +39,8 @@ from concurrent.futures import ThreadPoolExecutor
 os.environ.setdefault("HF_XET_HIGH_PERFORMANCE", "1")
 os.environ.setdefault("GAZET_QUERY_RSS_MB", "2000")  # the job machine has far more RAM than the laptop VM
 
-DATASET = "developmentseed/gazet-generative-sql"
-MODEL_REPO = "developmentseed/gazet-sql-qwen35"
+DATASET = "developmentseed/gazet-sql-data"
+MODEL_REPO = "developmentseed/gazet-models"
 _ANS = "\x00ANSWER\x00"
 
 

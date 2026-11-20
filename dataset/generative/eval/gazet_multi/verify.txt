@@ -1,0 +1,10 @@
+border_country       same 10  different 0  error 0
+border_country_nat   same 10  different 0  error 0
+countries_both       same 10  different 0  error 0
+nat_buffer           same 10  different 0  error 0
+nat_exclude          same 10  different 0  error 0
+nat_filter           same 10  different 0  error 0
+nat_rank             same 10  different 0  error 0
+nat_union            same 10  different 0  error 0
+seas_both            same 10  different 0  error 0
+two_nat              same 10  different 0  error 0

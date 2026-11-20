@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gazet in the browser</title>
+    <link rel="icon" href="./gazet-logo.svg" />
+    <!-- Static hosts such as GitHub Pages cannot send COOP/COEP; this service worker adds them (and reloads once) so
+         wllama can run multithreaded. It does nothing where the server already isolates the page (vite dev/preview). -->
+    <script src="./coi-serviceworker.min.js"></script>
+  </head>
+  <body>
+    <aside id="panel">
+      <header>
+        <img src="./gazet-logo.svg" alt="" width="32" height="32" />
+        <div>
+          <h1>Gazet in the browser</h1>
+          <p class="sub">Natural-language geocoding. A 135M model and DuckDB run on this page; geometry comes from Overture's S3 bucket.</p>
+        </div>
+      </header>
+
+      <form id="form">
+        <input id="query" type="text" placeholder="e.g. counties that border Loja" autocomplete="off" disabled />
+        <button id="go" type="submit" disabled>Search</button>
+      </form>
+      <div id="examples"></div>
+
+      <div id="loading">
+        <div class="row"><span>Model</span><progress id="model-progress" max="1" value="0"></progress></div>
+        <div class="row"><span>Data</span><span id="data-status">waiting</span></div>
+      </div>
+
+      <div id="status" role="status"></div>
+      <section id="steps"></section>
+
+      <footer>
+        <span id="release"></span>
+        <a href="https://github.com/developmentseed/gazet">gazet</a>
+      </footer>
+    </aside>
+    <main id="map"></main>
+
+    <dialog id="heavy-warning" aria-labelledby="heavy-title">
+      <h2 id="heavy-title">Heavy page ahead</h2>
+      <p>This demo runs a language model and a database inside your browser.</p>
+      <ul>
+        <li>The first visit downloads about <strong>200 MB</strong> (model, place index, database engine).</li>
+        <li>Each search then reads another <strong>10&ndash;170 MB</strong> of map data.</li>
+        <li>On a phone or tablet this can use a lot of mobile data, and the page may <strong>run out of memory</strong> and
+          reload or crash the tab.</li>
+      </ul>
+      <p>A desktop browser on Wi-Fi works best.</p>
+      <div class="actions">
+        <button id="heavy-cancel" type="button">Not now</button>
+        <button id="heavy-ok" type="button" class="primary">Load anyway</button>
+      </div>
+    </dialog>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
