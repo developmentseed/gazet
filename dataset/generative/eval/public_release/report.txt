@@ -43,4 +43,4 @@ Full table, hinted prompts and exact match: compare_pub.txt in this folder.
 - gazet plan models (plan-*) were trained on Overture divisions and Natural Earth only and needed no retraining.
 - evaluate.py now drops stored answers to questions that are no longer in a test set (it used to keep them).
 - Training and evaluation code defaults to the public repos (finetune/*.py, passk.py, score_run.sh, to_gguf.sh,
-  demo/app.py); new runs are uploaded there directly. demo/app.py serves rl-q3-06b-lr2e5-pub until rl2 is redone.
+  demo/app.py); new runs are uploaded there directly. demo/app.py served rl-q3-06b-lr2e5-pub until rl2 was redone; it now serves rl2-q3-06b-pub-lr1e5 (eval/rl2-q3-06b-pub-lr1e5/report.txt).
