@@ -16,13 +16,12 @@ on the data, and maps the result.
 
 Tables marked "new" were never seen in training (the gold evaluation set uses them).
 
-Source: `dataset/generative/demo/` in the gazet repository (`deploy.sh` builds this Space). Needs the Space secret
-`HF_TOKEN` with read access to the private model and dataset repos.
+Source: `dataset/generative/demo/` in the gazet repository (`deploy.sh` builds this Space). The model
+(`developmentseed/gazet-models`) and data (`developmentseed/gazet-sql-data`) are public, so no token is needed.
 
 ## Run locally
 
-Needs Python 3.12, a llama.cpp build (release b11935 or later; `brew install llama.cpp` on a Mac)
-and an HF token with read access to the private repos (`hf auth login`).
+Needs Python 3.12 and a llama.cpp build (release b11935 or later; `brew install llama.cpp` on a Mac).
 
 ```bash
 cd dataset/generative
@@ -36,4 +35,5 @@ The first start downloads the data (193 MB) and the model (640 MB).
 ## Hosting
 
 Docker Spaces need a paid plan: PRO on a personal account, Team for the developmentseed organisation. With one,
-`demo/deploy.sh [SPACE_ID]` creates the private Space; then add a read-only token as the Space secret `HF_TOKEN`.
+`demo/deploy.sh [SPACE_ID]` creates the private Space. Pointing `MODEL_REPO` or `DATA_REPO` at a private repo needs a
+read-only token as the Space secret `HF_TOKEN`.

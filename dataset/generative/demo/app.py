@@ -6,7 +6,7 @@ The model runs in llama-server on CPU. The prompt is built by the same code as t
 Environment:
     MODEL_REPO / MODEL_FILE   GGUF to serve (default: developmentseed/gazet-models, rl2-q3-06b-pub-lr1e5/gguf/...q8_0.gguf)
     DATA_REPO                 dataset with lake/*.parquet (default: developmentseed/gazet-sql-data)
-    HF_TOKEN                  read access to both (Space secret)
+    HF_TOKEN                  only if MODEL_REPO or DATA_REPO is private (Space secret); the defaults are public
     LLAMA_SERVER              llama-server binary (default /opt/llama/llama-server, as installed by the Dockerfile)
 """
 import html
@@ -21,6 +21,7 @@ from pathlib import Path
 import gradio as gr
 import pandas as pd
 import requests
+import sqlparse
 from huggingface_hub import hf_hub_download, snapshot_download
 
 HERE = Path(__file__).parent
@@ -77,6 +78,19 @@ def ask_model(system, user):
     sql = (m.group(1) if m else text).strip().rstrip(";").strip()
     t = j.get("timings") or {}
     return sql, time.time() - t0, t
+
+
+def pretty_sql(sql):
+    """Wrap and indent the model's SQL for display only; the query that runs is the model's text unchanged."""
+    try:
+        out = sqlparse.format(sql, reindent=True, indent_width=2, indent_columns=True).splitlines()
+    except Exception:
+        return sql
+    for i in range(1, len(out)):  # sqlparse drops the indent of a column named like a keyword (indicator, size)
+        if out[i - 1].rstrip().endswith(",") and not out[i].startswith(" "):
+            out[i] = out[i - 1][: len(out[i - 1]) - len(out[i - 1].lstrip())] + out[i]
+    pretty = "\n".join(out)
+    return pretty if pretty.split() and "".join(pretty.split()) == "".join(sql.split()) else sql
 
 
 def run_sql(sql):
@@ -152,9 +166,9 @@ def answer(tables, question, use_hints):
         t0 = time.time()
         df = run_sql(sql)
         status += f" Query: {len(df)} rows in {time.time() - t0:.2f} s" + (f" (first {MAX_FEATURES})" if len(df) == MAX_FEATURES else "") + "."
-        return sql, status, df.head(MAX_ROWS), map_html(features(df)), prompt
+        return pretty_sql(sql), status, df.head(MAX_ROWS), map_html(features(df)), prompt
     except Exception as e:
-        return sql, status + f" Query failed: {str(e).splitlines()[0][:300]}", None, map_html([]), prompt
+        return pretty_sql(sql), status + f" Query failed: {str(e).splitlines()[0][:300]}", None, map_html([]), prompt
 
 
 with gr.Blocks(title="Gazet SQL demo") as demo:
