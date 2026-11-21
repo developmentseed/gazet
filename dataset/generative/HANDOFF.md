@@ -58,6 +58,27 @@ PR #17 was squash-merged into `main` on 2026-11-21 (`0f959c3`). Research snapsho
 **Spend:** $57.83 of the $90 OpenRouter key (gold set $1.92, training set v1 ~$52).
 **Cost estimate:** ~$3 per 1k accepted training pairs (generation + judge), so ~$60 for 20k pairs.
 
+## Next step: projected number columns beside a lon/lat geometry (found 2026-11-21)
+
+The demo model (`rl2-q3-06b-pub-lr1e5`) picks the wrong coordinates on held-out tables that carry projected
+coordinates as plain number columns next to a lon/lat `geometry`: `sg_parks` X/Y (SVY21, EPSG:3414) and
+`uk_naptan_stops` easting/northing (EPSG:27700). Spatial filters on `geometry` are right; the failures are:
+
+- Asked for "lon and lat", it returns `X, Y` (SVY21 metres) instead of `ST_X(geometry), ST_Y(geometry)`.
+  Example: "Parks within 1 km of Marina Bay Sands (longitude 103.8607, latitude 1.2834), with lon and lat".
+- Given a point as easting/northing, it builds `ST_Point(530000, 180000)` and compares it with the lon/lat
+  geometry: 0 rows, no error. Right: `ST_Point(easting, northing)` against the given point in metres, or
+  `ST_Transform` the point to 4326.
+
+Tried and did not help: a per-column note on the schema card ("SVY21 easting, EPSG:3414 metres, not
+longitude"), same SQL on all 7 probes; the long `student.SYSTEM_RULES` prompt fixed 1 of 3. The table
+description already said it. So this is learned behaviour, not missing prompt text.
+
+Fix: a few hundred training questions on training-only tables with this layout (lon/lat geometry plus projected
+number columns), asking for lon/lat output or giving a point in the projected CRS, then a short SFT or RL
+top-up. Both affected tables are held out, so the gold sets measure it as is. Only these two tables in the
+lake have such columns.
+
 ## Gold set: how it was built (done 2026-10-29)
 
 `harness.py prompts` (eval split) -> `or_generate.py` -> `collect.py` -> `harness.py validate` ->

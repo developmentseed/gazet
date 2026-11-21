@@ -42,7 +42,7 @@ import hints  # noqa: E402
 import student  # noqa: E402
 
 CON = harness.con()
-TABLES = sorted(harness.TABLE_DOCS)
+TABLES = sorted(t for t in harness.TABLE_DOCS if (HERE / "lake" / f"{t}.parquet").exists())  # the public lake has no eu_nuts_regions
 CARDS = {t: harness.schema_card(CON, t) for t in TABLES}
 BLOCKED = re.compile(r"\b(COPY|ATTACH|DETACH|INSTALL|LOAD|PRAGMA|SET|RESET|CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|EXPORT|IMPORT|"
                      r"CALL|read_\w+|glob|getenv|ST_Read)\b", re.IGNORECASE)
@@ -158,7 +158,7 @@ def answer(tables, question, use_hints):
 
 
 with gr.Blocks(title="Gazet SQL demo") as demo:
-    gr.Markdown("## Gazet SQL demo\nA 0.8B model writes DuckDB spatial SQL for your question, on CPU. "
+    gr.Markdown("## Gazet SQL demo\nA 0.6B model (Qwen3-0.6B, fine-tuned, then two rounds of RL) writes DuckDB spatial SQL for your question, on CPU. "
                 "Tables marked *(new)* were never seen in training.")
     with gr.Row():
         with gr.Column(scale=2):
