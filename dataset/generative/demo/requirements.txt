@@ -1,0 +1,5 @@
+duckdb==2.0.0
+gradio==5.49.1
+huggingface_hub
+requests
+pandas

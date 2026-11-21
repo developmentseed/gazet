@@ -1,0 +1,9 @@
+run                                                           n       executes          exact        lenient  s/query
+rl-q3-06b-lr2e5__dev_new_v1__hints__minimal                 313   92.0 [89-95]   62.3 [57-68]   73.5 [69-78]      0.3
+rl-q3-06b-lr2e5__dev_new_v1__plain__minimal                 313   92.0 [88-95]   62.3 [57-68]   73.5 [69-78]      0.3
+rl-q3-06b-lr2e5__dev_v1__hints__minimal                     755   96.2 [95-97]   67.5 [64-71]   80.5 [78-83]      0.3
+rl-q3-06b-lr2e5__dev_v1__plain__minimal                     755   95.5 [94-97]   65.8 [63-69]   79.6 [77-82]      0.3
+rl-q3-06b-lr2e5__gold_v1__hints__minimal                    342   93.6 [91-96]   45.0 [40-50]   59.4 [54-65]      0.3
+rl-q3-06b-lr2e5__gold_v1__plain__minimal                    342   94.4 [92-97]   42.1 [37-47]   57.0 [52-62]      0.3
+rl-q3-06b-lr2e5__gold_v2__hints__minimal                    158   87.3 [82-92]   45.6 [38-54]   51.9 [44-60]      0.3
+rl-q3-06b-lr2e5__gold_v2__plain__minimal                    158   90.5 [86-95]   44.3 [37-52]   48.7 [41-56]      0.3

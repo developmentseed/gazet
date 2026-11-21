@@ -1,0 +1,19 @@
+# Rebuildable data and tooling (see README)
+lake/
+raw/
+models
+llama/
+.venv/
+# Working output. Research snapshots (pilot/, round_v3/, grading, per-pair eval outputs) live on the Hub:
+# developmentseed/gazet-sql-data, research/generative/ (see README)
+runs/
+pilot/
+round_v3/
+export_stats/
+gold/grading/
+gold/candidates/
+gold2/
+# The test sets are versioned despite the repo-wide *.jsonl rule
+!gold/*.jsonl
+!dev/*.jsonl
+.tmp/

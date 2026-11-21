@@ -1,0 +1,15 @@
+rl2-q3-06b-pub (2026-11-20, HF job 6b004922efaf5e14f4b35148): COLLAPSED, do not use.
+Same recipe as rl2-q3-06b (lr 2e-5, prefilter) from rl-q3-06b-lr2e5-pub on rl/v2_pub. Prefilter kept 1,513 of 4,535
+questions (196 min); training 94 steps, 129 min; ~$15. Reward peaked at 0.76 (step 57) and fell to 0.21-0.38 by
+steps 89-94 while KL to the start model rose from 0.0002 to 0.23 (RL round 1 ended near 0.004). Answers repeat
+fragments ("ROUND(..., 2) AS DOUBLE, 2)"), so far fewer execute. Rerun: lr 1e-5, keep-best adapter, KL stop 0.1.
+
+run                                                           n       executes          exact        lenient  s/query
+rl2-q3-06b-pub__dev_new_v1__hints__minimal                  313   78.0 [73-83]   52.1 [47-58]   60.7 [55-66]      0.3
+rl2-q3-06b-pub__dev_new_v1__plain__minimal                  313   79.6 [75-84]   53.7 [48-59]   62.6 [58-68]      0.2
+rl2-q3-06b-pub__dev_v1__hints__minimal                      686   74.1 [71-77]   49.7 [46-53]   62.7 [59-66]      0.2
+rl2-q3-06b-pub__dev_v1__plain__minimal                      686   73.3 [70-77]   50.0 [46-54]   62.1 [58-66]      0.3
+rl2-q3-06b-pub__gold_v1__hints__minimal                     291   78.4 [74-83]   37.8 [33-44]   51.2 [46-57]      0.3
+rl2-q3-06b-pub__gold_v1__plain__minimal                     291   76.3 [71-81]   34.7 [30-41]   46.7 [41-53]      0.3
+rl2-q3-06b-pub__gold_v2__hints__minimal                     137   71.5 [64-79]   41.6 [33-50]   46.7 [39-55]      0.2
+rl2-q3-06b-pub__gold_v2__plain__minimal                     137   70.8 [64-78]   39.4 [31-47]   43.8 [36-52]      0.2

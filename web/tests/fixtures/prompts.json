@@ -1,0 +1,3820 @@
+{
+ "places_system": "You are a geographic entity extractor. Extract the place names the user is asking about and return valid JSON only.\n\nOUTPUT FORMAT:\n{\"places\": [{\"place\": \"<name>\"}]}\n\nRULES:\n- Extract the place or places that are the actual anchors of the query.\n- Physical features are valid places: oceans, seas, gulfs, bays, straits, rivers, lakes, basins, mountain ranges, peninsulas, island groups, deserts, and terrain regions.\n- When a place is followed by its containing region, state, or country as disambiguation context (\"Puri, Odisha\", \"Lisboa, Portugal\", \"Goa, India\", \"Manchester in US\"), extract ONLY the specific place. Do not return the container as a separate place.\n- When a query names two or more distinct anchors joined by words like \"and\", \"both\", \"between\", or mixes an admin area with a physical feature as separate anchors, extract every anchor in the order they appear.\n- Do not infer or expand category nouns like \"regions\", \"districts\", \"counties\", \"rivers\", or \"mountains\" when they refer to a type rather than a specific named place (\"regions of India\" -> extract \"India\" only).\n- Only extract places explicitly mentioned.\n- No duplicate place names.\n\nEXAMPLES:\nQuery: \"Puri, Odisha\"\n-> {\"places\": [{\"place\": \"Puri\"}]}\n\nQuery: \"Lisboa, Portugal\"\n-> {\"places\": [{\"place\": \"Lisboa\"}]}\n\nQuery: \"Goa, India\"\n-> {\"places\": [{\"place\": \"Goa\"}]}\n\nQuery: \"Manchester in US\"\n-> {\"places\": [{\"place\": \"Manchester\"}]}\n\nQuery: \"Springfield, Illinois\"\n-> {\"places\": [{\"place\": \"Springfield\"}]}\n\nQuery: \"coastal districts of Brazil\"\n-> {\"places\": [{\"place\": \"Brazil\"}]}\n\nQuery: \"northern half of India\"\n-> {\"places\": [{\"place\": \"India\"}]}\n\nQuery: \"what's within 50 km of Paris?\"\n-> {\"places\": [{\"place\": \"Paris\"}]}\n\nQuery: \"countries the Nile crosses\"\n-> {\"places\": [{\"place\": \"Nile\"}]}\n\nQuery: \"which countries touch the Gulf of Maine\"\n-> {\"places\": [{\"place\": \"Gulf of Maine\"}]}\n\nQuery: \"10 km buffer around Odisha\"\n-> {\"places\": [{\"place\": \"Odisha\"}]}\n\nQuery: \"part of Ecuador in the Amazon basin\"\n-> {\"places\": [{\"place\": \"Ecuador\"}, {\"place\": \"Amazon basin\"}]}\n\nQuery: \"Amazon basin inside Ecuador\"\n-> {\"places\": [{\"place\": \"Amazon basin\"}, {\"place\": \"Ecuador\"}]}\n\nQuery: \"the part of Chad in Lake Chad\"\n-> {\"places\": [{\"place\": \"Chad\"}, {\"place\": \"Lake Chad\"}]}\n\nQuery: \"which regions border both France and Germany?\"\n-> {\"places\": [{\"place\": \"France\"}, {\"place\": \"Germany\"}]}\n\nQuery: \"merge Nairobi and Mombasa\"\n-> {\"places\": [{\"place\": \"Nairobi\"}, {\"place\": \"Mombasa\"}]}",
+ "plan_system": "You turn a geographic query into a JSON plan. Data: divisions (Overture admin areas; subtype country, region or county; country is an ISO alpha-2 code) and natural (Natural Earth features; subtype such as ocean, sea, river, lake, basin, range/mtn, plateau, island group, peninsula).\n\nEvery expression is a set of features:\n{\"ids\":[...]}  candidates by id\n{\"find\":\"divisions\"|\"natural\", \"subtype\":[...], \"country\":[...], \"is_land\":bool, \"is_territorial\":bool, \"touches\"|\"intersects\"|\"within\"|\"contains\"|\"not_intersects\": E or [E,...], \"largest\"|\"smallest\":n, \"per\":\"region\"|\"country\"}\n{\"buffer\":E,\"m\":metres}  {\"union\":E}  {\"intersection\":[A,B]}  {\"difference\":[A,B]}  {\"half\":E,\"side\":\"north\"|\"south\"|\"east\"|\"west\"}\n\nUse ids from the candidates table. Return only the plan.",
+ "user_template": "<CANDIDATES>\n{candidates_csv}\n</CANDIDATES>\n\n<USER_QUERY>\n{question}\n</USER_QUERY>\n",
+ "examples": [
+  {
+   "question": "territorial provinces of Honduras",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159133771",
+     "name": "Horn",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159133945",
+     "name": "Horn",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159137645",
+     "name": "Hondo",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "239d0ae2-93b0-4b52-b2e9-350ebdbea62f",
+     "name": "Honduras",
+     "subtype": "country",
+     "country": "HN",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "33048c00-e33f-41b8-80ed-8b96c6604ae1",
+     "name": "Horasan",
+     "subtype": "county",
+     "country": "TR",
+     "region": "TR-25",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "7a22330f-ff4a-4ee7-a333-aeaefef7fa6d",
+     "name": "Honduras",
+     "subtype": "country",
+     "country": "HN",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "a48fbfee-4183-4e39-bc26-62a1eab2aab0",
+     "name": "Honaz",
+     "subtype": "county",
+     "country": "TR",
+     "region": "TR-20",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159137679",
+     "name": "Hondo",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "36581f58-f7b8-4b79-8b8d-826dee6b33ea",
+     "name": "Honduras de la Sierra",
+     "subtype": "county",
+     "country": "MX",
+     "region": "MX-CHP",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "e5675bb5-9405-482e-8ba7-16eee126816f",
+     "name": "Honda",
+     "subtype": "county",
+     "country": "CO",
+     "region": "CO-TOL",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159133771,Horn,river,,,\nnatural_earth,ne_1159133945,Horn,river,,,\nnatural_earth,ne_1159137645,Hondo,river,,,\ndivisions_area,239d0ae2-93b0-4b52-b2e9-350ebdbea62f,Honduras,country,HN,,0\ndivisions_area,33048c00-e33f-41b8-80ed-8b96c6604ae1,Horasan,county,TR,TR-25,2\ndivisions_area,7a22330f-ff4a-4ee7-a333-aeaefef7fa6d,Honduras,country,HN,,0\ndivisions_area,a48fbfee-4183-4e39-bc26-62a1eab2aab0,Honaz,county,TR,TR-20,2\nnatural_earth,ne_1159137679,Hondo,river,,,\ndivisions_area,36581f58-f7b8-4b79-8b8d-826dee6b33ea,Honduras de la Sierra,county,MX,MX-CHP,2\ndivisions_area,e5675bb5-9405-482e-8ba7-16eee126816f,Honda,county,CO,CO-TOL,2\n</CANDIDATES>\n\n<USER_QUERY>\nterritorial provinces of Honduras\n</USER_QUERY>\n"
+  },
+  {
+   "question": "find the area near the border of Altepexi and Zinacatepec",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "1694aedd-0efd-4ca8-807f-4275c433ad5d",
+     "name": "Zacatepec",
+     "subtype": "county",
+     "country": "MX",
+     "region": "MX-MOR",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "73707826-c01f-42c3-8de0-443b43cd3a3a",
+     "name": "Zinacantepec",
+     "subtype": "county",
+     "country": "MX",
+     "region": "MX-MEX",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159131949",
+     "name": "Alexis",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "dce7b16c-fd7e-4e8d-ab79-94594bdcc108",
+     "name": "Maltepe",
+     "subtype": "county",
+     "country": "TR",
+     "region": "TR-34",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "2c03ed95-e99e-426d-8371-c2c84d172c30",
+     "name": "Alexeni",
+     "subtype": "county",
+     "country": "RO",
+     "region": "RO-IL",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159111073",
+     "name": "Sinecapa",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159137407",
+     "name": "Sinecapa",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "1bf1b2cf-e910-4ddf-9e8c-a6b48301a65e",
+     "name": "Altepexi",
+     "subtype": "county",
+     "country": "MX",
+     "region": "MX-PUE",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "837d9bfe-97ec-4894-b75c-f90baf1d54ba",
+     "name": "Zinacatepec",
+     "subtype": "county",
+     "country": "MX",
+     "region": "MX-PUE",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159113203",
+     "name": "Alexis",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,1694aedd-0efd-4ca8-807f-4275c433ad5d,Zacatepec,county,MX,MX-MOR,2\ndivisions_area,73707826-c01f-42c3-8de0-443b43cd3a3a,Zinacantepec,county,MX,MX-MEX,2\nnatural_earth,ne_1159131949,Alexis,river,,,\ndivisions_area,dce7b16c-fd7e-4e8d-ab79-94594bdcc108,Maltepe,county,TR,TR-34,2\ndivisions_area,2c03ed95-e99e-426d-8371-c2c84d172c30,Alexeni,county,RO,RO-IL,2\nnatural_earth,ne_1159111073,Sinecapa,river,,,\nnatural_earth,ne_1159137407,Sinecapa,river,,,\ndivisions_area,1bf1b2cf-e910-4ddf-9e8c-a6b48301a65e,Altepexi,county,MX,MX-PUE,2\ndivisions_area,837d9bfe-97ec-4894-b75c-f90baf1d54ba,Zinacatepec,county,MX,MX-PUE,2\nnatural_earth,ne_1159113203,Alexis,river,,,\n</CANDIDATES>\n\n<USER_QUERY>\nfind the area near the border of Altepexi and Zinacatepec\n</USER_QUERY>\n"
+  },
+  {
+   "question": "show the Little Wabash",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159139755",
+     "name": "Little Kanawha",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_10m_ne_10m_lakes_pluvial_35",
+     "name": "Little Fish",
+     "subtype": "pluvial lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159108187",
+     "name": "Little Wabash",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "77c785ab-3b1e-4d7e-a1ea-601dc902238d",
+     "name": "Little Bay East",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-NL",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "e3c37cc6-2ae3-42f8-b029-ce74323b16c0",
+     "name": "Little Bay Islands",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-NL",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159139627",
+     "name": "Little Wabash",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_10m_ne_10m_lakes_pluvial_37",
+     "name": "Little Fish",
+     "subtype": "pluvial lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159107943",
+     "name": "Little Kanawha",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "e6d5f1f8-8443-4129-a2bc-0a88cb389b0d",
+     "name": "Little Bay",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-NL",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "a644cbbe-c15f-4ed3-b6de-140139de3e7f",
+     "name": "Little Burnt Bay",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-NL",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159139755,Little Kanawha,river,,,\nnatural_earth,ne_10m_ne_10m_lakes_pluvial_35,Little Fish,pluvial lake,,,\nnatural_earth,ne_1159108187,Little Wabash,river,,,\ndivisions_area,77c785ab-3b1e-4d7e-a1ea-601dc902238d,Little Bay East,county,CA,CA-NL,2\ndivisions_area,e3c37cc6-2ae3-42f8-b029-ce74323b16c0,Little Bay Islands,county,CA,CA-NL,2\nnatural_earth,ne_1159139627,Little Wabash,river,,,\nnatural_earth,ne_10m_ne_10m_lakes_pluvial_37,Little Fish,pluvial lake,,,\nnatural_earth,ne_1159107943,Little Kanawha,river,,,\ndivisions_area,e6d5f1f8-8443-4129-a2bc-0a88cb389b0d,Little Bay,county,CA,CA-NL,2\ndivisions_area,a644cbbe-c15f-4ed3-b6de-140139de3e7f,Little Burnt Bay,county,CA,CA-NL,2\n</CANDIDATES>\n\n<USER_QUERY>\nshow the Little Wabash\n</USER_QUERY>\n"
+  },
+  {
+   "question": "top 3 biggest countys in Guinée",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "be5e64a7-1d10-49ab-875b-b7fe5f03ab1c",
+     "name": "Aguié",
+     "subtype": "county",
+     "country": "NE",
+     "region": "NE-4",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "563c9242-ee48-489a-acd8-5d9495ab7fd2",
+     "name": "Guinée",
+     "subtype": "country",
+     "country": "GN",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159125099",
+     "name": "Ngun",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159121959",
+     "name": "Guainía",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "79c91b78-65f2-486f-abb4-631b01217ac6",
+     "name": "Guinée",
+     "subtype": "country",
+     "country": "GN",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159110047",
+     "name": "Ogun",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "046f880f-fbaa-4a5d-953d-7594dad3ed36",
+     "name": "Guiné-Bissau",
+     "subtype": "country",
+     "country": "GW",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "0b899755-acec-44d7-8d21-c61f4d20b00e",
+     "name": "Guiné-Bissau",
+     "subtype": "country",
+     "country": "GW",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159131887",
+     "name": "Gué",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "d1eabb3e-df13-4627-9788-8447c49f8382",
+     "name": "Guinas",
+     "subtype": "county",
+     "country": "NA",
+     "region": null,
+     "admin_level": 1
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,be5e64a7-1d10-49ab-875b-b7fe5f03ab1c,Aguié,county,NE,NE-4,2\ndivisions_area,563c9242-ee48-489a-acd8-5d9495ab7fd2,Guinée,country,GN,,0\nnatural_earth,ne_1159125099,Ngun,river,,,\nnatural_earth,ne_1159121959,Guainía,river,,,\ndivisions_area,79c91b78-65f2-486f-abb4-631b01217ac6,Guinée,country,GN,,0\nnatural_earth,ne_1159110047,Ogun,river,,,\ndivisions_area,046f880f-fbaa-4a5d-953d-7594dad3ed36,Guiné-Bissau,country,GW,,0\ndivisions_area,0b899755-acec-44d7-8d21-c61f4d20b00e,Guiné-Bissau,country,GW,,0\nnatural_earth,ne_1159131887,Gué,river,,,\ndivisions_area,d1eabb3e-df13-4627-9788-8447c49f8382,Guinas,county,NA,,1\n</CANDIDATES>\n\n<USER_QUERY>\ntop 3 biggest countys in Guinée\n</USER_QUERY>\n"
+  },
+  {
+   "question": "which countries lie on the CONGO BASIN?",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "272d21fe-5e20-4317-b0ee-dcd5cf43f7c7",
+     "name": "Conguaco",
+     "subtype": "county",
+     "country": "GT",
+     "region": "GT-22",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159126877",
+     "name": "Contas",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "2cb0e1e0-a191-469b-9ac7-dc3622cf38a6",
+     "name": "Congo",
+     "subtype": "country",
+     "country": "CG",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159104323",
+     "name": "CONGO BASIN",
+     "subtype": "basin",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159119889",
+     "name": "Congo",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "1a04e17a-9947-433f-af1f-c68c16e2982f",
+     "name": "Congo",
+     "subtype": "country",
+     "country": "CG",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1746286937",
+     "name": "Condamine",
+     "subtype": "river (intermittent)",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1746286935",
+     "name": "Condamine",
+     "subtype": "river (intermittent)",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "1537e944-a704-4675-84d3-b458e3fc87e2",
+     "name": "COGO",
+     "subtype": "county",
+     "country": "GQ",
+     "region": "GQ-LI",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159120849",
+     "name": "Congo",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,272d21fe-5e20-4317-b0ee-dcd5cf43f7c7,Conguaco,county,GT,GT-22,2\nnatural_earth,ne_1159126877,Contas,river,,,\ndivisions_area,2cb0e1e0-a191-469b-9ac7-dc3622cf38a6,Congo,country,CG,,0\nnatural_earth,ne_1159104323,CONGO BASIN,basin,,,\nnatural_earth,ne_1159119889,Congo,river,,,\ndivisions_area,1a04e17a-9947-433f-af1f-c68c16e2982f,Congo,country,CG,,0\nnatural_earth,ne_1746286937,Condamine,river (intermittent),,,\nnatural_earth,ne_1746286935,Condamine,river (intermittent),,,\ndivisions_area,1537e944-a704-4675-84d3-b458e3fc87e2,COGO,county,GQ,GQ-LI,2\nnatural_earth,ne_1159120849,Congo,river,,,\n</CANDIDATES>\n\n<USER_QUERY>\nwhich countries lie on the CONGO BASIN?\n</USER_QUERY>\n"
+  },
+  {
+   "question": "Canada minus County of Barrhead",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "a22e1e76-3dc4-4c2a-bf7c-cbd9a352ba4a",
+     "name": "Town of Barrhead",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-AB",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "8c09baf8-d6f2-40a4-88da-d31cd0907449",
+     "name": "Canada",
+     "subtype": "country",
+     "country": "CA",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "1f3eb794-8ad4-4fb0-a2b4-0217883512df",
+     "name": "County of Barrhead",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-AB",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "b1409f12-e160-4f5f-b67e-be42fe68245b",
+     "name": "Canada",
+     "subtype": "country",
+     "country": "CA",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "4f36312e-aeb8-4838-b16a-0e9e01dacc26",
+     "name": "County of Warner",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-AB",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159124645",
+     "name": "Canadian",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "30e037fe-269f-4e24-9ec9-34bccda2703c",
+     "name": "Canala",
+     "subtype": "county",
+     "country": "NC",
+     "region": null,
+     "admin_level": 3
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159103429",
+     "name": "CUBA",
+     "subtype": "island",
+     "country": null,
+     "region": "North America",
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159124631",
+     "name": "Canadian",
+     "subtype": "lake centerline",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159126877",
+     "name": "Contas",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,a22e1e76-3dc4-4c2a-bf7c-cbd9a352ba4a,Town of Barrhead,county,CA,CA-AB,2\ndivisions_area,8c09baf8-d6f2-40a4-88da-d31cd0907449,Canada,country,CA,,0\ndivisions_area,1f3eb794-8ad4-4fb0-a2b4-0217883512df,County of Barrhead,county,CA,CA-AB,2\ndivisions_area,b1409f12-e160-4f5f-b67e-be42fe68245b,Canada,country,CA,,0\ndivisions_area,4f36312e-aeb8-4838-b16a-0e9e01dacc26,County of Warner,county,CA,CA-AB,2\nnatural_earth,ne_1159124645,Canadian,river,,,\ndivisions_area,30e037fe-269f-4e24-9ec9-34bccda2703c,Canala,county,NC,,3\nnatural_earth,ne_1159103429,CUBA,island,,North America,\nnatural_earth,ne_1159124631,Canadian,lake centerline,,,\nnatural_earth,ne_1159126877,Contas,river,,,\n</CANDIDATES>\n\n<USER_QUERY>\nCanada minus County of Barrhead\n</USER_QUERY>\n"
+  },
+  {
+   "question": "Déline District in Canada",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "88d81dfc-56b5-4fb8-974b-156234031c0a",
+     "name": "Bodi District",
+     "subtype": "county",
+     "country": "GH",
+     "region": "GH-WN",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "4bbcc0d0-48cc-43a7-baab-45c232c10b3a",
+     "name": "Sinda District",
+     "subtype": "county",
+     "country": "ZM",
+     "region": "ZM-03",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159114439",
+     "name": "Dniester",
+     "subtype": "lake centerline",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "ca824476-b24e-44b1-9d20-66c293c272bb",
+     "name": "Luwingu District",
+     "subtype": "county",
+     "country": "ZM",
+     "region": "ZM-05",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159104425",
+     "name": "Adélie Coast",
+     "subtype": "coast",
+     "country": null,
+     "region": "Antarctica",
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159114451",
+     "name": "Dniester",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "7b22c3a7-74a3-4e8d-87b7-2dc9011b6e4d",
+     "name": "Dei District",
+     "subtype": "county",
+     "country": "PG",
+     "region": "PG-WHM",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "d44f388d-e64e-4f96-8854-6235495a651e",
+     "name": "Lundazi District",
+     "subtype": "county",
+     "country": "ZM",
+     "region": "ZM-03",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "76fa30be-230a-41f5-a0b5-4bce7aeec52d",
+     "name": "Déline District",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-NT",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "8c09baf8-d6f2-40a4-88da-d31cd0907449",
+     "name": "Canada",
+     "subtype": "country",
+     "country": "CA",
+     "region": null,
+     "admin_level": 0
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,88d81dfc-56b5-4fb8-974b-156234031c0a,Bodi District,county,GH,GH-WN,2\ndivisions_area,4bbcc0d0-48cc-43a7-baab-45c232c10b3a,Sinda District,county,ZM,ZM-03,2\nnatural_earth,ne_1159114439,Dniester,lake centerline,,,\ndivisions_area,ca824476-b24e-44b1-9d20-66c293c272bb,Luwingu District,county,ZM,ZM-05,2\nnatural_earth,ne_1159104425,Adélie Coast,coast,,Antarctica,\nnatural_earth,ne_1159114451,Dniester,river,,,\ndivisions_area,7b22c3a7-74a3-4e8d-87b7-2dc9011b6e4d,Dei District,county,PG,PG-WHM,2\ndivisions_area,d44f388d-e64e-4f96-8854-6235495a651e,Lundazi District,county,ZM,ZM-03,2\ndivisions_area,76fa30be-230a-41f5-a0b5-4bce7aeec52d,Déline District,county,CA,CA-NT,2\ndivisions_area,8c09baf8-d6f2-40a4-88da-d31cd0907449,Canada,country,CA,,0\n</CANDIDATES>\n\n<USER_QUERY>\nDéline District in Canada\n</USER_QUERY>\n"
+  },
+  {
+   "question": "area within 10 km of the Tabuaço-São João da Pesqueira border",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159102369",
+     "name": "São Nicolau",
+     "subtype": "island",
+     "country": null,
+     "region": "Africa",
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "d70a6bc7-39c3-4bbe-b3f5-4cf63d038bb1",
+     "name": "Tabasco",
+     "subtype": "county",
+     "country": "MX",
+     "region": "MX-ZAC",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "666ee61f-9dc1-40c0-a207-fe21dd4125a1",
+     "name": "São Roque do Pico",
+     "subtype": "county",
+     "country": "PT",
+     "region": "PT-20",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159102841",
+     "name": "São Tomé",
+     "subtype": "island",
+     "country": null,
+     "region": "Africa",
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "4c1dc65a-a54b-4510-b9da-d879c2e687fc",
+     "name": "Tabuaço",
+     "subtype": "county",
+     "country": "PT",
+     "region": "PT-18",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159134839",
+     "name": "Aua",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "63ce7da3-411a-4c43-9850-b7259efd64aa",
+     "name": "São João da Pesqueira",
+     "subtype": "county",
+     "country": "PT",
+     "region": "PT-18",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "d8745bd0-f745-43b8-bcaa-44b107d4adf5",
+     "name": "Taba",
+     "subtype": "county",
+     "country": "EG",
+     "region": "EG-JS",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "5abb1c80-315d-4476-a87f-d3aedcad495c",
+     "name": "São João da Madeira",
+     "subtype": "county",
+     "country": "PT",
+     "region": "PT-01",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159127627",
+     "name": "Tambo",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159102369,São Nicolau,island,,Africa,\ndivisions_area,d70a6bc7-39c3-4bbe-b3f5-4cf63d038bb1,Tabasco,county,MX,MX-ZAC,2\ndivisions_area,666ee61f-9dc1-40c0-a207-fe21dd4125a1,São Roque do Pico,county,PT,PT-20,2\nnatural_earth,ne_1159102841,São Tomé,island,,Africa,\ndivisions_area,4c1dc65a-a54b-4510-b9da-d879c2e687fc,Tabuaço,county,PT,PT-18,2\nnatural_earth,ne_1159134839,Aua,river,,,\ndivisions_area,63ce7da3-411a-4c43-9850-b7259efd64aa,São João da Pesqueira,county,PT,PT-18,2\ndivisions_area,d8745bd0-f745-43b8-bcaa-44b107d4adf5,Taba,county,EG,EG-JS,2\ndivisions_area,5abb1c80-315d-4476-a87f-d3aedcad495c,São João da Madeira,county,PT,PT-01,2\nnatural_earth,ne_1159127627,Tambo,river,,,\n</CANDIDATES>\n\n<USER_QUERY>\narea within 10 km of the Tabuaço-São João da Pesqueira border\n</USER_QUERY>\n"
+  },
+  {
+   "question": "merge Taishi and Sölvesborgs kommun",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "dd0d6040-96a3-4f34-8721-e8e4bf551b4d",
+     "name": "Takaishi",
+     "subtype": "county",
+     "country": "JP",
+     "region": "JP-27",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159120523",
+     "name": "Evros",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "809ec0d6-b646-472b-a577-08406bded778",
+     "name": "Sölvesborgs kommun",
+     "subtype": "county",
+     "country": "SE",
+     "region": "SE-K",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159115839",
+     "name": "Or",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "4bf39b7e-c45c-4940-9293-315b3556692f",
+     "name": "Taishi",
+     "subtype": "county",
+     "country": "JP",
+     "region": "JP-27",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "caba6a00-28dd-4b47-839d-47606809465c",
+     "name": "Sölvesborgs kommun",
+     "subtype": "county",
+     "country": "SE",
+     "region": "SE-K",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "dc8bd449-16d5-47e6-8660-9f73a80c78d5",
+     "name": "Taishi",
+     "subtype": "county",
+     "country": "JP",
+     "region": "JP-28",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159103831",
+     "name": "Tahiti",
+     "subtype": "island group",
+     "country": null,
+     "region": "Oceania",
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159113611",
+     "name": "Tai Hu",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "ac76a91f-360b-4f4f-ba27-ee505a185ca8",
+     "name": "Svendborg Kommune",
+     "subtype": "county",
+     "country": "DK",
+     "region": "DK-83",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,dd0d6040-96a3-4f34-8721-e8e4bf551b4d,Takaishi,county,JP,JP-27,2\nnatural_earth,ne_1159120523,Evros,river,,,\ndivisions_area,809ec0d6-b646-472b-a577-08406bded778,Sölvesborgs kommun,county,SE,SE-K,2\nnatural_earth,ne_1159115839,Or,river,,,\ndivisions_area,4bf39b7e-c45c-4940-9293-315b3556692f,Taishi,county,JP,JP-27,2\ndivisions_area,caba6a00-28dd-4b47-839d-47606809465c,Sölvesborgs kommun,county,SE,SE-K,2\ndivisions_area,dc8bd449-16d5-47e6-8660-9f73a80c78d5,Taishi,county,JP,JP-28,2\nnatural_earth,ne_1159103831,Tahiti,island group,,Oceania,\nnatural_earth,ne_1159113611,Tai Hu,lake,,,\ndivisions_area,ac76a91f-360b-4f4f-ba27-ee505a185ca8,Svendborg Kommune,county,DK,DK-83,2\n</CANDIDATES>\n\n<USER_QUERY>\nmerge Taishi and Sölvesborgs kommun\n</USER_QUERY>\n"
+  },
+  {
+   "question": "show the area near the border of Blaine County and Thomas County",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "c9662da1-b128-4b71-b03f-98ff2a6d2a8c",
+     "name": "Blaine County",
+     "subtype": "county",
+     "country": "US",
+     "region": "US-OK",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "14a43a1f-83f6-4b5f-9d11-ce2deee9cf0b",
+     "name": "Blaine County",
+     "subtype": "county",
+     "country": "US",
+     "region": "US-ID",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "538d63c4-d07b-45cf-93dc-6917430017ae",
+     "name": "Blaine County",
+     "subtype": "county",
+     "country": "US",
+     "region": "US-NE",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "b140935c-7811-480d-bf6f-34c14dc9a5e2",
+     "name": "Thomas County",
+     "subtype": "county",
+     "country": "US",
+     "region": "US-KS",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "e8da6f00-6bde-4df2-bc74-3b662584f407",
+     "name": "Thomas County",
+     "subtype": "county",
+     "country": "US",
+     "region": "US-GA",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1746286591",
+     "name": "Thomson",
+     "subtype": "river (intermittent)",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159110737",
+     "name": "Blanco",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "cfacb61b-8250-4400-92c3-bbc4d81f159e",
+     "name": "Thomas County",
+     "subtype": "county",
+     "country": "US",
+     "region": "US-NE",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159127065",
+     "name": "Thompson",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159110321",
+     "name": "Blanco",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,c9662da1-b128-4b71-b03f-98ff2a6d2a8c,Blaine County,county,US,US-OK,2\ndivisions_area,14a43a1f-83f6-4b5f-9d11-ce2deee9cf0b,Blaine County,county,US,US-ID,2\ndivisions_area,538d63c4-d07b-45cf-93dc-6917430017ae,Blaine County,county,US,US-NE,2\ndivisions_area,b140935c-7811-480d-bf6f-34c14dc9a5e2,Thomas County,county,US,US-KS,2\ndivisions_area,e8da6f00-6bde-4df2-bc74-3b662584f407,Thomas County,county,US,US-GA,2\nnatural_earth,ne_1746286591,Thomson,river (intermittent),,,\nnatural_earth,ne_1159110737,Blanco,river,,,\ndivisions_area,cfacb61b-8250-4400-92c3-bbc4d81f159e,Thomas County,county,US,US-NE,2\nnatural_earth,ne_1159127065,Thompson,river,,,\nnatural_earth,ne_1159110321,Blanco,river,,,\n</CANDIDATES>\n\n<USER_QUERY>\nshow the area near the border of Blaine County and Thomas County\n</USER_QUERY>\n"
+  },
+  {
+   "question": "what countries lie around the South Atlantic Ocean?",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "5381c4cb-638e-4c90-ad1b-df1b804001e7",
+     "name": "South Abaco",
+     "subtype": "region",
+     "country": "BS",
+     "region": "BS-SO",
+     "admin_level": 1
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159126177",
+     "name": "South Platte",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "91e05a04-d4ae-4bbb-a4a2-9d74b853d3aa",
+     "name": "South Carolina",
+     "subtype": "region",
+     "country": "US",
+     "region": "US-SC",
+     "admin_level": 1
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159126555",
+     "name": "South Aral Sea",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159115057",
+     "name": "North Atlantic Ocean",
+     "subtype": "ocean",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159115149",
+     "name": "South Atlantic Ocean",
+     "subtype": "ocean",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "5994c16a-99fb-4b8c-a234-58823440c60d",
+     "name": "South Abaco",
+     "subtype": "region",
+     "country": "BS",
+     "region": "BS-SO",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "84b16bc7-0b40-4ed1-82ad-376b6d0e4342",
+     "name": "South Carolina",
+     "subtype": "region",
+     "country": "US",
+     "region": "US-SC",
+     "admin_level": 1
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159115155",
+     "name": "South Nation",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159125531",
+     "name": "South Nation",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,5381c4cb-638e-4c90-ad1b-df1b804001e7,South Abaco,region,BS,BS-SO,1\nnatural_earth,ne_1159126177,South Platte,river,,,\ndivisions_area,91e05a04-d4ae-4bbb-a4a2-9d74b853d3aa,South Carolina,region,US,US-SC,1\nnatural_earth,ne_1159126555,South Aral Sea,lake,,,\nnatural_earth,ne_1159115057,North Atlantic Ocean,ocean,,,\nnatural_earth,ne_1159115149,South Atlantic Ocean,ocean,,,\ndivisions_area,5994c16a-99fb-4b8c-a234-58823440c60d,South Abaco,region,BS,BS-SO,1\ndivisions_area,84b16bc7-0b40-4ed1-82ad-376b6d0e4342,South Carolina,region,US,US-SC,1\nnatural_earth,ne_1159115155,South Nation,river,,,\nnatural_earth,ne_1159125531,South Nation,river,,,\n</CANDIDATES>\n\n<USER_QUERY>\nwhat countries lie around the South Atlantic Ocean?\n</USER_QUERY>\n"
+  },
+  {
+   "question": "need the Town of Rainbow Lake in Canada",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "d48adc1c-e7c8-41aa-ae61-175992c92f74",
+     "name": "Town of Rimbey",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-AB",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "22d26482-28c5-4bbd-8a86-5942c5fa58ba",
+     "name": "Town of Cornwall",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-PE",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "49fdc553-e07b-473b-9d2d-a6a9eb4bc457",
+     "name": "Town of Mahone Bay",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-NS",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "114a967c-87d3-48c8-aca2-2d916ca11d03",
+     "name": "Town of Alberton",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-PE",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "e84d6de0-52e8-411b-8275-721b44761244",
+     "name": "Town of Rainbow Lake",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-AB",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159111913.0",
+     "name": "Ortona Lake",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "8c09baf8-d6f2-40a4-88da-d31cd0907449",
+     "name": "Canada",
+     "subtype": "country",
+     "country": "CA",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "ca5a7884-c9a3-4940-a0db-4605595c4729",
+     "name": "Town of Bow Island",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-AB",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159108309.0",
+     "name": "Fontana Lake",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159123021.0",
+     "name": "Tsalwor Lake",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,d48adc1c-e7c8-41aa-ae61-175992c92f74,Town of Rimbey,county,CA,CA-AB,2\ndivisions_area,22d26482-28c5-4bbd-8a86-5942c5fa58ba,Town of Cornwall,county,CA,CA-PE,2\ndivisions_area,49fdc553-e07b-473b-9d2d-a6a9eb4bc457,Town of Mahone Bay,county,CA,CA-NS,2\ndivisions_area,114a967c-87d3-48c8-aca2-2d916ca11d03,Town of Alberton,county,CA,CA-PE,2\ndivisions_area,e84d6de0-52e8-411b-8275-721b44761244,Town of Rainbow Lake,county,CA,CA-AB,2\nnatural_earth,ne_1159111913.0,Ortona Lake,lake,,,\ndivisions_area,8c09baf8-d6f2-40a4-88da-d31cd0907449,Canada,country,CA,,0\ndivisions_area,ca5a7884-c9a3-4940-a0db-4605595c4729,Town of Bow Island,county,CA,CA-AB,2\nnatural_earth,ne_1159108309.0,Fontana Lake,lake,,,\nnatural_earth,ne_1159123021.0,Tsalwor Lake,lake,,,\n</CANDIDATES>\n\n<USER_QUERY>\nneed the Town of Rainbow Lake in Canada\n</USER_QUERY>\n"
+  },
+  {
+   "question": "Dédé-Mokouba clipped to the CONGO BASIN",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "44078e9b-9729-4240-841c-86eddf1b3b0c",
+     "name": "Kémo",
+     "subtype": "region",
+     "country": "CF",
+     "region": "CF-KG",
+     "admin_level": 1
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159112231",
+     "name": "Sénégal",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "dc03bef9-524a-4b31-94d1-064b8d43c7e2",
+     "name": "Dédé-Mokouba",
+     "subtype": "county",
+     "country": "CF",
+     "region": "CF-HS",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159118481",
+     "name": "Ouémé",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159104323",
+     "name": "CONGO BASIN",
+     "subtype": "basin",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "2cb0e1e0-a191-469b-9ac7-dc3622cf38a6",
+     "name": "Congo",
+     "subtype": "country",
+     "country": "CG",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159119889",
+     "name": "Congo",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "1a04e17a-9947-433f-af1f-c68c16e2982f",
+     "name": "Congo",
+     "subtype": "country",
+     "country": "CG",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "8c74b584-e46a-4f9b-9cd9-a96ce8052779",
+     "name": "Kéniéba",
+     "subtype": "county",
+     "country": "ML",
+     "region": "ML-1",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159120849",
+     "name": "Congo",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,44078e9b-9729-4240-841c-86eddf1b3b0c,Kémo,region,CF,CF-KG,1\nnatural_earth,ne_1159112231,Sénégal,river,,,\ndivisions_area,dc03bef9-524a-4b31-94d1-064b8d43c7e2,Dédé-Mokouba,county,CF,CF-HS,2\nnatural_earth,ne_1159118481,Ouémé,river,,,\nnatural_earth,ne_1159104323,CONGO BASIN,basin,,,\ndivisions_area,2cb0e1e0-a191-469b-9ac7-dc3622cf38a6,Congo,country,CG,,0\nnatural_earth,ne_1159119889,Congo,river,,,\ndivisions_area,1a04e17a-9947-433f-af1f-c68c16e2982f,Congo,country,CG,,0\ndivisions_area,8c74b584-e46a-4f9b-9cd9-a96ce8052779,Kéniéba,county,ML,ML-1,2\nnatural_earth,ne_1159120849,Congo,river,,,\n</CANDIDATES>\n\n<USER_QUERY>\nDédé-Mokouba clipped to the CONGO BASIN\n</USER_QUERY>\n"
+  },
+  {
+   "question": "only the southern side of Sagua la Grande",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159102373",
+     "name": "Sal",
+     "subtype": "island",
+     "country": null,
+     "region": "Africa",
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159103587",
+     "name": "Satpura Range",
+     "subtype": "range/mtn",
+     "country": null,
+     "region": "Asia",
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "c245978b-3b21-4d63-9045-bb3bb8f522fd",
+     "name": "Sagua la Grande",
+     "subtype": "county",
+     "country": "CU",
+     "region": "CU-05",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "d65e8b2e-d4aa-4e79-bd4f-f641d1b1333c",
+     "name": "Sabanagrande",
+     "subtype": "county",
+     "country": "HN",
+     "region": "HN-FM",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159111717",
+     "name": "Salar de Punta Negra",
+     "subtype": "playa",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "4df88628-f3ad-48fe-834b-759a8efc7929",
+     "name": "Sabana Grande",
+     "subtype": "region",
+     "country": "PR",
+     "region": null,
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "04b3692b-f402-4162-91eb-667fb73b9065",
+     "name": "Sagar",
+     "subtype": "county",
+     "country": "IN",
+     "region": "IN-MP",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "c30f0592-6b47-41fa-bc78-10a76af313f0",
+     "name": "Sabanagrande",
+     "subtype": "county",
+     "country": "CO",
+     "region": "CO-ATL",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "be80e551-308f-4db7-b0f6-a8cbd670c839",
+     "name": "Sagua de Tánamo",
+     "subtype": "county",
+     "country": "CU",
+     "region": "CU-11",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159111057",
+     "name": "Sal",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159102373,Sal,island,,Africa,\nnatural_earth,ne_1159103587,Satpura Range,range/mtn,,Asia,\ndivisions_area,c245978b-3b21-4d63-9045-bb3bb8f522fd,Sagua la Grande,county,CU,CU-05,2\ndivisions_area,d65e8b2e-d4aa-4e79-bd4f-f641d1b1333c,Sabanagrande,county,HN,HN-FM,2\nnatural_earth,ne_1159111717,Salar de Punta Negra,playa,,,\ndivisions_area,4df88628-f3ad-48fe-834b-759a8efc7929,Sabana Grande,region,PR,,2\ndivisions_area,04b3692b-f402-4162-91eb-667fb73b9065,Sagar,county,IN,IN-MP,2\ndivisions_area,c30f0592-6b47-41fa-bc78-10a76af313f0,Sabanagrande,county,CO,CO-ATL,2\ndivisions_area,be80e551-308f-4db7-b0f6-a8cbd670c839,Sagua de Tánamo,county,CU,CU-11,2\nnatural_earth,ne_1159111057,Sal,river,,,\n</CANDIDATES>\n\n<USER_QUERY>\nonly the southern side of Sagua la Grande\n</USER_QUERY>\n"
+  },
+  {
+   "question": "locate Uíge within Angola",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "94d4c56c-2c30-406c-82b7-43aee5080eda",
+     "name": "Uige",
+     "subtype": "county",
+     "country": "AO",
+     "region": "AO-UIG",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159125679",
+     "name": "Lågen",
+     "subtype": "lake centerline",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "d239994e-4632-4ded-b33d-611bafdd43c3",
+     "name": "Uíge",
+     "subtype": "region",
+     "country": "AO",
+     "region": "AO-UIG",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "5d1899a6-1f33-4518-93ce-bbb30e592065",
+     "name": "Augie",
+     "subtype": "county",
+     "country": "NG",
+     "region": "NG-KE",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "01cdc37b-c877-4a9c-90c0-60ad929fbc80",
+     "name": "Ugenya",
+     "subtype": "county",
+     "country": "KE",
+     "region": "KE-38",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "1a85874a-f569-44a6-b249-36b3c823e4c2",
+     "name": "Angola",
+     "subtype": "country",
+     "country": "AO",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "2c5b9d68-7264-46d0-ad46-b5472ce16b48",
+     "name": "Juan Rodríguez Clara",
+     "subtype": "county",
+     "country": "MX",
+     "region": "MX-VER",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159122659",
+     "name": "Tugela",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "a3767a72-7250-4251-bbb2-e281173e310e",
+     "name": "Rodríguez",
+     "subtype": "county",
+     "country": "UY",
+     "region": "UY-SJ",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159112643",
+     "name": "Lågen",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,94d4c56c-2c30-406c-82b7-43aee5080eda,Uige,county,AO,AO-UIG,2\nnatural_earth,ne_1159125679,Lågen,lake centerline,,,\ndivisions_area,d239994e-4632-4ded-b33d-611bafdd43c3,Uíge,region,AO,AO-UIG,1\ndivisions_area,5d1899a6-1f33-4518-93ce-bbb30e592065,Augie,county,NG,NG-KE,2\ndivisions_area,01cdc37b-c877-4a9c-90c0-60ad929fbc80,Ugenya,county,KE,KE-38,2\ndivisions_area,1a85874a-f569-44a6-b249-36b3c823e4c2,Angola,country,AO,,0\ndivisions_area,2c5b9d68-7264-46d0-ad46-b5472ce16b48,Juan Rodríguez Clara,county,MX,MX-VER,2\nnatural_earth,ne_1159122659,Tugela,river,,,\ndivisions_area,a3767a72-7250-4251-bbb2-e281173e310e,Rodríguez,county,UY,UY-SJ,2\nnatural_earth,ne_1159112643,Lågen,river,,,\n</CANDIDATES>\n\n<USER_QUERY>\nlocate Uíge within Angola\n</USER_QUERY>\n"
+  },
+  {
+   "question": "outline the 25 km buffer around Sigdal",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1746337197",
+     "name": "Sixaola",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "7fecd805-724b-4b0b-988c-92141ed36111",
+     "name": "Springdale",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-NL",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159138023",
+     "name": "Sinaloa",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "8b5119e9-7591-4fa2-9f9a-b961c4c93bb4",
+     "name": "Sida",
+     "subtype": "county",
+     "country": "TH",
+     "region": "TH-30",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "d6ac2193-6d9d-49f1-ae19-0efbaf94ae64",
+     "name": "Singida",
+     "subtype": "region",
+     "country": "TZ",
+     "region": "TZ-23",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "b1501f0f-c129-4b84-8656-f9a0631970a4",
+     "name": "Singida",
+     "subtype": "county",
+     "country": "TZ",
+     "region": "TZ-23",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159138013",
+     "name": "Sinaloa",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "1223377b-2793-4c4d-9620-8f7e8389499f",
+     "name": "Sigdal",
+     "subtype": "county",
+     "country": "NO",
+     "region": "NO-33",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159113675.0",
+     "name": "Sid Lake",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "5684c5dc-b619-43e6-a716-b1f6d28b3776",
+     "name": "Sirdal",
+     "subtype": "county",
+     "country": "NO",
+     "region": "NO-42",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1746337197,Sixaola,river,,,\ndivisions_area,7fecd805-724b-4b0b-988c-92141ed36111,Springdale,county,CA,CA-NL,2\nnatural_earth,ne_1159138023,Sinaloa,river,,,\ndivisions_area,8b5119e9-7591-4fa2-9f9a-b961c4c93bb4,Sida,county,TH,TH-30,2\ndivisions_area,d6ac2193-6d9d-49f1-ae19-0efbaf94ae64,Singida,region,TZ,TZ-23,1\ndivisions_area,b1501f0f-c129-4b84-8656-f9a0631970a4,Singida,county,TZ,TZ-23,2\nnatural_earth,ne_1159138013,Sinaloa,river,,,\ndivisions_area,1223377b-2793-4c4d-9620-8f7e8389499f,Sigdal,county,NO,NO-33,2\nnatural_earth,ne_1159113675.0,Sid Lake,lake,,,\ndivisions_area,5684c5dc-b619-43e6-a716-b1f6d28b3776,Sirdal,county,NO,NO-42,2\n</CANDIDATES>\n\n<USER_QUERY>\noutline the 25 km buffer around Sigdal\n</USER_QUERY>\n"
+  },
+  {
+   "question": "get the Vincennes Bay",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159116927",
+     "name": "Inner Sea",
+     "subtype": "sea",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "fe58f7fc-e815-4b89-a445-c10b80871fd1",
+     "name": "Vienne",
+     "subtype": "county",
+     "country": "FR",
+     "region": "FR-NAQ",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159117355",
+     "name": "Lincoln Sea",
+     "subtype": "sea",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159118683",
+     "name": "Vincennes Bay",
+     "subtype": "bay",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "a97fb770-821a-4770-8a3c-6d3b9a65c6bc",
+     "name": "Vennesla",
+     "subtype": "county",
+     "country": "NO",
+     "region": "NO-42",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159126343",
+     "name": "Inn",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "567ccba3-9ad4-4ebe-bba6-7ec7676ed0b7",
+     "name": "Vinces",
+     "subtype": "county",
+     "country": "EC",
+     "region": "EC-R",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159128761",
+     "name": "Nen",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159110359",
+     "name": "Vienne",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "bd45d00c-4932-4b21-99b8-ff85e80ee675",
+     "name": "Vinje",
+     "subtype": "county",
+     "country": "NO",
+     "region": "NO-40",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159116927,Inner Sea,sea,,,\ndivisions_area,fe58f7fc-e815-4b89-a445-c10b80871fd1,Vienne,county,FR,FR-NAQ,2\nnatural_earth,ne_1159117355,Lincoln Sea,sea,,,\nnatural_earth,ne_1159118683,Vincennes Bay,bay,,,\ndivisions_area,a97fb770-821a-4770-8a3c-6d3b9a65c6bc,Vennesla,county,NO,NO-42,2\nnatural_earth,ne_1159126343,Inn,river,,,\ndivisions_area,567ccba3-9ad4-4ebe-bba6-7ec7676ed0b7,Vinces,county,EC,EC-R,2\nnatural_earth,ne_1159128761,Nen,river,,,\nnatural_earth,ne_1159110359,Vienne,river,,,\ndivisions_area,bd45d00c-4932-4b21-99b8-ff85e80ee675,Vinje,county,NO,NO-40,2\n</CANDIDATES>\n\n<USER_QUERY>\nget the Vincennes Bay\n</USER_QUERY>\n"
+  },
+  {
+   "question": "show on land countys in Suomi / Finland",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "e5bf1a42-e8a5-44fb-ba8f-086567c2dbc0",
+     "name": "Solomon Islands",
+     "subtype": "country",
+     "country": "SB",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "e17665cf-8d99-477d-9b7d-f2f65a93eb0b",
+     "name": "Suomi / Finland",
+     "subtype": "country",
+     "country": "FI",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "dcba3a02-bbef-40a0-bad7-7da3e25a97ff",
+     "name": "Solomon Islands",
+     "subtype": "country",
+     "country": "SB",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159104541",
+     "name": "South Orkney Islands",
+     "subtype": "island group",
+     "country": null,
+     "region": "Seven seas (open ocean)",
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159103813",
+     "name": "SOLOMON ISANDS",
+     "subtype": "island group",
+     "country": null,
+     "region": "Oceania",
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159116517",
+     "name": "Gulf of Finland",
+     "subtype": "gulf",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "a15bca4a-1351-4ff9-8f14-2c2002f59534",
+     "name": "Sumaila",
+     "subtype": "county",
+     "country": "NG",
+     "region": "NG-KN",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159104473",
+     "name": "Thurston Island",
+     "subtype": "island",
+     "country": null,
+     "region": "Antarctica",
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "ba83bd59-d161-40ab-9c4b-15854d58320b",
+     "name": "Simunjan",
+     "subtype": "county",
+     "country": "MY",
+     "region": "MY-13",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "c25a1ddd-26db-4f30-ab91-16365e132009",
+     "name": "Suomi / Finland",
+     "subtype": "country",
+     "country": "FI",
+     "region": null,
+     "admin_level": 0
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,e5bf1a42-e8a5-44fb-ba8f-086567c2dbc0,Solomon Islands,country,SB,,0\ndivisions_area,e17665cf-8d99-477d-9b7d-f2f65a93eb0b,Suomi / Finland,country,FI,,0\ndivisions_area,dcba3a02-bbef-40a0-bad7-7da3e25a97ff,Solomon Islands,country,SB,,0\nnatural_earth,ne_1159104541,South Orkney Islands,island group,,Seven seas (open ocean),\nnatural_earth,ne_1159103813,SOLOMON ISANDS,island group,,Oceania,\nnatural_earth,ne_1159116517,Gulf of Finland,gulf,,,\ndivisions_area,a15bca4a-1351-4ff9-8f14-2c2002f59534,Sumaila,county,NG,NG-KN,2\nnatural_earth,ne_1159104473,Thurston Island,island,,Antarctica,\ndivisions_area,ba83bd59-d161-40ab-9c4b-15854d58320b,Simunjan,county,MY,MY-13,2\ndivisions_area,c25a1ddd-26db-4f30-ab91-16365e132009,Suomi / Finland,country,FI,,0\n</CANDIDATES>\n\n<USER_QUERY>\nshow on land countys in Suomi / Finland\n</USER_QUERY>\n"
+  },
+  {
+   "question": "areas close to Thaba-Tseka District within 250 m",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "32e1b4b3-1b6c-45c1-98f7-3bf460cf2ed7",
+     "name": "Thap Sakae",
+     "subtype": "county",
+     "country": "TH",
+     "region": "TH-77",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159110827",
+     "name": "Dasht-e Kavir",
+     "subtype": "playa",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159117937",
+     "name": "Tatar Strait",
+     "subtype": "strait",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "503f4cee-8b01-4845-a614-f6dd7fd74aa9",
+     "name": "Thabo Mofutsanyana District Municipality",
+     "subtype": "county",
+     "country": "ZA",
+     "region": "ZA-FS",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159104349",
+     "name": "ALASKA",
+     "subtype": "geoarea",
+     "country": null,
+     "region": "North America",
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "c68a3554-62d2-4847-acf8-d79241811432",
+     "name": "North-West District",
+     "subtype": "region",
+     "country": "BW",
+     "region": "BW-NW",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "e7e55d53-d7f8-4f37-9ff8-d5ed61800aea",
+     "name": "North-East District",
+     "subtype": "region",
+     "country": "BW",
+     "region": "BW-NE",
+     "admin_level": 1
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159130137",
+     "name": "Taseko",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "2ffcf4da-4b0f-47a8-92fd-1a783e2e2f8f",
+     "name": "Thaba-Tseka District",
+     "subtype": "region",
+     "country": "LS",
+     "region": "LS-K",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "dafd8b87-7d02-4d1a-b613-7cf3b832d137",
+     "name": "Thaba-Tseka",
+     "subtype": "county",
+     "country": "LS",
+     "region": "LS-K",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,32e1b4b3-1b6c-45c1-98f7-3bf460cf2ed7,Thap Sakae,county,TH,TH-77,2\nnatural_earth,ne_1159110827,Dasht-e Kavir,playa,,,\nnatural_earth,ne_1159117937,Tatar Strait,strait,,,\ndivisions_area,503f4cee-8b01-4845-a614-f6dd7fd74aa9,Thabo Mofutsanyana District Municipality,county,ZA,ZA-FS,2\nnatural_earth,ne_1159104349,ALASKA,geoarea,,North America,\ndivisions_area,c68a3554-62d2-4847-acf8-d79241811432,North-West District,region,BW,BW-NW,1\ndivisions_area,e7e55d53-d7f8-4f37-9ff8-d5ed61800aea,North-East District,region,BW,BW-NE,1\nnatural_earth,ne_1159130137,Taseko,river,,,\ndivisions_area,2ffcf4da-4b0f-47a8-92fd-1a783e2e2f8f,Thaba-Tseka District,region,LS,LS-K,1\ndivisions_area,dafd8b87-7d02-4d1a-b613-7cf3b832d137,Thaba-Tseka,county,LS,LS-K,2\n</CANDIDATES>\n\n<USER_QUERY>\nareas close to Thaba-Tseka District within 250 m\n</USER_QUERY>\n"
+  },
+  {
+   "question": "which countries touch the South Pacific Ocean?",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "12f9f61f-2d6c-4570-b69b-05b077a4b517",
+     "name": "South Africa",
+     "subtype": "country",
+     "country": "ZA",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159115079",
+     "name": "North Pacific Ocean",
+     "subtype": "ocean",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159115155",
+     "name": "South Nation",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159102779",
+     "name": "South Pagai",
+     "subtype": "island",
+     "country": null,
+     "region": "Asia",
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159115099",
+     "name": "South Pacific Ocean",
+     "subtype": "ocean",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "5381c4cb-638e-4c90-ad1b-df1b804001e7",
+     "name": "South Abaco",
+     "subtype": "region",
+     "country": "BS",
+     "region": "BS-SO",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "c0843881-ca2b-4db6-9604-f80be6c63a30",
+     "name": "South Africa",
+     "subtype": "country",
+     "country": "ZA",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "f7210b6e-6bd6-4be0-8729-c368fb8a360f",
+     "name": "South Epi",
+     "subtype": "county",
+     "country": "VU",
+     "region": "VU-SEE",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159115273",
+     "name": "South China Sea",
+     "subtype": "sea",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159125531",
+     "name": "South Nation",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,12f9f61f-2d6c-4570-b69b-05b077a4b517,South Africa,country,ZA,,0\nnatural_earth,ne_1159115079,North Pacific Ocean,ocean,,,\nnatural_earth,ne_1159115155,South Nation,river,,,\nnatural_earth,ne_1159102779,South Pagai,island,,Asia,\nnatural_earth,ne_1159115099,South Pacific Ocean,ocean,,,\ndivisions_area,5381c4cb-638e-4c90-ad1b-df1b804001e7,South Abaco,region,BS,BS-SO,1\ndivisions_area,c0843881-ca2b-4db6-9604-f80be6c63a30,South Africa,country,ZA,,0\ndivisions_area,f7210b6e-6bd6-4be0-8729-c368fb8a360f,South Epi,county,VU,VU-SEE,2\nnatural_earth,ne_1159115273,South China Sea,sea,,,\nnatural_earth,ne_1159125531,South Nation,river,,,\n</CANDIDATES>\n\n<USER_QUERY>\nwhich countries touch the South Pacific Ocean?\n</USER_QUERY>\n"
+  },
+  {
+   "question": "show me where Velas and the North Atlantic Ocean overlap",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159112675",
+     "name": "Velikaya",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "b995de18-a491-45dd-86de-48f244ad1097",
+     "name": "Velas",
+     "subtype": "county",
+     "country": "PT",
+     "region": "PT-20",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159115149",
+     "name": "South Atlantic Ocean",
+     "subtype": "ocean",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "b44b714c-5af1-4af1-afbc-28abd634916b",
+     "name": "Velasco",
+     "subtype": "county",
+     "country": "BO",
+     "region": "BO-S",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "b53b9787-add1-4d86-9f97-9614abaf6dbf",
+     "name": "North Abaco",
+     "subtype": "region",
+     "country": "BS",
+     "region": "BS-NO",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "feae2850-39ff-4849-9edb-d32df45fc62c",
+     "name": "Vela",
+     "subtype": "county",
+     "country": "RO",
+     "region": "RO-DJ",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159121971",
+     "name": "Velhas",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159115057",
+     "name": "North Atlantic Ocean",
+     "subtype": "ocean",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159139361",
+     "name": "North Canadian",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "c360b425-e8d4-4e98-875e-4a2e41d28780",
+     "name": "North Abaco",
+     "subtype": "region",
+     "country": "BS",
+     "region": "BS-NO",
+     "admin_level": 1
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159112675,Velikaya,river,,,\ndivisions_area,b995de18-a491-45dd-86de-48f244ad1097,Velas,county,PT,PT-20,2\nnatural_earth,ne_1159115149,South Atlantic Ocean,ocean,,,\ndivisions_area,b44b714c-5af1-4af1-afbc-28abd634916b,Velasco,county,BO,BO-S,2\ndivisions_area,b53b9787-add1-4d86-9f97-9614abaf6dbf,North Abaco,region,BS,BS-NO,1\ndivisions_area,feae2850-39ff-4849-9edb-d32df45fc62c,Vela,county,RO,RO-DJ,2\nnatural_earth,ne_1159121971,Velhas,river,,,\nnatural_earth,ne_1159115057,North Atlantic Ocean,ocean,,,\nnatural_earth,ne_1159139361,North Canadian,river,,,\ndivisions_area,c360b425-e8d4-4e98-875e-4a2e41d28780,North Abaco,region,BS,BS-NO,1\n</CANDIDATES>\n\n<USER_QUERY>\nshow me where Velas and the North Atlantic Ocean overlap\n</USER_QUERY>\n"
+  },
+  {
+   "question": "cut County of Warner out of Alberta",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159129205",
+     "name": "Albert Nile",
+     "subtype": "lake centerline",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "f20cab05-d319-40a0-ab7c-34e22dbd1bb9",
+     "name": "Albota",
+     "subtype": "county",
+     "country": "RO",
+     "region": "RO-AG",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159126877",
+     "name": "Contas",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "1f3eb794-8ad4-4fb0-a2b4-0217883512df",
+     "name": "County of Barrhead",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-AB",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "6787b1c1-9523-4435-bd83-3d1d85885688",
+     "name": "Albufeira",
+     "subtype": "county",
+     "country": "PT",
+     "region": "PT-08",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159129211",
+     "name": "Albert Nile",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159121197",
+     "name": "Courantyne",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "6c801e2d-e6f8-4605-ac8b-11d9b288a1a6",
+     "name": "Alberta",
+     "subtype": "region",
+     "country": "CA",
+     "region": "CA-AB",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "1fa86e2a-ab66-42fe-a165-c91441aa89f5",
+     "name": "County of Newell",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-AB",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "4f36312e-aeb8-4838-b16a-0e9e01dacc26",
+     "name": "County of Warner",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-AB",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159129205,Albert Nile,lake centerline,,,\ndivisions_area,f20cab05-d319-40a0-ab7c-34e22dbd1bb9,Albota,county,RO,RO-AG,2\nnatural_earth,ne_1159126877,Contas,river,,,\ndivisions_area,1f3eb794-8ad4-4fb0-a2b4-0217883512df,County of Barrhead,county,CA,CA-AB,2\ndivisions_area,6787b1c1-9523-4435-bd83-3d1d85885688,Albufeira,county,PT,PT-08,2\nnatural_earth,ne_1159129211,Albert Nile,river,,,\nnatural_earth,ne_1159121197,Courantyne,river,,,\ndivisions_area,6c801e2d-e6f8-4605-ac8b-11d9b288a1a6,Alberta,region,CA,CA-AB,1\ndivisions_area,1fa86e2a-ab66-42fe-a165-c91441aa89f5,County of Newell,county,CA,CA-AB,2\ndivisions_area,4f36312e-aeb8-4838-b16a-0e9e01dacc26,County of Warner,county,CA,CA-AB,2\n</CANDIDATES>\n\n<USER_QUERY>\ncut County of Warner out of Alberta\n</USER_QUERY>\n"
+  },
+  {
+   "question": "map of Departamento Mercedes, Argentina",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159118601",
+     "name": "Dean",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "36d6ed50-043a-45bf-862f-4b814ef08650",
+     "name": "Departamento Ledesma",
+     "subtype": "county",
+     "country": "AR",
+     "region": "AR-Y",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159104081",
+     "name": "DESIERTO DE ATACAMA",
+     "subtype": "desert",
+     "country": null,
+     "region": "South America",
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "2607dadd-6cfc-40c1-95ed-8ca473298d75",
+     "name": "Departamento Leales",
+     "subtype": "county",
+     "country": "AR",
+     "region": "AR-T",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "ffb9d053-fbe4-4be5-8001-011f2fae2816",
+     "name": "Departamento Monteros",
+     "subtype": "county",
+     "country": "AR",
+     "region": "AR-T",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "c8c16ddf-62b6-4fa8-882a-05e12dfa4bb0",
+     "name": "Argentina",
+     "subtype": "country",
+     "country": "AR",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "510aff42-452b-4ea4-b38c-92ca84faeae3",
+     "name": "Departamento Mercedes",
+     "subtype": "county",
+     "country": "AR",
+     "region": "AR-W",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159130847",
+     "name": "Dean",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "aa19799f-8514-4191-8642-a5aa09a91e5c",
+     "name": "Departamento Cruz del Eje",
+     "subtype": "county",
+     "country": "AR",
+     "region": "AR-X",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "1ff7e6c8-1f78-4b7d-8dc0-2f6348583ec7",
+     "name": "Departamento El Carmen",
+     "subtype": "county",
+     "country": "AR",
+     "region": "AR-Y",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159118601,Dean,river,,,\ndivisions_area,36d6ed50-043a-45bf-862f-4b814ef08650,Departamento Ledesma,county,AR,AR-Y,2\nnatural_earth,ne_1159104081,DESIERTO DE ATACAMA,desert,,South America,\ndivisions_area,2607dadd-6cfc-40c1-95ed-8ca473298d75,Departamento Leales,county,AR,AR-T,2\ndivisions_area,ffb9d053-fbe4-4be5-8001-011f2fae2816,Departamento Monteros,county,AR,AR-T,2\ndivisions_area,c8c16ddf-62b6-4fa8-882a-05e12dfa4bb0,Argentina,country,AR,,0\ndivisions_area,510aff42-452b-4ea4-b38c-92ca84faeae3,Departamento Mercedes,county,AR,AR-W,2\nnatural_earth,ne_1159130847,Dean,river,,,\ndivisions_area,aa19799f-8514-4191-8642-a5aa09a91e5c,Departamento Cruz del Eje,county,AR,AR-X,2\ndivisions_area,1ff7e6c8-1f78-4b7d-8dc0-2f6348583ec7,Departamento El Carmen,county,AR,AR-Y,2\n</CANDIDATES>\n\n<USER_QUERY>\nmap of Departamento Mercedes, Argentina\n</USER_QUERY>\n"
+  },
+  {
+   "question": "countys in Manitoba with no a coastline",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159122337.0",
+     "name": "Manitou Lake",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "402cab89-01ff-42a7-94e3-af6f9de7a03b",
+     "name": "Manto",
+     "subtype": "county",
+     "country": "HN",
+     "region": "HN-OL",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "d5ed4096-72e9-45ef-914f-2bd0f1dfb834",
+     "name": "Manta",
+     "subtype": "county",
+     "country": "CO",
+     "region": "CO-CUN",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159116953",
+     "name": "Manigotagan",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "c7a88385-3c3d-4259-ae8c-dea1e3bf07c4",
+     "name": "Mantova",
+     "subtype": "county",
+     "country": "IT",
+     "region": "IT-25",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "249f78f0-e21e-40e7-b6d5-46a19e04b148",
+     "name": "Mani",
+     "subtype": "county",
+     "country": "NG",
+     "region": "NG-KT",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159121645",
+     "name": "Mania",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159130067",
+     "name": "Manitou",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "3968a810-12fa-4e24-b242-d43e488182cc",
+     "name": "Manitoba",
+     "subtype": "region",
+     "country": "CA",
+     "region": "CA-MB",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "e544d7f1-44bc-44d0-8cc1-1eeb511ff5fb",
+     "name": "Manta",
+     "subtype": "county",
+     "country": "EC",
+     "region": "EC-M",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159122337.0,Manitou Lake,lake,,,\ndivisions_area,402cab89-01ff-42a7-94e3-af6f9de7a03b,Manto,county,HN,HN-OL,2\ndivisions_area,d5ed4096-72e9-45ef-914f-2bd0f1dfb834,Manta,county,CO,CO-CUN,2\nnatural_earth,ne_1159116953,Manigotagan,river,,,\ndivisions_area,c7a88385-3c3d-4259-ae8c-dea1e3bf07c4,Mantova,county,IT,IT-25,2\ndivisions_area,249f78f0-e21e-40e7-b6d5-46a19e04b148,Mani,county,NG,NG-KT,2\nnatural_earth,ne_1159121645,Mania,river,,,\nnatural_earth,ne_1159130067,Manitou,river,,,\ndivisions_area,3968a810-12fa-4e24-b242-d43e488182cc,Manitoba,region,CA,CA-MB,1\ndivisions_area,e544d7f1-44bc-44d0-8cc1-1eeb511ff5fb,Manta,county,EC,EC-M,2\n</CANDIDATES>\n\n<USER_QUERY>\ncountys in Manitoba with no a coastline\n</USER_QUERY>\n"
+  },
+  {
+   "question": "western portion of Västerbottens län",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159111897",
+     "name": "Västerdal",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "4d882626-e44a-47f0-b9a0-b8f353f72cc1",
+     "name": "Västerbottens län",
+     "subtype": "region",
+     "country": "SE",
+     "region": "SE-AC",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "78d4d944-995b-4333-8196-33af1c6c4629",
+     "name": "Västernorrlands län",
+     "subtype": "region",
+     "country": "SE",
+     "region": "SE-Y",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "ebc1862d-d5c1-47b6-94d1-c24b2638be99",
+     "name": "Västernorrlands län",
+     "subtype": "region",
+     "country": "SE",
+     "region": "SE-Y",
+     "admin_level": 1
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159107447",
+     "name": "Västra Silen",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159114173",
+     "name": "Vättern",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "d0788afd-df6a-45f5-848f-74f9ba53cb3d",
+     "name": "Västerbottens län",
+     "subtype": "region",
+     "country": "SE",
+     "region": "SE-AC",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "e42706ae-90f4-46c4-a0c0-f1a1121df8df",
+     "name": "Österbotten",
+     "subtype": "region",
+     "country": "FI",
+     "region": "FI-12",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "1aa8c0e7-0d3b-473b-a93b-392de2552585",
+     "name": "Österbotten",
+     "subtype": "region",
+     "country": "FI",
+     "region": "FI-12",
+     "admin_level": 1
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159113235",
+     "name": "Vänern",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159111897,Västerdal,river,,,\ndivisions_area,4d882626-e44a-47f0-b9a0-b8f353f72cc1,Västerbottens län,region,SE,SE-AC,1\ndivisions_area,78d4d944-995b-4333-8196-33af1c6c4629,Västernorrlands län,region,SE,SE-Y,1\ndivisions_area,ebc1862d-d5c1-47b6-94d1-c24b2638be99,Västernorrlands län,region,SE,SE-Y,1\nnatural_earth,ne_1159107447,Västra Silen,lake,,,\nnatural_earth,ne_1159114173,Vättern,lake,,,\ndivisions_area,d0788afd-df6a-45f5-848f-74f9ba53cb3d,Västerbottens län,region,SE,SE-AC,1\ndivisions_area,e42706ae-90f4-46c4-a0c0-f1a1121df8df,Österbotten,region,FI,FI-12,1\ndivisions_area,1aa8c0e7-0d3b-473b-a93b-392de2552585,Österbotten,region,FI,FI-12,1\nnatural_earth,ne_1159113235,Vänern,lake,,,\n</CANDIDATES>\n\n<USER_QUERY>\nwestern portion of Västerbottens län\n</USER_QUERY>\n"
+  },
+  {
+   "question": "countries that touch Argentina",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159141049",
+     "name": "Angelina",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "a753d4e1-5e74-445e-998a-bc05b89bc850",
+     "name": "Argenteuil",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-QC",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "3987887d-afe9-4d27-8641-37ddfbc46475",
+     "name": "Argelia",
+     "subtype": "county",
+     "country": "CO",
+     "region": "CO-CAU",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "ffac2c05-b920-439e-b809-49bc5cf40c03",
+     "name": "Argelia",
+     "subtype": "county",
+     "country": "CO",
+     "region": "CO-ANT",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159144093",
+     "name": "Angelina",
+     "subtype": "lake centerline",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159108691",
+     "name": "Angelina",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159138465",
+     "name": "Angelina",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "6aaadea0-9c48-4af0-a47f-bbe020540580",
+     "name": "Argentina",
+     "subtype": "country",
+     "country": "AR",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "c8c16ddf-62b6-4fa8-882a-05e12dfa4bb0",
+     "name": "Argentina",
+     "subtype": "country",
+     "country": "AR",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "58039c4f-dfd3-455d-9f2c-42c1014584dd",
+     "name": "Argelia",
+     "subtype": "county",
+     "country": "CO",
+     "region": "CO-VAC",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159141049,Angelina,river,,,\ndivisions_area,a753d4e1-5e74-445e-998a-bc05b89bc850,Argenteuil,county,CA,CA-QC,2\ndivisions_area,3987887d-afe9-4d27-8641-37ddfbc46475,Argelia,county,CO,CO-CAU,2\ndivisions_area,ffac2c05-b920-439e-b809-49bc5cf40c03,Argelia,county,CO,CO-ANT,2\nnatural_earth,ne_1159144093,Angelina,lake centerline,,,\nnatural_earth,ne_1159108691,Angelina,river,,,\nnatural_earth,ne_1159138465,Angelina,river,,,\ndivisions_area,6aaadea0-9c48-4af0-a47f-bbe020540580,Argentina,country,AR,,0\ndivisions_area,c8c16ddf-62b6-4fa8-882a-05e12dfa4bb0,Argentina,country,AR,,0\ndivisions_area,58039c4f-dfd3-455d-9f2c-42c1014584dd,Argelia,county,CO,CO-VAC,2\n</CANDIDATES>\n\n<USER_QUERY>\ncountries that touch Argentina\n</USER_QUERY>\n"
+  },
+  {
+   "question": "show states across Tchad تشاد, West Bank, and Saint Kitts and Nevis",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "0d73c1a3-12c3-4ef1-9fd0-4a39af0c7c55",
+     "name": "Saint Kitts and Nevis",
+     "subtype": "country",
+     "country": "KN",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159122549",
+     "name": "Toad",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159113245",
+     "name": "Saint-Augustin Nord-Ouest",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "47855c14-e0d5-4860-92bd-e19bf7b9fd71",
+     "name": "Saint Kitts and Nevis",
+     "subtype": "country",
+     "country": "KN",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "8c8b5f2a-e117-43bf-8a8a-7b0e6bbfbdaa",
+     "name": "West Bank",
+     "subtype": "country",
+     "country": "XW",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "a5d3d171-9e16-4729-88e4-7e7b93eef92e",
+     "name": "Tchad تشاد",
+     "subtype": "country",
+     "country": "TD",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1746286775",
+     "name": "West Baines",
+     "subtype": "river (intermittent)",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "74042c42-d759-4e77-b478-721c88d2213f",
+     "name": "West Bay",
+     "subtype": "region",
+     "country": "KY",
+     "region": null,
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "22574d6a-b6a1-496e-a444-50c5f48aeaf0",
+     "name": "Tadjourah تجرة",
+     "subtype": "region",
+     "country": "DJ",
+     "region": "DJ-TA",
+     "admin_level": 1
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,0d73c1a3-12c3-4ef1-9fd0-4a39af0c7c55,Saint Kitts and Nevis,country,KN,,0\nnatural_earth,ne_1159122549,Toad,river,,,\nnatural_earth,ne_1159113245,Saint-Augustin Nord-Ouest,river,,,\ndivisions_area,47855c14-e0d5-4860-92bd-e19bf7b9fd71,Saint Kitts and Nevis,country,KN,,0\ndivisions_area,8c8b5f2a-e117-43bf-8a8a-7b0e6bbfbdaa,West Bank,country,XW,,0\ndivisions_area,a5d3d171-9e16-4729-88e4-7e7b93eef92e,Tchad تشاد,country,TD,,0\nnatural_earth,ne_1746286775,West Baines,river (intermittent),,,\ndivisions_area,74042c42-d759-4e77-b478-721c88d2213f,West Bay,region,KY,,2\ndivisions_area,22574d6a-b6a1-496e-a444-50c5f48aeaf0,Tadjourah تجرة,region,DJ,DJ-TA,1\n</CANDIDATES>\n\n<USER_QUERY>\nshow states across Tchad تشاد, West Bank, and Saint Kitts and Nevis\n</USER_QUERY>\n"
+  },
+  {
+   "question": "show the land countys of ประเทศไทย",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159123435",
+     "name": "Mjøsa",
+     "subtype": "reservoir",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159106801",
+     "name": "Sølensjøen",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159102823",
+     "name": "Bjørnøya",
+     "subtype": "island",
+     "country": null,
+     "region": "Europe",
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159127139",
+     "name": "Cả",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "b6ed69f9-f227-4c96-9374-b01721f7fb39",
+     "name": "ประเทศไทย",
+     "subtype": "country",
+     "country": "TH",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "b3003879-80fd-497e-bc8e-28925612f1b5",
+     "name": "กรุงเทพมหานคร",
+     "subtype": "region",
+     "country": "TH",
+     "region": "TH-10",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "50a008bb-9916-45e2-bc19-136d7894da4e",
+     "name": "ประเทศไทย",
+     "subtype": "country",
+     "country": "TH",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "9e9a2250-903a-45e5-8012-8fd26a53c210",
+     "name": "กรุงเทพมหานคร",
+     "subtype": "region",
+     "country": "TH",
+     "region": "TH-10",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "1d9e0dae-08fc-4bbb-ad92-ce9fd035971b",
+     "name": "จังหวัดแพร่",
+     "subtype": "region",
+     "country": "TH",
+     "region": "TH-54",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "631600e5-43f1-477f-8855-da987a07e468",
+     "name": "จังหวัดเลย",
+     "subtype": "region",
+     "country": "TH",
+     "region": "TH-42",
+     "admin_level": 1
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159123435,Mjøsa,reservoir,,,\nnatural_earth,ne_1159106801,Sølensjøen,lake,,,\nnatural_earth,ne_1159102823,Bjørnøya,island,,Europe,\nnatural_earth,ne_1159127139,Cả,river,,,\ndivisions_area,b6ed69f9-f227-4c96-9374-b01721f7fb39,ประเทศไทย,country,TH,,0\ndivisions_area,b3003879-80fd-497e-bc8e-28925612f1b5,กรุงเทพมหานคร,region,TH,TH-10,1\ndivisions_area,50a008bb-9916-45e2-bc19-136d7894da4e,ประเทศไทย,country,TH,,0\ndivisions_area,9e9a2250-903a-45e5-8012-8fd26a53c210,กรุงเทพมหานคร,region,TH,TH-10,1\ndivisions_area,1d9e0dae-08fc-4bbb-ad92-ce9fd035971b,จังหวัดแพร่,region,TH,TH-54,1\ndivisions_area,631600e5-43f1-477f-8855-da987a07e468,จังหวัดเลย,region,TH,TH-42,1\n</CANDIDATES>\n\n<USER_QUERY>\nshow the land countys of ประเทศไทย\n</USER_QUERY>\n"
+  },
+  {
+   "question": "i want to see the Winooski",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "ac856dcc-2a2a-434e-babe-9c1551713643",
+     "name": "Nioki",
+     "subtype": "county",
+     "country": "CD",
+     "region": "CD-MN",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159145041",
+     "name": "Winisk",
+     "subtype": "lake centerline",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159112869",
+     "name": "Winooski",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "b9548539-d9fd-4e3c-848b-f23b6a82d476",
+     "name": "Norosi",
+     "subtype": "county",
+     "country": "CO",
+     "region": "CO-BOL",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159122059",
+     "name": "Winisk",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159129445",
+     "name": "Winisk",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159140499",
+     "name": "Winooski",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "8b42facd-ef56-4d49-ad42-ee446e1e19bd",
+     "name": "Winton Shire",
+     "subtype": "county",
+     "country": "AU",
+     "region": "AU-QLD",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159129385",
+     "name": "Winisk",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "00e0db8d-58d0-48c9-8a45-245a47fa6073",
+     "name": "Oosaki",
+     "subtype": "county",
+     "country": "JP",
+     "region": "JP-46",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,ac856dcc-2a2a-434e-babe-9c1551713643,Nioki,county,CD,CD-MN,2\nnatural_earth,ne_1159145041,Winisk,lake centerline,,,\nnatural_earth,ne_1159112869,Winooski,river,,,\ndivisions_area,b9548539-d9fd-4e3c-848b-f23b6a82d476,Norosi,county,CO,CO-BOL,2\nnatural_earth,ne_1159122059,Winisk,river,,,\nnatural_earth,ne_1159129445,Winisk,river,,,\nnatural_earth,ne_1159140499,Winooski,river,,,\ndivisions_area,8b42facd-ef56-4d49-ad42-ee446e1e19bd,Winton Shire,county,AU,AU-QLD,2\nnatural_earth,ne_1159129385,Winisk,river,,,\ndivisions_area,00e0db8d-58d0-48c9-8a45-245a47fa6073,Oosaki,county,JP,JP-46,2\n</CANDIDATES>\n\n<USER_QUERY>\ni want to see the Winooski\n</USER_QUERY>\n"
+  },
+  {
+   "question": "Essex County, Sathon and Zemam Out together",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "8cc385e9-343c-497f-8947-cdc54d0e9035",
+     "name": "Essex County",
+     "subtype": "county",
+     "country": "US",
+     "region": "US-VT",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "11082743-a281-4cbf-a365-c6df9279a9ba",
+     "name": "Sathon",
+     "subtype": "county",
+     "country": "TH",
+     "region": "TH-10",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "7408eb0d-cc6f-44b1-8216-e8c6947228df",
+     "name": "Zemam Out",
+     "subtype": "county",
+     "country": "EG",
+     "region": "EG-SHG",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159117999",
+     "name": "Za",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159109783",
+     "name": "Salto",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "2d4a5a04-8b9a-4c21-8d8e-657eac9e9f69",
+     "name": "Zemam Out",
+     "subtype": "county",
+     "country": "EG",
+     "region": "EG-ALX",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_10m_ne_10m_lakes_pluvial_17",
+     "name": "Crescent",
+     "subtype": "pluvial lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "07bf7850-7cd4-44ee-8636-7bc6ee462ae4",
+     "name": "Santon",
+     "subtype": "region",
+     "country": "IM",
+     "region": null,
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "2003b3f1-804c-4977-ad4a-b8bb662a7ebc",
+     "name": "Essex County",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-ON",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,8cc385e9-343c-497f-8947-cdc54d0e9035,Essex County,county,US,US-VT,2\ndivisions_area,11082743-a281-4cbf-a365-c6df9279a9ba,Sathon,county,TH,TH-10,2\ndivisions_area,7408eb0d-cc6f-44b1-8216-e8c6947228df,Zemam Out,county,EG,EG-SHG,2\nnatural_earth,ne_1159117999,Za,river,,,\nnatural_earth,ne_1159109783,Salto,river,,,\ndivisions_area,2d4a5a04-8b9a-4c21-8d8e-657eac9e9f69,Zemam Out,county,EG,EG-ALX,2\nnatural_earth,ne_10m_ne_10m_lakes_pluvial_17,Crescent,pluvial lake,,,\ndivisions_area,07bf7850-7cd4-44ee-8636-7bc6ee462ae4,Santon,region,IM,,2\ndivisions_area,2003b3f1-804c-4977-ad4a-b8bb662a7ebc,Essex County,county,CA,CA-ON,2\n</CANDIDATES>\n\n<USER_QUERY>\nEssex County, Sathon and Zemam Out together\n</USER_QUERY>\n"
+  },
+  {
+   "question": "which countries border the Caribbean Sea?",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159121795.0",
+     "name": "Caribou Lake",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "7d614e17-b815-4840-a576-2bfa4edc0a06",
+     "name": "Carpentaria Shire",
+     "subtype": "county",
+     "country": "AU",
+     "region": "AU-QLD",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159103113",
+     "name": "Caribou Mts.",
+     "subtype": "range/mtn",
+     "country": null,
+     "region": "North America",
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159117161.0",
+     "name": "Careen Lake",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159137717",
+     "name": "Caribe",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "2b8ca874-080c-4a39-9f5a-d81964daf0e9",
+     "name": "Carman",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-MB",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "d11a5325-8eeb-4ba5-8bff-97776e10a381",
+     "name": "Carmen",
+     "subtype": "county",
+     "country": "MX",
+     "region": "MX-CAM",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159115379",
+     "name": "Caribbean Sea",
+     "subtype": "sea",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "8e2d2056-3895-4be9-9e85-89ac47322164",
+     "name": "Caransebeș",
+     "subtype": "county",
+     "country": "RO",
+     "region": "RO-CS",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159110905",
+     "name": "Caribe",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159121795.0,Caribou Lake,lake,,,\ndivisions_area,7d614e17-b815-4840-a576-2bfa4edc0a06,Carpentaria Shire,county,AU,AU-QLD,2\nnatural_earth,ne_1159103113,Caribou Mts.,range/mtn,,North America,\nnatural_earth,ne_1159117161.0,Careen Lake,lake,,,\nnatural_earth,ne_1159137717,Caribe,river,,,\ndivisions_area,2b8ca874-080c-4a39-9f5a-d81964daf0e9,Carman,county,CA,CA-MB,2\ndivisions_area,d11a5325-8eeb-4ba5-8bff-97776e10a381,Carmen,county,MX,MX-CAM,2\nnatural_earth,ne_1159115379,Caribbean Sea,sea,,,\ndivisions_area,8e2d2056-3895-4be9-9e85-89ac47322164,Caransebeș,county,RO,RO-CS,2\nnatural_earth,ne_1159110905,Caribe,river,,,\n</CANDIDATES>\n\n<USER_QUERY>\nwhich countries border the Caribbean Sea?\n</USER_QUERY>\n"
+  },
+  {
+   "question": "what does Qardho قرضو look like",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "39d415a4-f94e-4e4c-8437-ecfdd0767033",
+     "name": "Baidoa بيدوا",
+     "subtype": "county",
+     "country": "SO",
+     "region": "SO-BY",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "6e9009ff-2080-4cdc-aa28-a0a3c2265c1d",
+     "name": "Qardho قرضو",
+     "subtype": "county",
+     "country": "SO",
+     "region": "SO-BR",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "7823c714-1dd6-41f6-9959-783caad72faa",
+     "name": "Ado",
+     "subtype": "county",
+     "country": "NG",
+     "region": "NG-BE",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159110049",
+     "name": "Sado",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "b5b91be7-d709-49f7-93a7-3b4f5c87714d",
+     "name": "Doha",
+     "subtype": "county",
+     "country": "KW",
+     "region": "KW-KU",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "92e56748-5a79-4cc3-ac05-51937046ce96",
+     "name": "Garowe غاروي",
+     "subtype": "county",
+     "country": "SO",
+     "region": "SO-NU",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "ba78cfee-ad7d-4e26-8d3b-9504b08c3802",
+     "name": "Daro",
+     "subtype": "county",
+     "country": "MY",
+     "region": "MY-13",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159119597",
+     "name": "Arno",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159111515",
+     "name": "Pardo",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159126313",
+     "name": "Arda",
+     "subtype": "lake centerline",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,39d415a4-f94e-4e4c-8437-ecfdd0767033,Baidoa بيدوا,county,SO,SO-BY,2\ndivisions_area,6e9009ff-2080-4cdc-aa28-a0a3c2265c1d,Qardho قرضو,county,SO,SO-BR,2\ndivisions_area,7823c714-1dd6-41f6-9959-783caad72faa,Ado,county,NG,NG-BE,2\nnatural_earth,ne_1159110049,Sado,river,,,\ndivisions_area,b5b91be7-d709-49f7-93a7-3b4f5c87714d,Doha,county,KW,KW-KU,2\ndivisions_area,92e56748-5a79-4cc3-ac05-51937046ce96,Garowe غاروي,county,SO,SO-NU,2\ndivisions_area,ba78cfee-ad7d-4e26-8d3b-9504b08c3802,Daro,county,MY,MY-13,2\nnatural_earth,ne_1159119597,Arno,river,,,\nnatural_earth,ne_1159111515,Pardo,river,,,\nnatural_earth,ne_1159126313,Arda,lake centerline,,,\n</CANDIDATES>\n\n<USER_QUERY>\nwhat does Qardho قرضو look like\n</USER_QUERY>\n"
+  },
+  {
+   "question": "give me the countys in Argentina",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "ffac2c05-b920-439e-b809-49bc5cf40c03",
+     "name": "Argelia",
+     "subtype": "county",
+     "country": "CO",
+     "region": "CO-ANT",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159141049",
+     "name": "Angelina",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159138465",
+     "name": "Angelina",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "3987887d-afe9-4d27-8641-37ddfbc46475",
+     "name": "Argelia",
+     "subtype": "county",
+     "country": "CO",
+     "region": "CO-CAU",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "c8c16ddf-62b6-4fa8-882a-05e12dfa4bb0",
+     "name": "Argentina",
+     "subtype": "country",
+     "country": "AR",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "6aaadea0-9c48-4af0-a47f-bbe020540580",
+     "name": "Argentina",
+     "subtype": "country",
+     "country": "AR",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159144093",
+     "name": "Angelina",
+     "subtype": "lake centerline",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "a753d4e1-5e74-445e-998a-bc05b89bc850",
+     "name": "Argenteuil",
+     "subtype": "county",
+     "country": "CA",
+     "region": "CA-QC",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159108691",
+     "name": "Angelina",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "58039c4f-dfd3-455d-9f2c-42c1014584dd",
+     "name": "Argelia",
+     "subtype": "county",
+     "country": "CO",
+     "region": "CO-VAC",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,ffac2c05-b920-439e-b809-49bc5cf40c03,Argelia,county,CO,CO-ANT,2\nnatural_earth,ne_1159141049,Angelina,river,,,\nnatural_earth,ne_1159138465,Angelina,river,,,\ndivisions_area,3987887d-afe9-4d27-8641-37ddfbc46475,Argelia,county,CO,CO-CAU,2\ndivisions_area,c8c16ddf-62b6-4fa8-882a-05e12dfa4bb0,Argentina,country,AR,,0\ndivisions_area,6aaadea0-9c48-4af0-a47f-bbe020540580,Argentina,country,AR,,0\nnatural_earth,ne_1159144093,Angelina,lake centerline,,,\ndivisions_area,a753d4e1-5e74-445e-998a-bc05b89bc850,Argenteuil,county,CA,CA-QC,2\nnatural_earth,ne_1159108691,Angelina,river,,,\ndivisions_area,58039c4f-dfd3-455d-9f2c-42c1014584dd,Argelia,county,CO,CO-VAC,2\n</CANDIDATES>\n\n<USER_QUERY>\ngive me the countys in Argentina\n</USER_QUERY>\n"
+  },
+  {
+   "question": "map out the Warme Steinach",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159112849",
+     "name": "Warme Steinach",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "e7d67a4b-6aa2-4a2d-a204-b3edb0d1d956",
+     "name": "Wajir East",
+     "subtype": "county",
+     "country": "KE",
+     "region": "KE-46",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159110097",
+     "name": "Wami",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159104581",
+     "name": "Walgreen Coast",
+     "subtype": "coast",
+     "country": null,
+     "region": "Antarctica",
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_10m_ne_10m_lakes_pluvial_103",
+     "name": "Waring",
+     "subtype": "pluvial lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159142601",
+     "name": "Waterhen",
+     "subtype": "lake centerline",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159130325",
+     "name": "Waterhen",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "8fe6845a-86c9-4b41-b781-7052438dac43",
+     "name": "Warin Chamrap",
+     "subtype": "county",
+     "country": "TH",
+     "region": "TH-34",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "91139af5-f39b-4702-982a-5307beb3a354",
+     "name": "Armenia",
+     "subtype": "county",
+     "country": "CO",
+     "region": "CO-ANT",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "37eb1234-4084-4493-a49e-0889b76c223a",
+     "name": "Wat Sing",
+     "subtype": "county",
+     "country": "TH",
+     "region": "TH-18",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159112849,Warme Steinach,river,,,\ndivisions_area,e7d67a4b-6aa2-4a2d-a204-b3edb0d1d956,Wajir East,county,KE,KE-46,2\nnatural_earth,ne_1159110097,Wami,river,,,\nnatural_earth,ne_1159104581,Walgreen Coast,coast,,Antarctica,\nnatural_earth,ne_10m_ne_10m_lakes_pluvial_103,Waring,pluvial lake,,,\nnatural_earth,ne_1159142601,Waterhen,lake centerline,,,\nnatural_earth,ne_1159130325,Waterhen,river,,,\ndivisions_area,8fe6845a-86c9-4b41-b781-7052438dac43,Warin Chamrap,county,TH,TH-34,2\ndivisions_area,91139af5-f39b-4702-982a-5307beb3a354,Armenia,county,CO,CO-ANT,2\ndivisions_area,37eb1234-4084-4493-a49e-0889b76c223a,Wat Sing,county,TH,TH-18,2\n</CANDIDATES>\n\n<USER_QUERY>\nmap out the Warme Steinach\n</USER_QUERY>\n"
+  },
+  {
+   "question": "areas near ولسوالی غوربند or Broome County within 250 m",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159123377",
+     "name": "Sió",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159119925",
+     "name": "Bay Inútil",
+     "subtype": "bay",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "9813e210-f0bc-41b9-97b8-e19f489e7ab1",
+     "name": "ولسوالی غوریان",
+     "subtype": "county",
+     "country": "AF",
+     "region": "AF-HER",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "c7bda8fa-1161-454b-a0c2-7d96a825ab98",
+     "name": "ولسوالی پسابند",
+     "subtype": "county",
+     "country": "AF",
+     "region": "AF-GHO",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "8acd0690-4b63-4095-96ff-9761d91b6fcc",
+     "name": "Moore County",
+     "subtype": "county",
+     "country": "US",
+     "region": "US-TX",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "5fda17a6-f670-4263-b3e7-8cb49a9b9743",
+     "name": "Brooke County",
+     "subtype": "county",
+     "country": "US",
+     "region": "US-WV",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "0d0b27f7-f5b0-4098-b1e4-63409f1e3d1c",
+     "name": "Broome County",
+     "subtype": "county",
+     "country": "US",
+     "region": "US-NY",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159133191",
+     "name": "Brochant",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "0bb8122f-97f8-4d54-9115-518a8c3ce318",
+     "name": "ولسوالی غوربند",
+     "subtype": "county",
+     "country": "AF",
+     "region": "AF-PAR",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159122247",
+     "name": "Brock",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159123377,Sió,river,,,\nnatural_earth,ne_1159119925,Bay Inútil,bay,,,\ndivisions_area,9813e210-f0bc-41b9-97b8-e19f489e7ab1,ولسوالی غوریان,county,AF,AF-HER,2\ndivisions_area,c7bda8fa-1161-454b-a0c2-7d96a825ab98,ولسوالی پسابند,county,AF,AF-GHO,2\ndivisions_area,8acd0690-4b63-4095-96ff-9761d91b6fcc,Moore County,county,US,US-TX,2\ndivisions_area,5fda17a6-f670-4263-b3e7-8cb49a9b9743,Brooke County,county,US,US-WV,2\ndivisions_area,0d0b27f7-f5b0-4098-b1e4-63409f1e3d1c,Broome County,county,US,US-NY,2\nnatural_earth,ne_1159133191,Brochant,river,,,\ndivisions_area,0bb8122f-97f8-4d54-9115-518a8c3ce318,ولسوالی غوربند,county,AF,AF-PAR,2\nnatural_earth,ne_1159122247,Brock,river,,,\n</CANDIDATES>\n\n<USER_QUERY>\nareas near ولسوالی غوربند or Broome County within 250 m\n</USER_QUERY>\n"
+  },
+  {
+   "question": "list the border buffer for San Sebastián Coatlán and San Gabriel Mixtepec",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "82ff30fd-50ca-4860-b06f-1e4510abacaa",
+     "name": "San Sebastián",
+     "subtype": "county",
+     "country": "GT",
+     "region": "GT-11",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "987712b0-8ef4-4c0a-896a-949cb38a9bd2",
+     "name": "San Sebastián Coatlán",
+     "subtype": "county",
+     "country": "MX",
+     "region": "MX-OAX",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159109529",
+     "name": "San Simon",
+     "subtype": "river (intermittent)",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159129075",
+     "name": "San Miguel",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159109951",
+     "name": "San Martin",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "7727e4ee-691e-4c60-b638-4a898e3b5d7a",
+     "name": "San Gabriel",
+     "subtype": "county",
+     "country": "GT",
+     "region": "GT-10",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "f3795955-0f22-4fa2-8bef-a1766737138b",
+     "name": "San Gabriel Mixtepec",
+     "subtype": "county",
+     "country": "MX",
+     "region": "MX-OAX",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "bc100d40-8afc-479e-9d4d-134b8e437f4c",
+     "name": "San Miguel Mixtepec",
+     "subtype": "county",
+     "country": "MX",
+     "region": "MX-OAX",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "dc914d42-e1c0-4089-9261-78fdae370af9",
+     "name": "San Sebastián Tutla",
+     "subtype": "county",
+     "country": "MX",
+     "region": "MX-OAX",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,82ff30fd-50ca-4860-b06f-1e4510abacaa,San Sebastián,county,GT,GT-11,2\ndivisions_area,987712b0-8ef4-4c0a-896a-949cb38a9bd2,San Sebastián Coatlán,county,MX,MX-OAX,2\nnatural_earth,ne_1159109529,San Simon,river (intermittent),,,\nnatural_earth,ne_1159129075,San Miguel,river,,,\nnatural_earth,ne_1159109951,San Martin,river,,,\ndivisions_area,7727e4ee-691e-4c60-b638-4a898e3b5d7a,San Gabriel,county,GT,GT-10,2\ndivisions_area,f3795955-0f22-4fa2-8bef-a1766737138b,San Gabriel Mixtepec,county,MX,MX-OAX,2\ndivisions_area,bc100d40-8afc-479e-9d4d-134b8e437f4c,San Miguel Mixtepec,county,MX,MX-OAX,2\ndivisions_area,dc914d42-e1c0-4089-9261-78fdae370af9,San Sebastián Tutla,county,MX,MX-OAX,2\n</CANDIDATES>\n\n<USER_QUERY>\nlist the border buffer for San Sebastián Coatlán and San Gabriel Mixtepec\n</USER_QUERY>\n"
+  },
+  {
+   "question": "pull up the Simpelejärvi",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "cc11ad9a-097d-416d-aa45-befc74165510",
+     "name": "Simpelveld",
+     "subtype": "county",
+     "country": "NL",
+     "region": "NL-LI",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "71c5deb4-7b2d-4574-b5bf-fd60a1674f3b",
+     "name": "Sel",
+     "subtype": "county",
+     "country": "NO",
+     "region": "NO-34",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159123319",
+     "name": "Kemijärvi",
+     "subtype": "reservoir",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159102785",
+     "name": "Simeulue",
+     "subtype": "island",
+     "country": null,
+     "region": "Asia",
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159106755",
+     "name": "Vesijärvi",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "235edb72-89b0-476d-b259-cd539a991d9b",
+     "name": "Mele",
+     "subtype": "county",
+     "country": "VU",
+     "region": "VU-SEE",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "4d94e3de-6aab-4366-bc1e-cc0ad6941aa5",
+     "name": "Simeulue",
+     "subtype": "county",
+     "country": "ID",
+     "region": "ID-AC",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159106117",
+     "name": "Iijärvi",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159106645",
+     "name": "Simpelejärvi",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159106483",
+     "name": "Lestijärvi",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,cc11ad9a-097d-416d-aa45-befc74165510,Simpelveld,county,NL,NL-LI,2\ndivisions_area,71c5deb4-7b2d-4574-b5bf-fd60a1674f3b,Sel,county,NO,NO-34,2\nnatural_earth,ne_1159123319,Kemijärvi,reservoir,,,\nnatural_earth,ne_1159102785,Simeulue,island,,Asia,\nnatural_earth,ne_1159106755,Vesijärvi,lake,,,\ndivisions_area,235edb72-89b0-476d-b259-cd539a991d9b,Mele,county,VU,VU-SEE,2\ndivisions_area,4d94e3de-6aab-4366-bc1e-cc0ad6941aa5,Simeulue,county,ID,ID-AC,2\nnatural_earth,ne_1159106117,Iijärvi,lake,,,\nnatural_earth,ne_1159106645,Simpelejärvi,lake,,,\nnatural_earth,ne_1159106483,Lestijärvi,lake,,,\n</CANDIDATES>\n\n<USER_QUERY>\npull up the Simpelejärvi\n</USER_QUERY>\n"
+  },
+  {
+   "question": "show the tiniest regions in Monaco",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159128681",
+     "name": "Mongala",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_10m_ne_10m_glaciated_areas_273",
+     "name": "Monarch Icefield",
+     "subtype": "glaciated areas",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "7a7771da-b962-4be0-9636-d852dce0552f",
+     "name": "Monaco",
+     "subtype": "region",
+     "country": "MC",
+     "region": null,
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "0b88c2ba-94d4-4207-9937-4b6e99a16885",
+     "name": "Monaco",
+     "subtype": "country",
+     "country": "MC",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "faba7e4c-a2e4-4a63-a458-5cf37b4200f9",
+     "name": "Mono",
+     "subtype": "region",
+     "country": "BJ",
+     "region": "BJ-MO",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "4fd509b7-ada1-4080-8033-20f4d76199c1",
+     "name": "Monaco",
+     "subtype": "country",
+     "country": "MC",
+     "region": null,
+     "admin_level": 0
+    },
+    {
+     "source": "divisions_area",
+     "id": "349d53cd-6cf2-4a81-9d0b-63a2fd4af025",
+     "name": "Mocoa",
+     "subtype": "county",
+     "country": "CO",
+     "region": "CO-PUT",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1746333433",
+     "name": "Monocacy",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159113637",
+     "name": "Nam Co",
+     "subtype": "lake",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "b4d634c9-635c-4b5d-bbc1-59967f10a03b",
+     "name": "Monapo",
+     "subtype": "county",
+     "country": "MZ",
+     "region": "MZ-N",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159128681,Mongala,river,,,\nnatural_earth,ne_10m_ne_10m_glaciated_areas_273,Monarch Icefield,glaciated areas,,,\ndivisions_area,7a7771da-b962-4be0-9636-d852dce0552f,Monaco,region,MC,,1\ndivisions_area,0b88c2ba-94d4-4207-9937-4b6e99a16885,Monaco,country,MC,,0\ndivisions_area,faba7e4c-a2e4-4a63-a458-5cf37b4200f9,Mono,region,BJ,BJ-MO,1\ndivisions_area,4fd509b7-ada1-4080-8033-20f4d76199c1,Monaco,country,MC,,0\ndivisions_area,349d53cd-6cf2-4a81-9d0b-63a2fd4af025,Mocoa,county,CO,CO-PUT,2\nnatural_earth,ne_1746333433,Monocacy,river,,,\nnatural_earth,ne_1159113637,Nam Co,lake,,,\ndivisions_area,b4d634c9-635c-4b5d-bbc1-59967f10a03b,Monapo,county,MZ,MZ-N,2\n</CANDIDATES>\n\n<USER_QUERY>\nshow the tiniest regions in Monaco\n</USER_QUERY>\n"
+  },
+  {
+   "question": "which countries are next to the Gulf of Saint Lawrence?",
+   "candidates": [
+    {
+     "source": "natural_earth",
+     "id": "ne_1159118193",
+     "name": "Gulf of Yana",
+     "subtype": "gulf",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159117021",
+     "name": "Gulf of Maine",
+     "subtype": "gulf",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "d1a85abd-557a-4763-a0b0-7a8c68c7ea78",
+     "name": "Gulf",
+     "subtype": "region",
+     "country": "PG",
+     "region": "PG-GPK",
+     "admin_level": 1
+    },
+    {
+     "source": "divisions_area",
+     "id": "fd9c0fb1-bdf4-4ec7-89f3-5555714a0d78",
+     "name": "Guli",
+     "subtype": "county",
+     "country": "SD",
+     "region": "SD-NW",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "47668b44-cc8f-4ee9-af40-fe59f685c81e",
+     "name": "Gulf",
+     "subtype": "region",
+     "country": "PG",
+     "region": "PG-GPK",
+     "admin_level": 1
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159118407",
+     "name": "Gulf of Sidra",
+     "subtype": "gulf",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "b7d85e02-7284-4095-99a0-c438bb621713",
+     "name": "Gulani",
+     "subtype": "county",
+     "country": "NG",
+     "region": "NG-YO",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159118989",
+     "name": "Gulf of Sakhalin",
+     "subtype": "gulf",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159116715",
+     "name": "Gulf of Saint Lawrence",
+     "subtype": "gulf",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159117135",
+     "name": "Gulf of Mannar",
+     "subtype": "gulf",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\nnatural_earth,ne_1159118193,Gulf of Yana,gulf,,,\nnatural_earth,ne_1159117021,Gulf of Maine,gulf,,,\ndivisions_area,d1a85abd-557a-4763-a0b0-7a8c68c7ea78,Gulf,region,PG,PG-GPK,1\ndivisions_area,fd9c0fb1-bdf4-4ec7-89f3-5555714a0d78,Guli,county,SD,SD-NW,2\ndivisions_area,47668b44-cc8f-4ee9-af40-fe59f685c81e,Gulf,region,PG,PG-GPK,1\nnatural_earth,ne_1159118407,Gulf of Sidra,gulf,,,\ndivisions_area,b7d85e02-7284-4095-99a0-c438bb621713,Gulani,county,NG,NG-YO,2\nnatural_earth,ne_1159118989,Gulf of Sakhalin,gulf,,,\nnatural_earth,ne_1159116715,Gulf of Saint Lawrence,gulf,,,\nnatural_earth,ne_1159117135,Gulf of Mannar,gulf,,,\n</CANDIDATES>\n\n<USER_QUERY>\nwhich countries are next to the Gulf of Saint Lawrence?\n</USER_QUERY>\n"
+  },
+  {
+   "question": "only the western side of چپه دره ولسوالۍ",
+   "candidates": [
+    {
+     "source": "divisions_area",
+     "id": "c5d40d7b-6693-4dbf-a05d-6587914a0b4e",
+     "name": "چپه دره ولسوالۍ",
+     "subtype": "county",
+     "country": "AF",
+     "region": "AF-KNR",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "abdfff50-827c-404e-90eb-6f3f3444445d",
+     "name": "کندهار ولسوالۍ",
+     "subtype": "county",
+     "country": "AF",
+     "region": "AF-KAN",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159113397",
+     "name": "Marañón",
+     "subtype": "river",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159102695",
+     "name": "Ilha de Marajó",
+     "subtype": "island",
+     "country": null,
+     "region": "South America",
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "79b000c9-acdc-4ea0-8d4a-976260c47873",
+     "name": "چپرهار ولسوالۍ",
+     "subtype": "county",
+     "country": "AF",
+     "region": "AF-NAN",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "faf33cf2-5302-4846-9f32-b704da6753ef",
+     "name": "چوره ولسوالۍ",
+     "subtype": "county",
+     "country": "AF",
+     "region": "AF-URU",
+     "admin_level": 2
+    },
+    {
+     "source": "divisions_area",
+     "id": "deaab6b5-629c-4b07-a408-9e1efac0c5df",
+     "name": "گوشته ولسوالۍ",
+     "subtype": "county",
+     "country": "AF",
+     "region": "AF-NAN",
+     "admin_level": 2
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159117463",
+     "name": "Baía de Marajó",
+     "subtype": "bay",
+     "country": null,
+     "region": null,
+     "admin_level": null
+    },
+    {
+     "source": "natural_earth",
+     "id": "ne_1159102471",
+     "name": "I. Sala y Gómez",
+     "subtype": "island",
+     "country": null,
+     "region": "Oceania",
+     "admin_level": null
+    },
+    {
+     "source": "divisions_area",
+     "id": "af63cba4-a4f6-4298-a9ad-f792ccd72cd4",
+     "name": "قلندر ولسوالۍ",
+     "subtype": "county",
+     "country": "AF",
+     "region": "AF-KHO",
+     "admin_level": 2
+    }
+   ],
+   "user": "<CANDIDATES>\nsource,id,name,subtype,country,region,admin_level\ndivisions_area,c5d40d7b-6693-4dbf-a05d-6587914a0b4e,چپه دره ولسوالۍ,county,AF,AF-KNR,2\ndivisions_area,abdfff50-827c-404e-90eb-6f3f3444445d,کندهار ولسوالۍ,county,AF,AF-KAN,2\nnatural_earth,ne_1159113397,Marañón,river,,,\nnatural_earth,ne_1159102695,Ilha de Marajó,island,,South America,\ndivisions_area,79b000c9-acdc-4ea0-8d4a-976260c47873,چپرهار ولسوالۍ,county,AF,AF-NAN,2\ndivisions_area,faf33cf2-5302-4846-9f32-b704da6753ef,چوره ولسوالۍ,county,AF,AF-URU,2\ndivisions_area,deaab6b5-629c-4b07-a408-9e1efac0c5df,گوشته ولسوالۍ,county,AF,AF-NAN,2\nnatural_earth,ne_1159117463,Baía de Marajó,bay,,,\nnatural_earth,ne_1159102471,I. Sala y Gómez,island,,Oceania,\ndivisions_area,af63cba4-a4f6-4298-a9ad-f792ccd72cd4,قلندر ولسوالۍ,county,AF,AF-KHO,2\n</CANDIDATES>\n\n<USER_QUERY>\nonly the western side of چپه دره ولسوالۍ\n</USER_QUERY>\n"
+  }
+ ]
+}

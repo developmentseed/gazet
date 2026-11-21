@@ -1,0 +1,34 @@
+Joint model v1 (2026-11-17): gazet plans + places (once) + generative SQL v2 (twice), 129,737 examples, 1 epoch, LoRA r64
+
+== joint-v1-lfm350 (generative)
+run                                                           n       executes          exact        lenient  s/query
+joint-v1-lfm350__dev_new_v1__hints__minimal                 313   85.6 [82-89]   56.2 [51-62]   62.0 [57-67]      0.2
+joint-v1-lfm350__dev_new_v1__plain__minimal                 313   84.7 [81-88]   58.5 [53-64]   63.6 [58-69]      0.2
+joint-v1-lfm350__dev_v1__hints__minimal                     755   92.2 [90-94]   65.0 [62-68]   72.1 [69-75]      0.1
+joint-v1-lfm350__dev_v1__plain__minimal                     755   92.1 [90-94]   64.0 [61-67]   70.7 [68-74]      0.2
+joint-v1-lfm350__gold_v1__hints__minimal                    342   76.0 [72-80]   30.4 [26-35]   37.1 [32-42]      0.1
+joint-v1-lfm350__gold_v1__plain__minimal                    342   76.3 [72-81]   27.5 [23-32]   34.8 [30-40]      0.1
+joint-v1-lfm350__gold_v2__hints__minimal                    158   62.7 [55-70]   28.5 [22-35]   31.6 [24-39]      0.2
+joint-v1-lfm350__gold_v2__plain__minimal                    158   63.3 [56-71]   27.8 [21-35]   31.0 [23-38]      0.2
+
+== joint-v1-lfm350
+places: same place set 346/350 = 98.9%
+sql: reference ran for 350/350; executes 89.4%, same geometry 83.1%; median 0.1 s/query
+  adjacency 92%  aggregation 88%  attribute_filter 100%  border_corridor 44%  buffer 92%  chained 72%  containment 88%  difference 56%  direct_lookup 84%  disambiguation 88%  intersection 84%  partial_selection 84%  set_operations 92%  window_function 100%
+  top errors: 37x no rows
+== joint-v1-q3-06b (generative)
+run                                                           n       executes          exact        lenient  s/query
+joint-v1-q3-06b__dev_new_v1__hints__minimal                 313   92.7 [90-95]   67.7 [63-73]   71.2 [66-76]      0.3
+joint-v1-q3-06b__dev_new_v1__plain__minimal                 313   93.0 [90-96]   67.1 [62-72]   71.6 [67-77]      0.2
+joint-v1-q3-06b__dev_v1__hints__minimal                     755   95.2 [94-97]   68.5 [65-72]   77.0 [74-80]      0.2
+joint-v1-q3-06b__dev_v1__plain__minimal                     755   95.0 [93-96]   67.0 [64-70]   74.7 [72-78]      0.2
+joint-v1-q3-06b__gold_v1__hints__minimal                    342   89.8 [87-93]   45.3 [40-51]   55.8 [51-61]      0.3
+joint-v1-q3-06b__gold_v1__plain__minimal                    342   91.5 [89-94]   42.4 [37-47]   52.0 [47-57]      0.2
+joint-v1-q3-06b__gold_v2__hints__minimal                    158   86.1 [80-91]   44.3 [36-52]   50.6 [42-58]      0.2
+joint-v1-q3-06b__gold_v2__plain__minimal                    158   89.2 [84-94]   43.7 [36-51]   48.1 [40-56]      0.1
+
+== joint-v1-q3-06b
+places: same place set 350/350 = 100.0%
+sql: reference ran for 350/350; executes 89.4%, same geometry 83.1%; median 0.1 s/query
+  adjacency 92%  aggregation 80%  attribute_filter 100%  border_corridor 40%  buffer 96%  chained 72%  containment 88%  difference 52%  direct_lookup 96%  disambiguation 92%  intersection 88%  partial_selection 76%  set_operations 92%  window_function 100%
+  top errors: 37x no rows

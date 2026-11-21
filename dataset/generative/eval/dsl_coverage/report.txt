@@ -1,0 +1,83 @@
+
+== generative_train: 30,660 queries
+tier 1 (core plan)  64.6%   tier 1+2 (with extensions)  87.8%   tier 3 (free SQL)  12.2%
+category             tier  queries using it  only blocker
+window                  2             13.3%         12.0%
+lists                   3              7.6%          1.6%
+text                    2              5.6%          2.9%
+conditional             2              4.0%          2.6%
+scalar_subquery         2              3.5%          1.0%
+expand_list             2              3.1%          0.6%
+lateral                 3              2.3%          0.0%
+inline_values           3              1.8%          1.3%
+json                    3              1.7%          0.4%
+lambda                  3              1.6%          0.0%
+list_membership         2              1.4%          0.5%
+set_operation           2              1.2%          1.0%
+text_match              2              1.0%          0.3%
+unmapped_function       3              0.9%          0.0%
+date                    2              0.7%          0.4%
+aggregate_more          2              0.4%          0.2%
+series                  3              0.2%          0.1%
+regex                   3              0.1%          0.0%
+unmapped functions: FILTER 275, ARRAY_MIN 3, LIST_SUM 3, MAP 3, HISTOGRAM 2, LIST_REDUCE 2, ST_SETCRS 2, ST_DUMP 2, LIST_REVERSE 2, MAP_FROM_ENTRIES 2, PAD 2, ST_NUMPOINTS 2, REGEXP_SPLIT_TO_ARRAY 1, MAP_CONTAINS 1, ST_LINEINTERPOLATEPOINT 1, LIST_AVG 1, ST_REDUCEPRECISION 1, JSON_EACH 1, CONCAT_WS 1, TO_SECONDS 1, MAP_VALUES 1, FIRST 1, PARSE_JSON 1, JSON_TYPE 1, STDDEV_SAMP 1
+
+== gazet_train: 34,780 queries
+tier 1 (core plan)  95.1%   tier 1+2 (with extensions) 100.0%   tier 3 (free SQL)   0.0%
+category             tier  queries using it  only blocker
+window                  2              4.9%          4.9%
+
+== dev_all: 755 queries
+tier 1 (core plan)  71.3%   tier 1+2 (with extensions)  91.9%   tier 3 (free SQL)   8.1%
+category             tier  queries using it  only blocker
+window                  2             11.3%         10.7%
+text                    2              6.6%          3.6%
+lists                   3              4.9%          0.7%
+scalar_subquery         2              3.0%          0.9%
+conditional             2              2.6%          1.5%
+expand_list             2              2.4%          0.3%
+lateral                 3              2.1%          0.0%
+set_operation           2              1.7%          1.6%
+lambda                  3              1.6%          0.0%
+inline_values           3              1.1%          1.1%
+date                    2              1.1%          0.7%
+list_membership         2              0.9%          0.0%
+aggregate_more          2              0.7%          0.3%
+unmapped_function       3              0.5%          0.0%
+text_match              2              0.4%          0.0%
+json                    3              0.3%          0.1%
+regex                   3              0.1%          0.0%
+unmapped functions: FILTER 4
+
+== gold_v1: 342 queries
+tier 1 (core plan)  74.3%   tier 1+2 (with extensions)  92.1%   tier 3 (free SQL)   7.9%
+category             tier  queries using it  only blocker
+window                  2             11.4%         10.2%
+lists                   3              5.0%          1.5%
+conditional             2              4.4%          3.5%
+expand_list             2              3.5%          0.6%
+inline_values           3              2.0%          2.0%
+scalar_subquery         2              1.5%          0.6%
+text                    2              1.2%          0.9%
+lateral                 3              0.9%          0.0%
+lambda                  3              0.6%          0.0%
+unmapped_function       3              0.6%          0.0%
+list_membership         2              0.6%          0.3%
+json                    3              0.3%          0.0%
+set_operation           2              0.3%          0.3%
+aggregate_more          2              0.3%          0.3%
+date                    2              0.3%          0.0%
+unmapped functions: FILTER 3
+
+== gold_v2: 158 queries
+tier 1 (core plan)  76.6%   tier 1+2 (with extensions)  96.8%   tier 3 (free SQL)   3.2%
+category             tier  queries using it  only blocker
+window                  2             12.7%          8.2%
+text                    2              7.0%          3.2%
+conditional             2              3.8%          2.5%
+lists                   3              2.5%          0.0%
+scalar_subquery         2              1.9%          1.3%
+expand_list             2              1.9%          0.0%
+text_match              2              0.6%          0.0%
+set_operation           2              0.6%          0.6%
+lateral                 3              0.6%          0.0%

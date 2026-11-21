@@ -78,6 +78,8 @@ MAX_SQL_ITERATIONS = 5
 LLAMA_SERVER_URL = os.environ.get("LLAMA_SERVER_URL", "http://localhost:9000")
 LLAMA_MAX_TOKENS = int(os.environ.get("LLAMA_MAX_TOKENS", "2048"))
 LLAMA_TEMPERATURE = float(os.environ.get("LLAMA_TEMPERATURE", "0"))
+# "sql": the model writes SQL (gazet-model). "plan": the model writes a JSON plan (gazet.plan) that gazet compiles to SQL.
+SQL_MODE = os.environ.get("GAZET_SQL_MODE", "sql")
 
 SCHEMA_INFO = """
 Available DuckDB datasets (read via read_parquet):

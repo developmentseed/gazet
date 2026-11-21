@@ -1,0 +1,55 @@
+name: Browser demo (GitHub Pages)
+
+# Builds web/ (gazet's geocoder running in the browser) and publishes it to GitHub Pages.
+# The model and the place index are not part of the site: the page loads them from the Hugging Face Hub.
+
+on:
+  push:
+    branches: [main, feat/browser-demo]
+    paths: ["web/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  VITE_MODEL_URL: https://huggingface.co/developmentseed/gazet-models/resolve/main/plan-v5-smol135/gguf/gazet-plan-v5-smol135-q8_0.gguf
+  # Index for one Overture release; rebuild it (web/scripts/build_data.py) before that release leaves S3.
+  VITE_DATA_URL: https://huggingface.co/datasets/developmentseed/gazet-sql-data/resolve/main/web-demo/overture-2026-10-21.0/
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><title>gazet model check</title></head>
+  <body>
+    <pre id="out">loading…</pre>
+    <script type="module">
+      // Replays gazet_compat prompts through the browser model; tests/e2e.mjs reads window.result.
+      import { Llm } from '../src/llm.ts';
+      import { compilePlan, parsePlan, planSchema } from '../src/plan.ts';
+      import { PLAN_SYSTEM_PROMPT } from '../src/prompts.ts';
+      import sample from './fixtures/compat_sample.json';
+
+      const out = document.getElementById('out');
+      const model = new URLSearchParams(location.search).get('model') ?? '/models/gazet-plan-v1-smol135-q8_0.gguf';
+      const t0 = performance.now();
+      const qp = new URLSearchParams(location.search);
+      const llm = await Llm.load(model, () => {}, JSON.parse(qp.get('params') ?? '{}'));
+      const loadSeconds = (performance.now() - t0) / 1000;
+      const plans = [];
+      const params = new URLSearchParams(location.search);
+      const limit = Number(params.get('n') ?? 1e9);
+      for (const c of sample.plans.slice(0, limit)) {
+        const a = await llm.chat(PLAN_SYSTEM_PROMPT, c.user, params.get('schema') === '0' ? undefined : planSchema(c.ids));
+        let sql = null, error = null;
+        try { sql = compilePlan(parsePlan(a.text), c.sources); } catch (e) { error = e.message; }
+        plans.push({ idx: c.idx, family: c.family, text: a.text, same: sql === c.gpu_sql, error, seconds: a.seconds,
+                     promptTokens: a.promptTokens, outputTokens: a.outputTokens });
+        out.textContent = `plans ${plans.length}/${sample.plans.length}`;
+      }
+      const places = [];
+      for (const c of sample.places.slice(0, limit)) {
+        const { places: got, answer } = await llm.places(c.query);
+        places.push({ idx: c.idx, got, same: JSON.stringify(got) === JSON.stringify(c.gpu),
+                      correct: JSON.stringify(got) === JSON.stringify(c.ref), seconds: answer.seconds,
+                      promptTokens: answer.promptTokens });
+        out.textContent = `places ${places.length}/${sample.places.length}`;
+      }
+      window.result = { loadSeconds, plans, places, threads: navigator.hardwareConcurrency, isolated: crossOriginIsolated };
+      out.textContent = JSON.stringify(window.result, null, 1);
+    </script>
+  </body>
+</html>
